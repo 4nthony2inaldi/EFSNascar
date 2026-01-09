@@ -43,11 +43,11 @@ WHERE s.year = 2025;
 INSERT INTO public.races (season_id, race_number, name, track, scheduled_datetime, deadline_datetime, race_type, status)
 SELECT
     s.id,
-    race_number,
-    name,
-    track,
-    scheduled_datetime,
-    deadline_datetime,
+    r.race_num,
+    r.race_name,
+    r.race_track,
+    r.scheduled_dt::timestamptz,
+    r.deadline_dt::timestamptz,
     'regular'::race_type,
     'upcoming'::race_status
 FROM public.seasons s,
@@ -62,5 +62,5 @@ FROM public.seasons s,
     (8, 'Cook Out 400', 'Martinsville Speedway', '2025-04-06 15:00:00-04', '2025-04-06 12:00:00-04'),
     (9, 'AutoTrader EchoPark Automotive 400', 'Texas Motor Speedway', '2025-04-13 15:30:00-05', '2025-04-13 12:00:00-05'),
     (10, 'GEICO 500', 'Talladega Superspeedway', '2025-04-20 15:00:00-05', '2025-04-20 12:00:00-05')
-) AS races(race_number, name, track, scheduled_datetime, deadline_datetime)
+) AS r(race_num, race_name, race_track, scheduled_dt, deadline_dt)
 WHERE s.year = 2025;
