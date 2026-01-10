@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
-    const { year } = await request.json();
+    const { year, forceDelete } = await request.json();
 
     if (!year || year < 2020 || year > 2030) {
       return NextResponse.json({ error: 'Valid year (2020-2030) is required' }, { status: 400 });
@@ -49,17 +49,30 @@ export async function POST(request: Request) {
       seasonId = existingSeason.id;
 
       // Check if races already exist
-      const { data: existingRaces, error: racesError } = await supabase
+      const { data: existingRaces } = await supabase
         .from('races')
         .select('id')
         .eq('season_id', seasonId);
 
       if (existingRaces && existingRaces.length > 0) {
-        return NextResponse.json({
-          error: `Season ${year} already has ${existingRaces.length} races. Delete them first to re-import.`,
-          seasonId,
-          racesCount: existingRaces.length,
-        }, { status: 400 });
+        if (forceDelete) {
+          // Delete race results first (foreign key constraint)
+          for (const race of existingRaces) {
+            await supabase.from('race_results').delete().eq('race_id', race.id);
+          }
+          // Delete existing races
+          await supabase.from('races').delete().eq('season_id', seasonId);
+          // Delete standings for this season
+          await supabase.from('standings').delete().eq('season_id', seasonId);
+          // Delete team season bonuses
+          await supabase.from('team_season_bonuses').delete().eq('season_id', seasonId);
+        } else {
+          return NextResponse.json({
+            error: `Season ${year} already has ${existingRaces.length} races. Delete them first to re-import.`,
+            seasonId,
+            racesCount: existingRaces.length,
+          }, { status: 400 });
+        }
       }
     } else {
       // Create the season
