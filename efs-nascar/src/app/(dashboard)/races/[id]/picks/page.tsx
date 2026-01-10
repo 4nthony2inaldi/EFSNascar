@@ -182,6 +182,72 @@ export default async function PicksRevealPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Compact All Picks Table */}
+      <div className="glass rounded-xl p-6">
+        <h2 className="text-xl font-bold text-white mb-4">All Picks At A Glance</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-purple-400 text-sm border-b border-purple-700/30">
+                <th className="pb-3 pr-4 whitespace-nowrap">Team</th>
+                <th className="pb-3 pr-4 text-center">Driver 1</th>
+                <th className="pb-3 pr-4 text-center">Driver 2</th>
+                <th className="pb-3 text-center">Driver 3</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedTeams.map((team) => {
+                const pick = teamPicks[team.id];
+                const isUserTeam = team.id === userTeamId;
+
+                const renderDriverCell = (driverId: string | undefined) => {
+                  if (!driverId) return <span className="text-gray-500">-</span>;
+                  const driver = driverMap[driverId];
+                  if (!driver) return <span className="text-gray-500">-</span>;
+                  const pickCount = driverPickCounts[driverId] || 0;
+
+                  return (
+                    <span className={`inline-block px-2 py-1 rounded text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
+                      #{driver.car_number} {driver.name}
+                    </span>
+                  );
+                };
+
+                return (
+                  <tr
+                    key={team.id}
+                    className={`border-b border-purple-800/20 ${isUserTeam ? 'bg-amber-500/10' : ''}`}
+                  >
+                    <td className="py-2 pr-4">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-amber-400 font-bold">#{team.car_number}</span>
+                        <span className="text-white font-medium">{team.name}</span>
+                        {isUserTeam && (
+                          <span className="text-xs bg-amber-400 text-purple-900 px-1.5 py-0.5 rounded font-bold">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {pick ? (
+                      <>
+                        <td className="py-2 pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
+                        <td className="py-2 pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
+                        <td className="py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
+                      </>
+                    ) : (
+                      <td colSpan={3} className="py-2 text-center text-red-400 text-sm">
+                        No picks submitted
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Most Popular Picks */}
