@@ -23,10 +23,11 @@ export default async function DashboardPage() {
 
   const userTeam = membership?.team as Team | null;
 
-  // Get next upcoming race
+  // Get next upcoming race for the active season
   const { data: nextRace } = await supabase
     .from('races')
     .select('*')
+    .eq('season_id', activeSeason?.id)
     .eq('status', 'upcoming')
     .order('scheduled_datetime', { ascending: true })
     .limit(1)
@@ -64,9 +65,9 @@ export default async function DashboardPage() {
 
   // Calculate countdown to deadline
   const getTimeUntilDeadline = (deadline: string) => {
-    const now = new Date();
-    const deadlineDate = new Date(deadline);
-    const diff = deadlineDate.getTime() - now.getTime();
+    const now = Date.now();
+    const deadlineTime = new Date(deadline).getTime();
+    const diff = deadlineTime - now;
 
     if (diff <= 0) return 'Deadline passed';
 
@@ -78,6 +79,9 @@ export default async function DashboardPage() {
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
   };
+
+  // Check if deadline is actually passed (for conditional rendering)
+  const isDeadlinePassed = nextRace ? new Date(nextRace.deadline_datetime).getTime() < Date.now() : false;
 
   return (
     <div className="space-y-8">
@@ -131,7 +135,18 @@ export default async function DashboardPage() {
 
               {userTeam && (
                 <div className="flex items-center justify-between">
-                  {hasPicked ? (
+                  {isDeadlinePassed ? (
+                    <div className={`flex items-center ${hasPicked ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        {hasPicked ? (
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                      {hasPicked ? 'Picks submitted' : 'Deadline missed'}
+                    </div>
+                  ) : hasPicked ? (
                     <div className="flex items-center text-emerald-400">
                       <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -146,12 +161,14 @@ export default async function DashboardPage() {
                       Picks not submitted
                     </div>
                   )}
-                  <Link
-                    href={`/picks?race=${nextRace.id}`}
-                    className="px-5 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all"
-                  >
-                    {hasPicked ? 'Edit Picks' : 'Submit Picks'}
-                  </Link>
+                  {!isDeadlinePassed && (
+                    <Link
+                      href={`/picks?race=${nextRace.id}`}
+                      className="px-5 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all"
+                    >
+                      {hasPicked ? 'Edit Picks' : 'Submit Picks'}
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
