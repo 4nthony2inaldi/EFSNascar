@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <!-- NASCAR text gradient -->
+    <linearGradient id="nascarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#DC2626"/>
+      <stop offset="50%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#2563EB"/>
+    </linearGradient>
+    <!-- Gold/Yellow gradient for stars -->
+    <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FDE047"/>
+      <stop offset="100%" style="stop-color:#FACC15"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Black outer ring -->
+  <circle cx="100" cy="100" r="98" fill="#000000"/>
+
+  <!-- Purple background -->
+  <circle cx="100" cy="100" r="90" fill="#7C3AED"/>
+
+  <!-- Scattered stars - top area -->
+  <polygon points="45,35 47,42 55,42 49,47 51,55 45,50 39,55 41,47 35,42 43,42" fill="url(#starGradient)"/>
+  <polygon points="70,25 72,32 80,32 74,37 76,45 70,40 64,45 66,37 60,32 68,32" fill="url(#starGradient)"/>
+  <polygon points="130,25 132,32 140,32 134,37 136,45 130,40 124,45 126,37 120,32 128,32" fill="url(#starGradient)"/>
+  <polygon points="155,35 157,42 165,42 159,47 161,55 155,50 149,55 151,47 145,42 153,42" fill="url(#starGradient)"/>
+  <polygon points="35,60 37,67 45,67 39,72 41,80 35,75 29,80 31,72 25,67 33,67" fill="url(#starGradient)"/>
+  <polygon points="165,60 167,67 175,67 169,72 171,80 165,75 159,80 161,72 155,67 163,67" fill="url(#starGradient)"/>
+
+  <!-- Scattered stars - bottom area -->
+  <polygon points="30,130 32,137 40,137 34,142 36,150 30,145 24,150 26,142 20,137 28,137" fill="url(#starGradient)"/>
+  <polygon points="55,150 57,157 65,157 59,162 61,170 55,165 49,170 51,162 45,157 53,157" fill="url(#starGradient)"/>
+  <polygon points="85,160 87,167 95,167 89,172 91,180 85,175 79,180 81,172 75,167 83,167" fill="url(#starGradient)"/>
+  <polygon points="115,160 117,167 125,167 119,172 121,180 115,175 109,180 111,172 105,167 113,167" fill="url(#starGradient)"/>
+  <polygon points="145,150 147,157 155,157 149,162 151,170 145,165 139,170 141,162 135,157 143,157" fill="url(#starGradient)"/>
+  <polygon points="170,130 172,137 180,137 174,142 176,150 170,145 164,150 166,142 160,137 168,137" fill="url(#starGradient)"/>
+  <polygon points="100,170 102,177 110,177 104,182 106,190 100,185 94,190 96,182 90,177 98,177" fill="url(#starGradient)"/>
+
+  <!-- EFS red background -->
+  <rect x="40" y="85" width="50" height="30" rx="3" fill="#DC2626"/>
+
+  <!-- EFS text -->
+  <text x="65" y="107" font-family="Arial Black, Arial, sans-serif" font-size="22" font-weight="900" fill="#FFFFFF" text-anchor="middle">EFS</text>
+
+  <!-- NASCAR background (angled) -->
+  <polygon points="90,85 165,85 160,115 85,115" fill="#1E3A8A"/>
+  <polygon points="92,87 115,87 112,113 87,113" fill="#DC2626"/>
+  <polygon points="115,87 140,87 137,113 112,113" fill="#FFFFFF"/>
+  <polygon points="140,87 163,87 158,113 137,113" fill="#2563EB"/>
+
+  <!-- NASCAR text -->
+  <text x="125" y="107" font-family="Arial Black, Arial, sans-serif" font-size="18" font-weight="900" fill="#FFFFFF" text-anchor="middle" style="letter-spacing: -1px;">
+    <tspan fill="#FFFFFF">NAS</tspan><tspan fill="#1E3A8A">CAR</tspan>
+  </text>
+</svg>

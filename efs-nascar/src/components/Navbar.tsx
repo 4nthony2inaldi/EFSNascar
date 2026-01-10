@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -44,11 +45,25 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="relative">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 font-black text-2xl tracking-tight">EFS</span>
+            <Link href="/" className="flex items-center space-x-3 group">
+              <Image
+                src="/logo.svg"
+                alt="EFS NASCAR"
+                width={44}
+                height={44}
+                className="rounded-full"
+              />
+              <div className="hidden sm:flex items-center space-x-1">
+                <span className="text-white font-black text-xl tracking-tight bg-red-600 px-2 py-0.5 rounded">EFS</span>
+                <span className="font-black text-xl tracking-tight">
+                  <span className="text-red-500">N</span>
+                  <span className="text-white">A</span>
+                  <span className="text-white">S</span>
+                  <span className="text-blue-500">C</span>
+                  <span className="text-blue-600">A</span>
+                  <span className="text-blue-700">R</span>
+                </span>
               </div>
-              <span className="text-white font-bold text-xl tracking-wide group-hover:text-purple-200 transition-colors">NASCAR</span>
             </Link>
           </div>
 
