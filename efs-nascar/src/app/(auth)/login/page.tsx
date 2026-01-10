@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -48,25 +47,16 @@ export default function LoginPage() {
 
       <div className="max-w-md w-full space-y-8 relative z-10">
         <div className="text-center">
-          <div className="flex flex-col items-center justify-center mb-4">
-            <Image
-              src="/logo.svg"
-              alt="EFS NASCAR"
-              width={100}
-              height={100}
-              className="mb-4"
-            />
-            <div className="flex items-center space-x-2">
-              <span className="text-white font-black text-3xl tracking-tight bg-red-600 px-3 py-1 rounded">EFS</span>
-              <span className="font-black text-3xl tracking-tight">
-                <span className="text-red-500">N</span>
-                <span className="text-white">A</span>
-                <span className="text-white">S</span>
-                <span className="text-blue-500">C</span>
-                <span className="text-blue-600">A</span>
-                <span className="text-blue-700">R</span>
-              </span>
-            </div>
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <span className="text-white font-black text-3xl tracking-tight bg-red-600 px-3 py-1 rounded">EFS</span>
+            <span className="font-black text-3xl tracking-tight">
+              <span className="text-red-500">N</span>
+              <span className="text-white">A</span>
+              <span className="text-white">S</span>
+              <span className="text-blue-500">C</span>
+              <span className="text-blue-600">A</span>
+              <span className="text-blue-700">R</span>
+            </span>
           </div>
           <p className="mt-2 text-purple-300 text-lg">Fantasy League</p>
         </div>
