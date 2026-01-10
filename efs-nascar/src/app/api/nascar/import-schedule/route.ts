@@ -114,7 +114,26 @@ export async function POST(request: Request) {
 
     // Insert races
     const racesToInsert = sortedRaces.map((race, index) => {
-      const scheduledDate = new Date(race.scheduled);
+      // Parse date - handle various formats from API
+      let scheduledDate: Date;
+      const raceAny = race as any;
+      const dateStr = race.scheduled || raceAny.date || raceAny.raceDate || '';
+
+      if (dateStr) {
+        scheduledDate = new Date(dateStr);
+
+        // If year is wrong (e.g., 2001), fix it using the requested year
+        if (scheduledDate.getFullYear() < 2010 || scheduledDate.getFullYear() > 2030) {
+          // Try to extract month/day and use correct year
+          const month = scheduledDate.getMonth();
+          const day = scheduledDate.getDate();
+          scheduledDate = new Date(year, month, day, 14, 0, 0); // Default to 2pm
+        }
+      } else {
+        // No date provided, use a placeholder
+        scheduledDate = new Date(year, index, 1, 14, 0, 0);
+      }
+
       const deadlineDate = new Date(scheduledDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
 
       // Determine race type
@@ -128,7 +147,7 @@ export async function POST(request: Request) {
         season_id: seasonId,
         race_number: index + 1,
         name: race.name,
-        track: race.track?.name || 'Unknown Track',
+        track: race.track?.name || raceAny.trackName || (typeof race.track === 'string' ? race.track : 'Unknown Track'),
         scheduled_datetime: scheduledDate.toISOString(),
         deadline_datetime: deadlineDate.toISOString(),
         race_type: raceType,
