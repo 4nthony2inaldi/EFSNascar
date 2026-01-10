@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server';
 import { nascarApi } from '@/lib/nascar-api';
 import { NextResponse } from 'next/server';
 
+// Helper to delay between API calls to avoid rate limits
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Helper to normalize race names for matching
 function normalizeRaceName(name: string): string {
   return name
@@ -215,14 +218,71 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Get results from the matched race
-      const raceResultsData = apiRace.results || apiRace.finishing_order || [];
+      // Get the raceId to fetch detailed results
+      const raceId = apiRace.raceId || apiRace.id;
+      const apiRaceName = apiRace.raceName || apiRace.name;
+
+      // Log available keys for debugging
+      const availableKeys = Object.keys(apiRace).join(', ');
+      console.log(`Race "${apiRaceName}" available keys:`, availableKeys);
+      console.log(`Race "${apiRaceName}" raceId:`, raceId);
+
+      // If we have a raceId, fetch detailed race report
+      let raceResultsData: any[] = [];
+      let raceDetailData: any = apiRace;
+
+      if (raceId) {
+        try {
+          // Add delay to avoid rate limits (1 request per second)
+          await delay(1100);
+
+          const raceReport = await nascarApi.getRaceReport(raceId);
+          console.log(`Race report for "${apiRaceName}":`, JSON.stringify(raceReport).substring(0, 500));
+
+          // Extract results from race report - try various possible keys
+          raceResultsData = raceReport?.results
+            || raceReport?.finishing_order
+            || raceReport?.finishingOrder
+            || raceReport?.raceResults
+            || raceReport?.drivers
+            || raceReport?.standings
+            || raceReport?.positions
+            || raceReport?.leaderboard
+            || raceReport?.runningOrder
+            || [];
+
+          // Also store the full report for stage winner info
+          if (raceReport) {
+            raceDetailData = { ...apiRace, ...raceReport };
+          }
+
+          const reportKeys = Object.keys(raceReport || {}).join(', ');
+          console.log(`Race report keys for "${apiRaceName}":`, reportKeys);
+        } catch (err: any) {
+          console.error(`Error fetching race report for ${apiRaceName}:`, err.message);
+          // Fall back to inline results if race report fails
+        }
+      }
+
+      // If still no results, try the inline data from the original response
+      if (raceResultsData.length === 0) {
+        raceResultsData = apiRace.results
+          || apiRace.finishing_order
+          || apiRace.finishingOrder
+          || apiRace.raceResults
+          || apiRace.drivers
+          || apiRace.standings
+          || apiRace.positions
+          || apiRace.leaderboard
+          || apiRace.runningOrder
+          || [];
+      }
 
       if (!raceResultsData || raceResultsData.length === 0) {
         results.push({
           race: race.name,
           status: 'skipped',
-          message: `Matched to "${apiRace.raceName || apiRace.name}" but no results available`,
+          message: `Matched to "${apiRaceName}" (id: ${raceId || 'none'}) - no results data available (keys: ${availableKeys})`,
         });
         continue;
       }
@@ -250,9 +310,9 @@ export async function POST(request: Request) {
           }
         }
 
-        // Get stage winners
-        const stage1Winner = apiRace.stage1Winner || apiRace.stageWinners?.[0] || '';
-        const stage2Winner = apiRace.stage2Winner || apiRace.stageWinners?.[1] || '';
+        // Get stage winners from the detailed race data
+        const stage1Winner = raceDetailData.stage1Winner || raceDetailData.stageWinners?.[0] || '';
+        const stage2Winner = raceDetailData.stage2Winner || raceDetailData.stageWinners?.[1] || '';
 
         for (const result of raceResultsData) {
           const carNumber = parseInt(result.carNumber || result.car || result.number || '0');
@@ -325,7 +385,7 @@ export async function POST(request: Request) {
         results.push({
           race: race.name,
           status: 'success',
-          message: `Matched "${apiRace.raceName || apiRace.name}" - imported ${raceResults.length} results`,
+          message: `Matched "${apiRaceName}" - imported ${raceResults.length} results`,
           resultsCount: raceResults.length,
         });
 
