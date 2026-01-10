@@ -1,8 +1,11 @@
 // NASCAR API Service - Uses Sportradar NASCAR v3 API
 // Get your API key at: https://marketplace.sportradar.com/ (NASCAR API)
 
-// Sportradar NASCAR API - trial access level
-const SPORTRADAR_BASE_URL = 'https://api.sportradar.us/nascar-ot3';
+// Sportradar NASCAR API - trial access uses different endpoint format
+// Trial: https://api.sportradar.us/nascar/trial/v3/en/...
+// Production: https://api.sportradar.us/nascar-ot3/...
+const SPORTRADAR_TRIAL_URL = 'https://api.sportradar.us/nascar/trial/v3/en';
+const SPORTRADAR_PROD_URL = 'https://api.sportradar.us/nascar-ot3';
 
 export interface TransformedRaceResult {
   driverName: string;
@@ -51,24 +54,33 @@ class NASCARApiService {
       );
     }
 
-    // Sportradar uses api_key as query parameter
-    const url = `${SPORTRADAR_BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${this.apiKey}`;
+    // Try trial endpoint first (most users have trial keys)
+    const trialUrl = `${SPORTRADAR_TRIAL_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${this.apiKey}`;
+    console.log('Fetching from Sportradar (trial):', trialUrl.replace(this.apiKey, '***'));
 
-    console.log('Fetching from Sportradar:', url.replace(this.apiKey, '***'));
-
-    const response = await fetch(url, {
+    let response = await fetch(trialUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
+
+    // If trial fails with 403/401, try production endpoint
+    if (response.status === 403 || response.status === 401) {
+      console.log('Trial endpoint failed, trying production endpoint...');
+      const prodUrl = `${SPORTRADAR_PROD_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${this.apiKey}`;
+      console.log('Fetching from Sportradar (prod):', prodUrl.replace(this.apiKey, '***'));
+
+      response = await fetch(prodUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+    }
 
     if (!response.ok) {
       const text = await response.text();
       console.error('Sportradar API Error:', response.status, text.substring(0, 500));
 
       if (response.status === 403 || response.status === 401) {
-        throw new Error('Invalid API key or access denied. Check your Sportradar API key.');
+        throw new Error('Invalid API key or access denied. Check your Sportradar API key and ensure your trial is active.');
       }
       if (response.status === 429) {
         throw new Error('API rate limit exceeded. Please wait before making more requests.');
