@@ -1,77 +1,8 @@
-// NASCAR API Service - Uses Sportradar NASCAR v3 API
-// Get your free trial API key at: https://developer.sportradar.com/
+// NASCAR API Service - Uses RapidAPI NASCAR Motorsport API
+// Get your API key at: https://rapidapi.com/belchiorarkad-FqvHs2EDOtP/api/nascar-motorsport-api
 
-const SPORTRADAR_BASE_URL = 'https://api.sportradar.com/nascar/trial/v3/en';
-
-export interface SportradarDriver {
-  id: string;
-  full_name: string;
-  first_name: string;
-  last_name: string;
-  car_number: string;
-  team: {
-    id: string;
-    name: string;
-  };
-}
-
-export interface SportradarRaceResult {
-  id: string;
-  status: string;
-  position: number;
-  car_number: string;
-  driver: SportradarDriver;
-  laps_completed: number;
-  laps_led: number;
-  points: number;
-  money: number;
-  status_description: string;
-}
-
-export interface SportradarStageResult {
-  stage_number: number;
-  results: Array<{
-    position: number;
-    car_number: string;
-    driver: SportradarDriver;
-  }>;
-}
-
-export interface SportradarRace {
-  id: string;
-  name: string;
-  scheduled: string;
-  status: string;
-  track: {
-    id: string;
-    name: string;
-  };
-  results?: SportradarRaceResult[];
-  stages?: SportradarStageResult[];
-  laps: number;
-  laps_completed: number;
-}
-
-export interface SportradarScheduleRace {
-  id: string;
-  name: string;
-  scheduled: string;
-  status: string;
-  track: {
-    id: string;
-    name: string;
-  };
-}
-
-export interface SportradarSeason {
-  id: string;
-  year: number;
-  type: {
-    id: string;
-    name: string;
-  };
-  races: SportradarScheduleRace[];
-}
+const RAPIDAPI_HOST = 'nascar-motorsport-api.p.rapidapi.com';
+const RAPIDAPI_BASE_URL = `https://${RAPIDAPI_HOST}`;
 
 export interface TransformedRaceResult {
   driverName: string;
@@ -95,68 +26,117 @@ export interface TransformedRaceData {
   mostLapsLedDriver: { name: string; carNumber: number; lapsLed: number } | null;
 }
 
+export interface ScheduleRace {
+  id: string;
+  name: string;
+  scheduled: string;
+  status: string;
+  track: {
+    id?: string;
+    name: string;
+  };
+}
+
 class NASCARApiService {
   private apiKey: string | null = null;
 
   constructor() {
-    this.apiKey = process.env.SPORTRADAR_API_KEY || null;
+    this.apiKey = process.env.RAPIDAPI_KEY || process.env.SPORTRADAR_API_KEY || null;
   }
 
-  private async fetchFromApi<T>(endpoint: string): Promise<T> {
+  private async fetchFromRapidApi<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
     if (!this.apiKey) {
       throw new Error(
-        'SPORTRADAR_API_KEY not configured. Get your free trial key at https://developer.sportradar.com/'
+        'API key not configured. Add RAPIDAPI_KEY or SPORTRADAR_API_KEY to your environment variables.'
       );
     }
 
-    const url = `${SPORTRADAR_BASE_URL}${endpoint}?api_key=${this.apiKey}`;
+    const url = new URL(`${RAPIDAPI_BASE_URL}${endpoint}`);
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
 
-    const response = await fetch(url, {
+    console.log('Fetching from:', url.toString());
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        'X-RapidAPI-Key': this.apiKey,
+        'X-RapidAPI-Host': RAPIDAPI_HOST,
       },
     });
 
     if (!response.ok) {
-      if (response.status === 403) {
+      const text = await response.text();
+      console.error('API Error:', response.status, text);
+
+      if (response.status === 403 || response.status === 401) {
         throw new Error('Invalid API key or access denied. Check your Sportradar API key.');
       }
       if (response.status === 429) {
         throw new Error('API rate limit exceeded. Please wait before making more requests.');
       }
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      throw new Error(`API request failed: ${response.status} - ${text.substring(0, 200)}`);
     }
 
     return response.json();
   }
 
   /**
-   * Get the Cup Series schedule for a given year
+   * Get race results for a specific year from RapidAPI
    */
-  async getSeasonSchedule(year: number): Promise<SportradarSeason> {
-    // sc = Cup Series
-    return this.fetchFromApi<SportradarSeason>(`/sc/${year}/races/schedule.json`);
+  async getSeasonResults(year: number, series: number = 1): Promise<any> {
+    return this.fetchFromRapidApi('/results', {
+      year: year.toString(),
+      series: series.toString(),
+    });
   }
 
   /**
-   * Get race results by race ID
+   * Get all races/results for a year
    */
-  async getRaceResults(raceId: string): Promise<SportradarRace> {
-    return this.fetchFromApi<SportradarRace>(`/sc/races/${raceId}/results.json`);
+  async getRacesForYear(year: number): Promise<ScheduleRace[]> {
+    try {
+      const data = await this.getSeasonResults(year, 1);
+
+      // Handle different response formats
+      const races = data.results || data.races || data || [];
+
+      if (!Array.isArray(races)) {
+        console.log('Unexpected data format:', typeof data, Object.keys(data || {}));
+        return [];
+      }
+
+      // Transform to our schedule format
+      return races.map((race: any, index: number) => ({
+        id: race.race_id || race.id || `${year}-${index}`,
+        name: race.race_name || race.name || `Race ${index + 1}`,
+        scheduled: race.race_date || race.date || race.scheduled || '',
+        status: race.status || 'closed',
+        track: {
+          id: race.track_id,
+          name: race.track_name || race.track || 'Unknown Track',
+        },
+      }));
+    } catch (error) {
+      console.error('Error fetching races:', error);
+      throw error;
+    }
   }
 
   /**
-   * Get all races for a year with their IDs
+   * Get detailed race report by race ID
    */
-  async getRacesForYear(year: number): Promise<SportradarScheduleRace[]> {
-    const schedule = await this.getSeasonSchedule(year);
-    return schedule.races || [];
+  async getRaceResults(raceId: string): Promise<any> {
+    return this.fetchFromRapidApi('/race-report', {
+      raceId,
+    });
   }
 
   /**
    * Find a race by name for a given year
    */
-  async findRaceByName(year: number, raceName: string): Promise<SportradarScheduleRace | null> {
+  async findRaceByName(year: number, raceName: string): Promise<ScheduleRace | null> {
     const races = await this.getRacesForYear(year);
 
     // Try exact match first
@@ -166,7 +146,7 @@ class NASCARApiService {
 
     // Try partial match if no exact match
     if (!race) {
-      const searchTerms = raceName.toLowerCase().split(' ');
+      const searchTerms = raceName.toLowerCase().split(' ').filter(t => t.length > 2);
       race = races.find(r =>
         searchTerms.some(term => r.name.toLowerCase().includes(term))
       );
@@ -176,73 +156,83 @@ class NASCARApiService {
   }
 
   /**
-   * Transform Sportradar results into our app format
+   * Transform API results into our app format
    */
-  transformRaceResults(race: SportradarRace): TransformedRaceData {
-    const results = race.results || [];
+  transformRaceResults(raceData: any): TransformedRaceData {
+    const results = raceData.results || raceData.race_results || raceData.finishing_order || [];
 
     // Find most laps led
-    let mostLapsLedDriver: TransformedRaceResult['driverName'] | null = null;
+    let mostLapsLedDriver: string | null = null;
     let maxLapsLed = 0;
 
-    results.forEach(r => {
-      if (r.laps_led > maxLapsLed) {
-        maxLapsLed = r.laps_led;
-        mostLapsLedDriver = r.driver.full_name;
+    results.forEach((r: any) => {
+      const lapsLed = r.laps_led || r.lapsLed || 0;
+      if (lapsLed > maxLapsLed) {
+        maxLapsLed = lapsLed;
+        mostLapsLedDriver = r.driver_name || r.driver || r.full_name || r.name;
       }
     });
 
-    // Extract stage winners
+    // Extract stage winners from various possible formats
     let stage1Winner: { name: string; carNumber: number } | null = null;
     let stage2Winner: { name: string; carNumber: number } | null = null;
 
-    if (race.stages) {
-      const stage1 = race.stages.find(s => s.stage_number === 1);
-      const stage2 = race.stages.find(s => s.stage_number === 2);
+    const s1 = raceData.stage_1_winner || raceData.stage1Winner || raceData.stage1_winner;
+    const s2 = raceData.stage_2_winner || raceData.stage2Winner || raceData.stage2_winner;
 
-      if (stage1?.results?.[0]) {
-        const winner = stage1.results[0];
-        stage1Winner = {
-          name: winner.driver.full_name,
-          carNumber: parseInt(winner.car_number) || 0,
-        };
-      }
+    if (s1) {
+      stage1Winner = {
+        name: typeof s1 === 'string' ? s1 : (s1.driver_name || s1.name || s1.driver),
+        carNumber: typeof s1 === 'string' ? 0 : parseInt(s1.car_number || s1.carNumber || '0'),
+      };
+    }
 
-      if (stage2?.results?.[0]) {
-        const winner = stage2.results[0];
-        stage2Winner = {
-          name: winner.driver.full_name,
-          carNumber: parseInt(winner.car_number) || 0,
-        };
-      }
+    if (s2) {
+      stage2Winner = {
+        name: typeof s2 === 'string' ? s2 : (s2.driver_name || s2.name || s2.driver),
+        carNumber: typeof s2 === 'string' ? 0 : parseInt(s2.car_number || s2.carNumber || '0'),
+      };
     }
 
     // Transform results
     const transformedResults: TransformedRaceResult[] = results
-      .filter(r => r.position && r.position > 0)
-      .sort((a, b) => a.position - b.position)
-      .map(r => ({
-        driverName: r.driver.full_name,
-        carNumber: parseInt(r.car_number) || 0,
-        teamName: r.driver.team?.name || 'Unknown',
-        finishPosition: r.position,
-        lapsLed: r.laps_led || 0,
-        isStage1Winner: stage1Winner?.name === r.driver.full_name,
-        isStage2Winner: stage2Winner?.name === r.driver.full_name,
-        isMostLapsLed: r.driver.full_name === mostLapsLedDriver && maxLapsLed > 0,
-      }));
+      .filter((r: any) => {
+        const pos = r.finishing_position || r.position || r.finish_position || r.pos;
+        return pos && pos > 0;
+      })
+      .sort((a: any, b: any) => {
+        const posA = a.finishing_position || a.position || a.finish_position || a.pos;
+        const posB = b.finishing_position || b.position || b.finish_position || b.pos;
+        return posA - posB;
+      })
+      .map((r: any) => {
+        const driverName = r.driver_name || r.driver || r.full_name || r.name || 'Unknown';
+        const carNumber = parseInt(r.car_number || r.carNumber || r.car || '0');
+        const lapsLed = r.laps_led || r.lapsLed || 0;
+
+        return {
+          driverName,
+          carNumber,
+          teamName: r.team_name || r.team || r.manufacturer || 'Unknown',
+          finishPosition: r.finishing_position || r.position || r.finish_position || r.pos,
+          lapsLed,
+          isStage1Winner: stage1Winner?.name?.toLowerCase() === driverName.toLowerCase(),
+          isStage2Winner: stage2Winner?.name?.toLowerCase() === driverName.toLowerCase(),
+          isMostLapsLed: mostLapsLedDriver?.toLowerCase() === driverName.toLowerCase() && maxLapsLed > 0,
+        };
+      });
 
     return {
-      raceName: race.name,
-      trackName: race.track?.name || 'Unknown',
-      raceDate: race.scheduled,
-      status: race.status,
+      raceName: raceData.race_name || raceData.name || 'Unknown Race',
+      trackName: raceData.track_name || raceData.track || 'Unknown Track',
+      raceDate: raceData.race_date || raceData.date || raceData.scheduled || '',
+      status: raceData.status || 'complete',
       results: transformedResults,
       stage1Winner,
       stage2Winner,
       mostLapsLedDriver: mostLapsLedDriver ? {
         name: mostLapsLedDriver,
-        carNumber: transformedResults.find(r => r.driverName === mostLapsLedDriver)?.carNumber || 0,
+        carNumber: transformedResults.find(r => r.driverName.toLowerCase() === mostLapsLedDriver?.toLowerCase())?.carNumber || 0,
         lapsLed: maxLapsLed,
       } : null,
     };
