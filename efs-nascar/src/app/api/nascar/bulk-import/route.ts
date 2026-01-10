@@ -127,18 +127,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `No season found for year ${year}` }, { status: 404 });
     }
 
-    // Get all races for the season that aren't final
-    const { data: racesToImport } = await supabase
+    // Get all races for the season
+    const { data: allRaces } = await supabase
       .from('races')
       .select('id, name, race_number, season_id')
       .eq('season_id', season.id)
-      .neq('status', 'final')
       .order('race_number');
 
-    if (!racesToImport || racesToImport.length === 0) {
+    if (!allRaces || allRaces.length === 0) {
+      return NextResponse.json({
+        error: 'No races found for this season. Import the schedule first.',
+        summary: { total: 0, success: 0, errors: 0, skipped: 0 },
+        results: []
+      }, { status: 404 });
+    }
+
+    // Check which races already have results
+    const { data: existingResults } = await supabase
+      .from('race_results')
+      .select('race_id')
+      .in('race_id', allRaces.map(r => r.id));
+
+    const racesWithResults = new Set(existingResults?.map(r => r.race_id) || []);
+
+    // Filter to races without results
+    const racesToImport = allRaces.filter(race => !racesWithResults.has(race.id));
+
+    if (racesToImport.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No races to import (all may already be final)',
+        message: 'All races already have results imported',
         summary: { total: 0, success: 0, errors: 0, skipped: 0 },
         results: []
       });

@@ -151,7 +151,9 @@ export async function POST(request: Request) {
         scheduled_datetime: scheduledDate.toISOString(),
         deadline_datetime: deadlineDate.toISOString(),
         race_type: raceType,
-        status: race.status === 'closed' || race.status === 'complete' ? 'final' : 'upcoming',
+        // Don't mark as 'final' - that's for when results are imported
+        // 'completed' means race happened, 'upcoming' means race hasn't happened yet
+        status: race.status === 'closed' || race.status === 'complete' ? 'completed' : 'upcoming',
       };
     });
 
