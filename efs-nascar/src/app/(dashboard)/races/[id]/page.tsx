@@ -86,6 +86,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
   const stage2Winner = results?.find((r: any) => r.stage_2_winner);
   const mostLapsLed = results?.find((r: any) => r.most_laps_led);
 
+  // Check if deadline has passed for showing picks link
+  const deadlinePassed = new Date() > new Date(race.deadline_datetime);
+
   return (
     <div className="space-y-8">
       {/* Race Header */}
@@ -104,7 +107,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
               })}
             </p>
           </div>
-          <div>
+          <div className="flex flex-col items-end space-y-2">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               race.status === 'final' ? 'bg-green-500/20 text-green-500' :
               race.status === 'in_progress' ? 'bg-red-500/20 text-red-500' :
@@ -112,6 +115,14 @@ export default async function RaceResultsPage({ params }: PageProps) {
             }`}>
               {race.status.charAt(0).toUpperCase() + race.status.slice(1)}
             </span>
+            {deadlinePassed && (
+              <Link
+                href={`/races/${id}/picks`}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                View All Picks
+              </Link>
+            )}
           </div>
         </div>
 
