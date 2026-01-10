@@ -294,7 +294,7 @@ export default async function DashboardPage() {
                     rankColor = 'text-emerald-400';
                   } else if (rank === 7) {
                     rankColor = 'text-amber-400';
-                    statusLabel = '🐕';
+                    statusLabel = '🐶';
                   } else if (rank >= 16) {
                     rankColor = 'text-red-400';
                     statusLabel = '💩';
