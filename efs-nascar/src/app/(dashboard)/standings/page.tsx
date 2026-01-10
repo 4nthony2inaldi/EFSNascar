@@ -99,7 +99,7 @@ export default async function StandingsPage() {
                   // Catbird Seats - First Round Bye
                   statusColor = 'border-amber-400 border-l-[6px]';
                   rankColor = 'text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300';
-                  statusLabel = '🪺 Catbird';
+                  statusLabel = '🐱 Catbird';
                 } else if (rank <= 6) {
                   // Playoff Position
                   statusColor = 'border-emerald-500';
@@ -108,12 +108,12 @@ export default async function StandingsPage() {
                   // Lucky Dog
                   statusColor = 'border-amber-400';
                   rankColor = 'text-amber-400';
-                  statusLabel = '🍀 Lucky Dog';
+                  statusLabel = '🐕 Lucky Dog';
                 } else if (rank >= 16) {
                   // Muddy Mile
                   statusColor = 'border-red-500';
                   rankColor = 'text-red-400';
-                  statusLabel = '🏚️ Muddy Mile';
+                  statusLabel = '💩 Muddy Mile';
                 }
 
                 return (

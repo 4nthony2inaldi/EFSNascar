@@ -77,14 +77,13 @@ export default async function DashboardPage() {
     userPick = pick as Pick | null;
   }
 
-  // Get top 10 standings
+  // Get all standings
   const { data: standings } = await supabase
     .from('standings')
     .select('*, team:teams(*)')
     .eq('season_id', activeSeason?.id)
     .is('race_id', null) // Season totals
-    .order('rank', { ascending: true })
-    .limit(10);
+    .order('rank', { ascending: true });
 
   // Get recent announcements
   const { data: announcements } = await supabase
@@ -281,34 +280,56 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {standings.map((standing: any, index: number) => (
-                  <tr
-                    key={standing.id}
-                    className={`border-b border-purple-800/20 ${
-                      standing.team?.id === userTeam?.id ? 'bg-amber-500/10' : ''
-                    }`}
-                  >
-                    <td className="py-3 pr-4">
-                      <span className={`font-bold ${index < 6 ? 'text-emerald-400' : index === 6 ? 'text-amber-400' : 'text-purple-400'}`}>
-                        {standing.rank || index + 1}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center">
-                        <span className="text-amber-400 font-bold mr-2">
-                          #{standing.team?.car_number}
+                {standings.map((standing: any, index: number) => {
+                  const rank = standing.rank || index + 1;
+
+                  // Determine rank color and status label
+                  let rankColor = 'text-purple-400';
+                  let statusLabel = '';
+
+                  if (rank <= 2) {
+                    rankColor = 'text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300';
+                    statusLabel = '🐱';
+                  } else if (rank <= 6) {
+                    rankColor = 'text-emerald-400';
+                  } else if (rank === 7) {
+                    rankColor = 'text-amber-400';
+                    statusLabel = '🐕';
+                  } else if (rank >= 16) {
+                    rankColor = 'text-red-400';
+                    statusLabel = '💩';
+                  }
+
+                  return (
+                    <tr
+                      key={standing.id}
+                      className={`border-b border-purple-800/20 ${
+                        standing.team?.id === userTeam?.id ? 'bg-amber-500/10' : ''
+                      }`}
+                    >
+                      <td className="py-3 pr-4">
+                        <span className={`font-bold ${rankColor}`}>
+                          {rank}
                         </span>
-                        <span className="text-white">{standing.team?.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 text-right text-white font-medium">
-                      {standing.total_points}
-                    </td>
-                    <td className="py-3 text-right text-purple-300">
-                      {standing.race_wins}
-                    </td>
-                  </tr>
-                ))}
+                        {statusLabel && <span className="ml-1">{statusLabel}</span>}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center">
+                          <span className="text-amber-400 font-bold mr-2">
+                            #{standing.team?.car_number}
+                          </span>
+                          <span className="text-white">{standing.team?.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-right text-white font-medium">
+                        {standing.total_points}
+                      </td>
+                      <td className="py-3 text-right text-purple-300">
+                        {standing.race_wins}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

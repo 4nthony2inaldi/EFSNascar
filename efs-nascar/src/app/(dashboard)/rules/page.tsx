@@ -184,7 +184,7 @@ export default function RulesPage() {
         {/* Catbird Seats */}
         <div className="mb-6 bg-amber-900/20 rounded-lg p-4 border border-amber-700/20">
           <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 mb-2 flex items-center">
-            🪺 Catbird Seats (Top 2 Teams)
+            🐱 Catbird Seats (Top 2 Teams)
           </h3>
           <p className="text-purple-300 text-sm">The top 2 teams at the end of the regular season earn the coveted &quot;Catbird Seats&quot; - a first round bye in the playoffs. They don&apos;t pick drivers in Round 1 and automatically advance to Round 2 with 0 points.</p>
         </div>
@@ -209,7 +209,7 @@ export default function RulesPage() {
                   <td className="py-3 text-center">1</td>
                   <td className="py-3 text-center">7</td>
                   <td className="py-3">1 eliminated</td>
-                  <td className="py-3 text-purple-400 text-xs">🪺 Catbird Seats (1-2) get bye</td>
+                  <td className="py-3 text-purple-400 text-xs">🐱 Catbird Seats (1-2) get bye</td>
                 </tr>
                 <tr className="border-b border-purple-800/30">
                   <td className="py-3 text-purple-400 font-medium">Round 2</td>
@@ -246,7 +246,7 @@ export default function RulesPage() {
         {/* Bottom 2 - Muddy Mile */}
         <div>
           <h3 className="text-lg font-semibold text-red-400 mb-3 flex items-center">
-            🏚️ The Muddy Mile (Teams 16-17)
+            💩 The Muddy Mile (Teams 16-17)
           </h3>
           <div className="bg-red-900/20 rounded-lg p-4 border border-red-700/20">
             <p className="text-purple-300 text-sm mb-3">The bottom 2 teams trudge through the &quot;Muddy Mile&quot; - a 5-week battle to avoid last place and its harsh penalty.</p>
