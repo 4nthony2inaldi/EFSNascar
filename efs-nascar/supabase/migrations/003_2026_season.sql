@@ -4,9 +4,9 @@
 -- Deactivate 2025 season
 UPDATE public.seasons SET is_active = false WHERE year = 2025;
 
--- Create 2026 season
+-- Create 2026 season (ends at August Daytona race per fantasy rules)
 INSERT INTO public.seasons (year, name, start_date, end_date, is_active) VALUES
-(2026, '2026 Season', '2026-02-15', '2026-11-08', true);
+(2026, '2026 Season', '2026-02-15', '2026-08-22', true);
 
 -- Add default bonus usages for all teams (1 bonus 5th use each)
 INSERT INTO public.team_season_bonuses (team_id, season_id, bonus_usages)
@@ -22,7 +22,12 @@ FROM public.teams t
 CROSS JOIN public.seasons s
 WHERE s.year = 2026;
 
--- Full 2026 NASCAR Cup Series Schedule (36 races)
+-- 2026 NASCAR Cup Series Schedule (27 races)
+-- Regular Season: Races 1-22
+-- Fantasy Playoffs (Final 5 races ending at August Daytona):
+--   Round 1 (1 race): Race 23 - Top 2 seeds get bye
+--   Round 2 (2 races): Races 24-25 - 2 teams eliminated
+--   Finals (2 races): Races 26-27 - Crown champion
 INSERT INTO public.races (season_id, race_number, name, track, scheduled_datetime, deadline_datetime, race_type, status)
 SELECT
     s.id,
@@ -35,7 +40,7 @@ SELECT
     'upcoming'::race_status
 FROM public.seasons s,
 (VALUES
-    -- REGULAR SEASON (Races 1-26)
+    -- REGULAR SEASON (Races 1-22)
     (1, 'Daytona 500', 'Daytona International Speedway', '2026-02-15 14:30:00-05', '2026-02-15 12:00:00-05', 'regular'),
     (2, 'Ambetter Health 400', 'Atlanta Motor Speedway', '2026-02-22 15:00:00-05', '2026-02-22 12:00:00-05', 'regular'),
     (3, 'Pennzoil 400', 'Las Vegas Motor Speedway', '2026-03-01 15:30:00-08', '2026-03-01 12:00:00-08', 'regular'),
@@ -46,7 +51,7 @@ FROM public.seasons s,
     (8, 'Cook Out 400', 'Martinsville Speedway', '2026-04-05 15:00:00-04', '2026-04-05 12:00:00-04', 'regular'),
     (9, 'AutoTrader EchoPark Automotive 400', 'Texas Motor Speedway', '2026-04-12 15:30:00-05', '2026-04-12 12:00:00-05', 'regular'),
     (10, 'GEICO 500', 'Talladega Superspeedway', '2026-04-19 15:00:00-05', '2026-04-19 12:00:00-05', 'regular'),
-    (11, 'Würth 400', 'Dover Motor Speedway', '2026-04-26 15:00:00-04', '2026-04-26 12:00:00-04', 'regular'),
+    (11, 'Wurth 400', 'Dover Motor Speedway', '2026-04-26 15:00:00-04', '2026-04-26 12:00:00-04', 'regular'),
     (12, 'AdventHealth 400', 'Kansas Speedway', '2026-05-03 15:00:00-05', '2026-05-03 12:00:00-05', 'regular'),
     (13, 'Goodyear 400', 'Darlington Raceway', '2026-05-10 15:00:00-04', '2026-05-10 12:00:00-04', 'regular'),
     (14, 'All-Star Race', 'North Wilkesboro Speedway', '2026-05-17 20:00:00-04', '2026-05-17 17:00:00-04', 'exhibition'),
@@ -58,29 +63,17 @@ FROM public.seasons s,
     (20, 'Ally 400', 'Nashville Superspeedway', '2026-06-28 17:00:00-05', '2026-06-28 14:00:00-05', 'regular'),
     (21, 'Grant Park 165', 'Chicago Street Course', '2026-07-05 17:30:00-05', '2026-07-05 14:00:00-05', 'regular'),
     (22, 'Quaker State 400', 'Atlanta Motor Speedway', '2026-07-12 15:00:00-04', '2026-07-12 12:00:00-04', 'regular'),
-    (23, 'Brickyard 400', 'Indianapolis Motor Speedway', '2026-07-19 14:30:00-04', '2026-07-19 11:00:00-04', 'regular'),
-    (24, 'Cook Out 400', 'Richmond Raceway', '2026-07-26 18:00:00-04', '2026-07-26 15:00:00-04', 'regular'),
-    (25, 'FireKeepers Casino 400', 'Michigan International Speedway', '2026-08-02 14:30:00-04', '2026-08-02 11:00:00-04', 'regular'),
-    (26, 'Go Bowling at The Glen', 'Watkins Glen International', '2026-08-09 15:00:00-04', '2026-08-09 12:00:00-04', 'regular'),
-    (27, 'Coke Zero Sugar 400', 'Daytona International Speedway', '2026-08-22 19:30:00-04', '2026-08-22 16:00:00-04', 'regular'),
-    (28, 'Southern 500', 'Darlington Raceway', '2026-08-30 18:00:00-04', '2026-08-30 15:00:00-04', 'regular'),
 
-    -- PLAYOFFS ROUND OF 16 (Races 29-31)
-    (29, 'Quaker State 400', 'Atlanta Motor Speedway', '2026-09-06 15:00:00-04', '2026-09-06 12:00:00-04', 'playoff_round1'),
-    (30, 'Bass Pro Shops Night Race', 'Bristol Motor Speedway', '2026-09-12 19:30:00-04', '2026-09-12 16:00:00-04', 'playoff_round1'),
-    (31, 'Hollywood Casino 400', 'Kansas Speedway', '2026-09-20 15:00:00-05', '2026-09-20 12:00:00-05', 'playoff_round1'),
+    -- FANTASY PLAYOFFS (Final 5 Races)
+    -- Round 1: 1 race - 7 teams compete, top 2 seeds get bye, 1 eliminated
+    (23, 'Brickyard 400', 'Indianapolis Motor Speedway', '2026-07-19 14:30:00-04', '2026-07-19 11:00:00-04', 'playoff_round1'),
 
-    -- PLAYOFFS ROUND OF 12 (Races 32-34)
-    (32, 'YellaWood 500', 'Talladega Superspeedway', '2026-09-27 14:00:00-05', '2026-09-27 11:00:00-05', 'playoff_round2'),
-    (33, 'Bank of America ROVAL 400', 'Charlotte Motor Speedway ROVAL', '2026-10-04 14:00:00-04', '2026-10-04 11:00:00-04', 'playoff_round2'),
-    (34, 'South Point 400', 'Las Vegas Motor Speedway', '2026-10-11 14:30:00-07', '2026-10-11 11:00:00-07', 'playoff_round2'),
+    -- Round 2: 2 races - 6 teams compete, 2 eliminated (points reset)
+    (24, 'Cook Out 400', 'Richmond Raceway', '2026-07-26 18:00:00-04', '2026-07-26 15:00:00-04', 'playoff_round2'),
+    (25, 'FireKeepers Casino 400', 'Michigan International Speedway', '2026-08-02 14:30:00-04', '2026-08-02 11:00:00-04', 'playoff_round2'),
 
-    -- PLAYOFFS ROUND OF 8 (Races 35-37)
-    (35, 'Autotrader EchoPark Automotive 500', 'Texas Motor Speedway', '2026-10-18 14:00:00-05', '2026-10-18 11:00:00-05', 'playoff_round2'),
-    (36, 'Straight Talk Wireless 400', 'Homestead-Miami Speedway', '2026-10-25 14:30:00-04', '2026-10-25 11:00:00-04', 'playoff_round2'),
-    (37, 'Xfinity 500', 'Martinsville Speedway', '2026-11-01 14:00:00-05', '2026-11-01 11:00:00-05', 'playoff_round2'),
-
-    -- CHAMPIONSHIP RACE (Race 38)
-    (38, 'NASCAR Cup Series Championship', 'Phoenix Raceway', '2026-11-08 15:00:00-07', '2026-11-08 12:00:00-07', 'playoff_finals')
+    -- Finals: 2 races - 4 teams compete, crown champion (points reset)
+    (26, 'Go Bowling at The Glen', 'Watkins Glen International', '2026-08-09 15:00:00-04', '2026-08-09 12:00:00-04', 'playoff_finals'),
+    (27, 'Coke Zero Sugar 400', 'Daytona International Speedway', '2026-08-22 19:30:00-04', '2026-08-22 16:00:00-04', 'playoff_finals')
 ) AS r(race_num, race_name, race_track, scheduled_dt, deadline_dt, race_type)
 WHERE s.year = 2026;
