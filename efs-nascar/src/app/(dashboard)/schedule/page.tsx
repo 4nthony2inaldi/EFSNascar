@@ -1,6 +1,11 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, Pick, Team } from '@/types';
+import type { Race, Pick, Track, TrackType } from '@/types';
+
+interface RaceWithTrack extends Race {
+  track_info: Track | null;
+}
 
 export default async function SchedulePage() {
   const supabase = await createClient();
@@ -21,10 +26,13 @@ export default async function SchedulePage() {
     .eq('is_active', true)
     .single();
 
-  // Get all races for active season
+  // Get all races for active season with track info
   const { data: races } = await supabase
     .from('races')
-    .select('*')
+    .select(`
+      *,
+      track_info:tracks(*)
+    `)
     .eq('season_id', activeSeason?.id)
     .order('race_number', { ascending: true });
 
@@ -77,6 +85,25 @@ export default async function SchedulePage() {
     }
   };
 
+  const getTrackTypeInfo = (trackType: TrackType | undefined) => {
+    switch (trackType) {
+      case 'superspeedway':
+        return { label: 'Superspeedway', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '🏁' };
+      case 'intermediate':
+        return { label: 'Intermediate', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: '🔵' };
+      case 'short_track':
+        return { label: 'Short Track', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: '🟡' };
+      case 'road_course':
+        return { label: 'Road Course', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: '🟢' };
+      case 'street_course':
+        return { label: 'Street Course', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: '🏙️' };
+      case 'dirt':
+        return { label: 'Dirt', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '🟤' };
+      default:
+        return null;
+    }
+  };
+
   const getStatusBadge = (race: Race) => {
     switch (race.status) {
       case 'final':
@@ -89,7 +116,7 @@ export default async function SchedulePage() {
   };
 
   // Group races by month
-  const racesByMonth = races?.reduce((acc, race) => {
+  const racesByMonth = (races as RaceWithTrack[] | null)?.reduce((acc, race) => {
     const month = new Date(race.scheduled_datetime).toLocaleDateString('en-US', {
       month: 'long',
       year: 'numeric',
@@ -97,7 +124,7 @@ export default async function SchedulePage() {
     if (!acc[month]) acc[month] = [];
     acc[month].push(race);
     return acc;
-  }, {} as Record<string, Race[]>) || {};
+  }, {} as Record<string, RaceWithTrack[]>) || {};
 
   return (
     <div className="space-y-8">
@@ -108,33 +135,68 @@ export default async function SchedulePage() {
         </p>
       </div>
 
-      {/* Race Type Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-purple-700 rounded"></div>
-          <span className="text-purple-300">Regular Season</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-blue-500 rounded"></div>
-          <span className="text-purple-300">Playoff Round 1</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-purple-500 rounded"></div>
-          <span className="text-purple-300">Playoff Round 2</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-amber-400 rounded"></div>
-          <span className="text-purple-300">Playoff Finals</span>
+      {/* Legend */}
+      <div className="glass rounded-xl p-4">
+        <div className="flex flex-wrap gap-6">
+          {/* Race Type Legend */}
+          <div>
+            <div className="text-xs text-purple-500 mb-2 font-medium">Race Type</div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-purple-700 rounded"></div>
+                <span className="text-purple-300">Regular</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                <span className="text-purple-300">Playoff R1</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-purple-500 rounded"></div>
+                <span className="text-purple-300">Playoff R2</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-amber-400 rounded"></div>
+                <span className="text-purple-300">Finals</span>
+              </div>
+            </div>
+          </div>
+          {/* Track Type Legend */}
+          <div>
+            <div className="text-xs text-purple-500 mb-2 font-medium">Track Type</div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <div className="flex items-center space-x-1">
+                <span>🏁</span>
+                <span className="text-purple-300">Superspeedway</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>🔵</span>
+                <span className="text-purple-300">Intermediate</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>🟡</span>
+                <span className="text-purple-300">Short Track</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>🟢</span>
+                <span className="text-purple-300">Road Course</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span>🏙️</span>
+                <span className="text-purple-300">Street</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Schedule by Month */}
-      {(Object.entries(racesByMonth) as [string, Race[]][]).map(([month, monthRaces]) => (
+      {(Object.entries(racesByMonth) as [string, RaceWithTrack[]][]).map(([month, monthRaces]) => (
         <div key={month} className="space-y-4">
           <h2 className="text-xl font-bold text-white">{month}</h2>
           <div className="space-y-3">
             {monthRaces.map((race) => {
               const raceType = getRaceTypeLabel(race.race_type);
+              const trackType = getTrackTypeInfo(race.track_info?.track_type);
               const status = getStatusBadge(race);
               const hasPicked = !!userPicks[race.id];
               const isPastDeadline = new Date(race.deadline_datetime) < new Date();
@@ -152,14 +214,27 @@ export default async function SchedulePage() {
                 >
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center space-x-4">
-                      <div className="text-center min-w-[60px]">
-                        <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-                          {race.race_number}
-                        </div>
-                        <div className="text-xs text-purple-500">Race</div>
+                      {/* Track Logo */}
+                      <div className="relative w-16 h-16 flex-shrink-0 bg-purple-900/30 rounded-lg overflow-hidden flex items-center justify-center border border-purple-700/30">
+                        {race.track_info?.logo_url ? (
+                          <Image
+                            src={race.track_info.logo_url}
+                            alt={race.track_info.name}
+                            width={56}
+                            height={56}
+                            className="object-contain"
+                          />
+                        ) : (
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                              {race.race_number}
+                            </div>
+                            <div className="text-xs text-purple-500">Race</div>
+                          </div>
+                        )}
                       </div>
                       <div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center flex-wrap gap-2 mb-1">
                           <h3 className="text-lg font-bold text-white">{race.name}</h3>
                           {raceType && (
                             <span className={`px-2 py-0.5 ${raceType.color} text-white text-xs rounded font-medium`}>
@@ -172,7 +247,17 @@ export default async function SchedulePage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-purple-300">{race.track}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-purple-300">{race.track}</p>
+                          {trackType && (
+                            <span className={`px-2 py-0.5 text-xs rounded border ${trackType.color}`}>
+                              {trackType.icon} {trackType.label}
+                              {race.track_info?.length_miles && (
+                                <span className="ml-1 opacity-75">({race.track_info.length_miles} mi)</span>
+                              )}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-purple-500">
                           {formatDate(race.scheduled_datetime)} at {formatTime(race.scheduled_datetime)}
                         </p>

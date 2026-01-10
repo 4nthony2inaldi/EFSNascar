@@ -4,6 +4,7 @@
 export type TeamRole = 'member' | 'owner';
 export type RaceStatus = 'upcoming' | 'in_progress' | 'final';
 export type RaceType = 'regular' | 'playoff_round1' | 'playoff_round2' | 'playoff_finals' | 'exhibition';
+export type TrackType = 'superspeedway' | 'intermediate' | 'short_track' | 'road_course' | 'street_course' | 'dirt';
 
 // ============================================
 // Core Entities
@@ -54,12 +55,25 @@ export interface TeamSeasonBonus {
   notes: string | null;
 }
 
+export interface Track {
+  id: string;
+  name: string;
+  short_name: string | null;
+  location: string | null;
+  track_type: TrackType;
+  length_miles: number | null;
+  banking_degrees: number | null;
+  logo_url: string | null;
+  created_at: string;
+}
+
 export interface Race {
   id: string;
   season_id: string;
   race_number: number;
   name: string;
   track: string;
+  track_id: string | null;
   scheduled_datetime: string;
   deadline_datetime: string;
   race_type: RaceType;
@@ -159,6 +173,10 @@ export interface TeamMembershipWithDetails extends TeamMembership {
 
 export interface RaceWithResults extends Race {
   race_results: (RaceResult & { driver: Driver })[];
+}
+
+export interface RaceWithTrack extends Race {
+  track_info: Track | null;
 }
 
 export interface PickWithDrivers extends Pick {

@@ -1,6 +1,11 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, Team, Standing, Pick } from '@/types';
+import type { Race, Team, Standing, Pick, Track, TrackType } from '@/types';
+
+interface RaceWithTrack extends Race {
+  track_info: Track | null;
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -23,15 +28,40 @@ export default async function DashboardPage() {
 
   const userTeam = membership?.team as Team | null;
 
-  // Get next upcoming race for the active season
-  const { data: nextRace } = await supabase
+  // Get next upcoming race for the active season with track info
+  const { data: nextRaceData } = await supabase
     .from('races')
-    .select('*')
+    .select(`
+      *,
+      track_info:tracks(*)
+    `)
     .eq('season_id', activeSeason?.id)
     .eq('status', 'upcoming')
     .order('scheduled_datetime', { ascending: true })
     .limit(1)
     .single();
+
+  const nextRace = nextRaceData as RaceWithTrack | null;
+
+  // Helper to get track type info
+  const getTrackTypeInfo = (trackType: TrackType | undefined) => {
+    switch (trackType) {
+      case 'superspeedway':
+        return { label: 'Superspeedway', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: '🏁' };
+      case 'intermediate':
+        return { label: 'Intermediate', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: '🔵' };
+      case 'short_track':
+        return { label: 'Short Track', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', icon: '🟡' };
+      case 'road_course':
+        return { label: 'Road Course', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: '🟢' };
+      case 'street_course':
+        return { label: 'Street Course', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: '🏙️' };
+      case 'dirt':
+        return { label: 'Dirt', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: '🟤' };
+      default:
+        return null;
+    }
+  };
 
   // Check if user has submitted picks for next race
   let hasPicked = false;
@@ -108,9 +138,39 @@ export default async function DashboardPage() {
           {nextRace ? (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">{nextRace.name}</h3>
-                  <p className="text-purple-300">{nextRace.track}</p>
+                <div className="flex items-center space-x-4">
+                  {/* Track Logo */}
+                  <div className="relative w-20 h-20 flex-shrink-0 bg-purple-900/30 rounded-lg overflow-hidden flex items-center justify-center border border-purple-700/30">
+                    {nextRace.track_info?.logo_url ? (
+                      <Image
+                        src={nextRace.track_info.logo_url}
+                        alt={nextRace.track_info.name}
+                        width={72}
+                        height={72}
+                        className="object-contain"
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                          {nextRace.race_number}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">{nextRace.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <p className="text-purple-300">{nextRace.track}</p>
+                      {nextRace.track_info && (
+                        <span className={`px-2 py-0.5 text-xs rounded border ${getTrackTypeInfo(nextRace.track_info.track_type)?.color || ''}`}>
+                          {getTrackTypeInfo(nextRace.track_info.track_type)?.icon} {getTrackTypeInfo(nextRace.track_info.track_type)?.label}
+                          {nextRace.track_info.length_miles && (
+                            <span className="ml-1 opacity-75">({nextRace.track_info.length_miles} mi)</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-purple-400">Deadline</div>
