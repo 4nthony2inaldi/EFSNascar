@@ -1,10 +1,10 @@
-// 2025 NASCAR Cup Series Season - Complete Race Results (Current Season)
+// 2025 NASCAR Cup Series Season - Complete Race Results
 import { HistoricalSeason } from './types';
 
 export const season2025: HistoricalSeason = {
   year: 2025,
   name: '2025 NASCAR Cup Series',
-  champion: 'TBD',
+  champion: 'TBD', // Update when season completes
   championTeam: 'TBD',
   races: [
     {
@@ -65,5 +65,6 @@ export const season2025: HistoricalSeason = {
         { position: 40, driver: 'Garrett Smithley', carNumber: 52, team: 'Rick Ware Racing' },
       ],
     },
+    // Add remaining 2025 races as data becomes available
   ],
 };
