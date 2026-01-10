@@ -14,7 +14,7 @@ export default async function TeamProfilePage({ params }: PageProps) {
   // Get current user
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Get team with members
+  // Get team with members and favorite driver
   const { data: team, error } = await supabase
     .from('teams')
     .select(`
@@ -22,7 +22,8 @@ export default async function TeamProfilePage({ params }: PageProps) {
       team_memberships(
         *,
         profile:profiles(*)
-      )
+      ),
+      favorite_driver:drivers(*)
     `)
     .eq('id', id)
     .single();
@@ -76,42 +77,93 @@ export default async function TeamProfilePage({ params }: PageProps) {
   const owners = team.team_memberships?.filter((m: any) => m.role === 'owner') || [];
   const members = team.team_memberships?.filter((m: any) => m.role === 'member') || [];
   const bonusUses = bonus?.bonus_usages ?? 1;
+  const favoriteDriver = team.favorite_driver as Driver | null;
 
   return (
     <div className="space-y-8">
       {/* Team Header */}
       <div className="bg-gray-800 rounded-lg p-6">
-        <div className="flex items-center space-x-6">
-          <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-            {team.logo_url ? (
-              <img
-                src={team.logo_url}
-                alt={team.name}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-4xl font-bold text-yellow-500">#{team.car_number}</span>
-            )}
-          </div>
-          <div>
-            <div className="flex items-center space-x-3">
-              <h1 className="text-3xl font-bold text-white">{team.name}</h1>
-              <span className="px-3 py-1 bg-yellow-500 text-black font-bold rounded-full text-sm">
-                #{team.car_number}
-              </span>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          <div className="flex items-center space-x-6">
+            <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {team.logo_url ? (
+                <img
+                  src={team.logo_url}
+                  alt={team.name}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-4xl font-bold text-yellow-500">#{team.car_number}</span>
+              )}
             </div>
-            <p className="text-gray-400 mt-1">
-              Owner{owners.length > 1 ? 's' : ''}:{' '}
-              {owners.map((o: any) => o.profile?.name).join(', ') || 'None assigned'}
-            </p>
-            {isOwner && (
-              <span className="inline-block mt-2 px-3 py-1 bg-green-500/20 text-green-500 text-sm rounded-full">
-                You own this team
-              </span>
+            <div>
+              <div className="flex items-center space-x-3">
+                <h1 className="text-3xl font-bold text-white">{team.name}</h1>
+                <span className="px-3 py-1 bg-yellow-500 text-black font-bold rounded-full text-sm">
+                  #{team.car_number}
+                </span>
+              </div>
+              <p className="text-gray-400 mt-1">
+                Owner{owners.length > 1 ? 's' : ''}:{' '}
+                {owners.map((o: any) => o.profile?.name).join(', ') || 'None assigned'}
+              </p>
+              {isOwner && (
+                <span className="inline-block mt-2 px-3 py-1 bg-green-500/20 text-green-500 text-sm rounded-full">
+                  You own this team
+                </span>
+              )}
+            </div>
+          </div>
+          {isOwner && (
+            <Link
+              href={`/teams/${id}/edit`}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              Edit Profile
+            </Link>
+          )}
+        </div>
+
+        {/* Quote */}
+        {team.quote && (
+          <div className="mt-6 pl-4 border-l-4 border-yellow-500">
+            <p className="text-lg text-gray-300 italic">"{team.quote}"</p>
+          </div>
+        )}
+      </div>
+
+      {/* Owner Headshot & Bio */}
+      {(team.owner_headshot_url || team.bio || favoriteDriver) && (
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">About the Team</h2>
+          <div className="flex flex-col md:flex-row gap-6">
+            {team.owner_headshot_url && (
+              <div className="flex-shrink-0">
+                <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-700">
+                  <img
+                    src={team.owner_headshot_url}
+                    alt="Team Owner"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
             )}
+            <div className="flex-1 space-y-4">
+              {team.bio && (
+                <p className="text-gray-300 whitespace-pre-wrap">{team.bio}</p>
+              )}
+              {favoriteDriver && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-400">Favorite Driver:</span>
+                  <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded font-medium">
+                    #{favoriteDriver.car_number} {favoriteDriver.name}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Season Stats */}

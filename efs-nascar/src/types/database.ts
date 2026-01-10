@@ -24,6 +24,10 @@ export interface Team {
   name: string;
   car_number: number;
   logo_url: string | null;
+  owner_headshot_url: string | null;
+  favorite_driver_id: string | null;
+  quote: string | null;
+  bio: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,6 +170,10 @@ export interface TeamWithMembers extends Team {
   team_memberships: (TeamMembership & { profile: Profile })[];
 }
 
+export interface TeamWithFavoriteDriver extends Team {
+  favorite_driver: Driver | null;
+}
+
 export interface TeamMembershipWithDetails extends TeamMembership {
   profile: Profile;
   team: Team;
@@ -211,6 +219,10 @@ export interface CreateTeamInput {
   name: string;
   car_number: number;
   logo_url?: string;
+  owner_headshot_url?: string;
+  favorite_driver_id?: string;
+  quote?: string;
+  bio?: string;
 }
 
 export interface CreateSeasonInput {
