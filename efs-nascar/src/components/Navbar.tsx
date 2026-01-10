@@ -45,14 +45,14 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-1 group">
-              <span className="text-white font-black text-xl tracking-tight bg-red-600 px-2 py-0.5 rounded">EFS</span>
+              <span className="text-yellow-400 font-black text-xl tracking-tight bg-purple-700 px-2 py-0.5 rounded">EFS</span>
               <span className="font-black text-xl tracking-tight">
-                <span className="text-red-500">N</span>
-                <span className="text-white">A</span>
-                <span className="text-white">S</span>
-                <span className="text-blue-500">C</span>
-                <span className="text-blue-600">A</span>
-                <span className="text-blue-700">R</span>
+                <span className="text-yellow-400">N</span>
+                <span className="text-yellow-300">A</span>
+                <span className="text-yellow-400">S</span>
+                <span className="text-purple-400">C</span>
+                <span className="text-purple-300">A</span>
+                <span className="text-yellow-400">R</span>
               </span>
             </Link>
           </div>

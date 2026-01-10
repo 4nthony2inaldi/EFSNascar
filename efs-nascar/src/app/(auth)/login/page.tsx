@@ -48,14 +48,14 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 relative z-10">
         <div className="text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <span className="text-white font-black text-3xl tracking-tight bg-red-600 px-3 py-1 rounded">EFS</span>
+            <span className="text-yellow-400 font-black text-3xl tracking-tight bg-purple-700 px-3 py-1 rounded">EFS</span>
             <span className="font-black text-3xl tracking-tight">
-              <span className="text-red-500">N</span>
-              <span className="text-white">A</span>
-              <span className="text-white">S</span>
-              <span className="text-blue-500">C</span>
-              <span className="text-blue-600">A</span>
-              <span className="text-blue-700">R</span>
+              <span className="text-yellow-400">N</span>
+              <span className="text-yellow-300">A</span>
+              <span className="text-yellow-400">S</span>
+              <span className="text-purple-400">C</span>
+              <span className="text-purple-300">A</span>
+              <span className="text-yellow-400">R</span>
             </span>
           </div>
           <p className="mt-2 text-purple-300 text-lg">Fantasy League</p>
