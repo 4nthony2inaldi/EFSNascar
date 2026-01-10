@@ -320,7 +320,7 @@ export default function AdminImportPage() {
           <div>
             <h4 className="text-green-400 font-medium mb-2">Step 1: Import Schedule</h4>
             <ul className="space-y-1 text-gray-400 text-sm">
-              <li>- Fetches full season schedule from Sportradar</li>
+              <li>- Fetches full season schedule from RapidAPI</li>
               <li>- Creates season record in database</li>
               <li>- Creates all race records with dates/tracks</li>
               <li>- Initializes team standings and bonuses</li>
@@ -336,9 +336,21 @@ export default function AdminImportPage() {
             </ul>
           </div>
         </div>
-        <p className="mt-4 text-yellow-400 text-sm">
-          Note: Results import takes ~40 seconds per season due to API rate limits (1 request/second).
-        </p>
+        <div className="mt-4 p-3 bg-purple-900/30 border border-purple-500/30 rounded-lg">
+          <p className="text-purple-300 text-sm font-medium mb-1">API Setup Required</p>
+          <p className="text-gray-400 text-sm">
+            Get your free API key at{' '}
+            <a
+              href="https://rapidapi.com/belchiorarkad-FqvHs2EDOtP/api/nascar-motorsport-api"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-400 hover:text-purple-300 underline"
+            >
+              RapidAPI NASCAR Motorsport
+            </a>
+            {' '}and add it to Vercel as <code className="bg-gray-700 px-1 rounded">RAPIDAPI_KEY</code>
+          </p>
+        </div>
       </div>
     </div>
   );

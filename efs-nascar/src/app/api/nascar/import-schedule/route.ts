@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     if (!nascarApi.isConfigured()) {
       return NextResponse.json({
         error: 'NASCAR API not configured',
-        help: 'Add SPORTRADAR_API_KEY to your environment variables.',
+        help: 'Add RAPIDAPI_KEY to your environment variables. Get your free key at https://rapidapi.com/belchiorarkad-FqvHs2EDOtP/api/nascar-motorsport-api',
       }, { status: 503 });
     }
 
