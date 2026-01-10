@@ -5,10 +5,17 @@ import { NextResponse } from 'next/server';
 // Helper to delay between API calls to avoid rate limits
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper to safely convert to string and lowercase
+function safeToLower(value: unknown): string {
+  if (typeof value === 'string') return value.toLowerCase();
+  if (typeof value === 'number') return value.toString();
+  return '';
+}
+
 // Helper to normalize race names for matching
-function normalizeRaceName(name: string): string {
-  return name
-    .toLowerCase()
+function normalizeRaceName(name: unknown): string {
+  const str = safeToLower(name);
+  return str
     .replace(/[^a-z0-9\s]/g, '') // remove special chars
     .replace(/\s+/g, ' ')        // normalize spaces
     .trim();
@@ -181,11 +188,12 @@ export async function POST(request: Request) {
 
     for (const driver of drivers) {
       // Try different formats for driverId
+      const driverNameLower = safeToLower(driver.name);
       const possibleIds = [
         driver.car_number.toString(),
-        driver.name.toLowerCase().replace(/\s+/g, '-'),
-        driver.name.toLowerCase().replace(/\s+/g, ''),
-      ];
+        driverNameLower.replace(/\s+/g, '-'),
+        driverNameLower.replace(/\s+/g, ''),
+      ].filter(id => id); // Filter out empty strings
 
       let foundResults = false;
 
@@ -248,18 +256,27 @@ export async function POST(request: Request) {
 
     // Now also use the winner info from /results to fill in position 1
     for (const apiRace of apiRaces) {
-      const winner = apiRace.winner;
-      if (!winner) continue;
+      const winnerRaw = apiRace.winner;
+      if (!winnerRaw) continue;
+
+      // Safely get winner name as string
+      const winner = typeof winnerRaw === 'string' ? winnerRaw : String(winnerRaw);
+      const winnerLower = safeToLower(winner);
+      if (!winnerLower) continue;
 
       const matchedRace = matchRaceToDb(apiRace.raceName || apiRace.name || '', racesToImport);
       if (!matchedRace) continue;
 
       // Find driver by name
-      const winnerDriver = drivers.find(d =>
-        d.name.toLowerCase() === winner.toLowerCase() ||
-        d.name.toLowerCase().includes(winner.toLowerCase()) ||
-        winner.toLowerCase().includes(d.name.split(' ').pop()?.toLowerCase() || '')
-      );
+      const winnerDriver = drivers.find(d => {
+        const driverNameLower = safeToLower(d.name);
+        const lastName = safeToLower(d.name?.split(' ').pop() || '');
+        return (
+          driverNameLower === winnerLower ||
+          driverNameLower.includes(winnerLower) ||
+          winnerLower.includes(lastName)
+        );
+      });
 
       if (winnerDriver) {
         const raceResults = raceResultsMap.get(matchedRace.id);
