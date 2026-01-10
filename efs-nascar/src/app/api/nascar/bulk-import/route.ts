@@ -24,42 +24,39 @@ function getRaceKeywords(name: string): string[] {
   );
 }
 
-// Match races by comparing keywords
-function findMatchingRace(dbRaceName: string, apiRaces: any[]): any | null {
-  const dbKeywords = getRaceKeywords(dbRaceName);
+// Match API race to DB race by comparing keywords
+function matchRaceToDb(apiRaceName: string, dbRaces: { id: string; name: string; race_number: number }[]): { id: string; name: string; race_number: number } | null {
+  const apiKeywords = getRaceKeywords(apiRaceName);
 
-  let bestMatch: any = null;
+  let bestMatch: { id: string; name: string; race_number: number } | null = null;
   let bestScore = 0;
 
-  for (const apiRace of apiRaces) {
-    const apiName = apiRace.raceName || apiRace.name || '';
-    const apiTrack = apiRace.trackName || apiRace.track || '';
-    const apiKeywords = [...getRaceKeywords(apiName), ...getRaceKeywords(apiTrack)];
+  for (const dbRace of dbRaces) {
+    const dbKeywords = getRaceKeywords(dbRace.name);
 
     // Count matching keywords
     let score = 0;
-    for (const dbWord of dbKeywords) {
-      if (apiKeywords.some(apiWord => apiWord.includes(dbWord) || dbWord.includes(apiWord))) {
+    for (const apiWord of apiKeywords) {
+      if (dbKeywords.some(dbWord => dbWord.includes(apiWord) || apiWord.includes(dbWord))) {
         score++;
       }
     }
 
     // Bonus for number matches (like "500" or "400")
-    const dbNumbers: string[] = dbRaceName.match(/\d+/g) || [];
-    const apiNumbers: string[] = (apiName + ' ' + apiTrack).match(/\d+/g) || [];
-    for (const num of dbNumbers) {
-      if (apiNumbers.includes(num)) {
-        score += 2; // Numbers are strong indicators
+    const apiNumbers: string[] = apiRaceName.match(/\d+/g) || [];
+    const dbNumbers: string[] = dbRace.name.match(/\d+/g) || [];
+    for (const num of apiNumbers) {
+      if (dbNumbers.includes(num)) {
+        score += 2;
       }
     }
 
     if (score > bestScore) {
       bestScore = score;
-      bestMatch = apiRace;
+      bestMatch = dbRace;
     }
   }
 
-  // Require at least some matching keywords
   return bestScore >= 2 ? bestMatch : null;
 }
 
@@ -97,7 +94,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Year is required' }, { status: 400 });
     }
 
-    // Get drivers from database for matching
+    // Get drivers from database
     const { data: drivers } = await supabase
       .from('drivers')
       .select('id, name, car_number');
@@ -105,19 +102,6 @@ export async function POST(request: Request) {
     if (!drivers || drivers.length === 0) {
       return NextResponse.json({ error: 'No drivers found in database' }, { status: 400 });
     }
-
-    // Build driver lookup maps
-    const driverByCarNumber = new Map<number, string>();
-    const driverByName = new Map<string, string>();
-    drivers.forEach(d => {
-      driverByCarNumber.set(d.car_number, d.id);
-      driverByName.set(d.name.toLowerCase(), d.id);
-      // Also try last name only
-      const lastName = d.name.split(' ').pop()?.toLowerCase();
-      if (lastName) {
-        driverByName.set(lastName, d.id);
-      }
-    });
 
     // Get season for the year
     const { data: season } = await supabase
@@ -152,8 +136,6 @@ export async function POST(request: Request) {
       .in('race_id', allRaces.map(r => r.id));
 
     const racesWithResults = new Set(existingResults?.map(r => r.race_id) || []);
-
-    // Filter to races without results
     const racesToImport = allRaces.filter(race => !racesWithResults.has(race.id));
 
     if (racesToImport.length === 0) {
@@ -165,39 +147,132 @@ export async function POST(request: Request) {
       });
     }
 
-    // Fetch all season results from API at once
-    let apiResults: any[];
+    // Get season race data from API to get winners and find driver IDs
+    let apiRaces: any[] = [];
     try {
-      const seasonData = await nascarApi.getSeasonResults(year, 1); // Cup Series
-      console.log('API Response type:', typeof seasonData, Array.isArray(seasonData));
-      console.log('API Response sample:', JSON.stringify(seasonData).substring(0, 500));
-
-      // Handle different response formats
+      const seasonData = await nascarApi.getSeasonResults(year, 1);
       if (Array.isArray(seasonData)) {
-        apiResults = seasonData;
+        apiRaces = seasonData;
       } else if (seasonData?.races) {
-        apiResults = seasonData.races;
+        apiRaces = seasonData.races;
       } else if (seasonData?.results) {
-        apiResults = seasonData.results;
-      } else {
-        apiResults = [];
+        apiRaces = seasonData.results;
       }
     } catch (err: any) {
-      return NextResponse.json({
-        error: `Failed to fetch results from API: ${err.message}`
-      }, { status: 500 });
+      console.error('Failed to fetch season results:', err.message);
     }
 
-    if (apiResults.length === 0) {
-      return NextResponse.json({
-        error: 'API returned no race data for this year',
-        help: 'The API may not have results for this year yet.'
-      }, { status: 404 });
+    console.log(`Found ${apiRaces.length} races from API, ${racesToImport.length} races need results`);
+
+    // Build a map of race results: race_id -> { driver_id -> result data }
+    const raceResultsMap = new Map<string, Map<string, {
+      finish_position: number;
+      laps_led: number;
+    }>>();
+
+    // Initialize the map for all races we need to import
+    for (const race of racesToImport) {
+      raceResultsMap.set(race.id, new Map());
     }
 
-    console.log(`Found ${apiResults.length} races from API for ${year}`);
-    console.log('API race names:', apiResults.map(r => r.raceName || r.name).join(', '));
+    // Strategy: For each driver, try to fetch their race results for the year
+    // The API /race-results endpoint might use car number as driverId
+    const driverResults: Array<{ driver: string; status: 'success' | 'error'; message: string }> = [];
 
+    for (const driver of drivers) {
+      // Try different formats for driverId
+      const possibleIds = [
+        driver.car_number.toString(),
+        driver.name.toLowerCase().replace(/\s+/g, '-'),
+        driver.name.toLowerCase().replace(/\s+/g, ''),
+      ];
+
+      let foundResults = false;
+
+      for (const driverId of possibleIds) {
+        try {
+          await delay(1100); // Rate limiting
+
+          const driverRaceResults = await nascarApi.getDriverRaceResults(driverId, year);
+          console.log(`Driver ${driver.name} (tried id: ${driverId}) response:`, JSON.stringify(driverRaceResults).substring(0, 300));
+
+          // Check if we got results
+          const resultsArray = Array.isArray(driverRaceResults)
+            ? driverRaceResults
+            : driverRaceResults?.results || driverRaceResults?.races || [];
+
+          if (resultsArray.length > 0) {
+            foundResults = true;
+
+            // Process each race result for this driver
+            for (const result of resultsArray) {
+              const raceName = result.raceName || result.race || result.name || '';
+              const position = result.position || result.finishPosition || result.finish_position;
+
+              if (!raceName || !position) continue;
+
+              // Find matching DB race
+              const matchedRace = matchRaceToDb(raceName, racesToImport);
+              if (matchedRace) {
+                const raceResults = raceResultsMap.get(matchedRace.id);
+                if (raceResults) {
+                  raceResults.set(driver.id, {
+                    finish_position: parseInt(position),
+                    laps_led: result.lapsLed || result.laps_led || 0,
+                  });
+                }
+              }
+            }
+
+            driverResults.push({
+              driver: driver.name,
+              status: 'success',
+              message: `Found ${resultsArray.length} race results`,
+            });
+            break; // Found results, move to next driver
+          }
+        } catch (err: any) {
+          console.log(`Driver ${driver.name} id ${driverId} failed: ${err.message}`);
+          // Continue to try next ID format
+        }
+      }
+
+      if (!foundResults) {
+        driverResults.push({
+          driver: driver.name,
+          status: 'error',
+          message: 'Could not fetch results from API',
+        });
+      }
+    }
+
+    // Now also use the winner info from /results to fill in position 1
+    for (const apiRace of apiRaces) {
+      const winner = apiRace.winner;
+      if (!winner) continue;
+
+      const matchedRace = matchRaceToDb(apiRace.raceName || apiRace.name || '', racesToImport);
+      if (!matchedRace) continue;
+
+      // Find driver by name
+      const winnerDriver = drivers.find(d =>
+        d.name.toLowerCase() === winner.toLowerCase() ||
+        d.name.toLowerCase().includes(winner.toLowerCase()) ||
+        winner.toLowerCase().includes(d.name.split(' ').pop()?.toLowerCase() || '')
+      );
+
+      if (winnerDriver) {
+        const raceResults = raceResultsMap.get(matchedRace.id);
+        if (raceResults && !raceResults.has(winnerDriver.id)) {
+          raceResults.set(winnerDriver.id, {
+            finish_position: 1,
+            laps_led: 0,
+          });
+        }
+      }
+    }
+
+    // Now insert the results for each race
     const results: Array<{
       race: string;
       status: 'success' | 'error' | 'skipped';
@@ -206,158 +281,28 @@ export async function POST(request: Request) {
     }> = [];
 
     for (const race of racesToImport) {
-      // Find matching race in API results using keyword matching
-      const apiRace = findMatchingRace(race.name, apiResults);
+      const raceResults = raceResultsMap.get(race.id);
 
-      if (!apiRace) {
+      if (!raceResults || raceResults.size === 0) {
         results.push({
           race: race.name,
           status: 'skipped',
-          message: 'Could not find matching race in API data',
-        });
-        continue;
-      }
-
-      // Get the raceId to fetch detailed results
-      const raceId = apiRace.raceId || apiRace.id;
-      const apiRaceName = apiRace.raceName || apiRace.name;
-
-      // Log available keys for debugging
-      const availableKeys = Object.keys(apiRace).join(', ');
-      console.log(`Race "${apiRaceName}" available keys:`, availableKeys);
-      console.log(`Race "${apiRaceName}" raceId:`, raceId);
-
-      // If we have a raceId, fetch detailed race report
-      let raceResultsData: any[] = [];
-      let raceDetailData: any = apiRace;
-
-      if (raceId) {
-        try {
-          // Add delay to avoid rate limits (1 request per second)
-          await delay(1100);
-
-          const raceReport = await nascarApi.getRaceReport(raceId);
-          console.log(`Race report for "${apiRaceName}":`, JSON.stringify(raceReport).substring(0, 500));
-
-          // Extract results from race report - try various possible keys
-          raceResultsData = raceReport?.results
-            || raceReport?.finishing_order
-            || raceReport?.finishingOrder
-            || raceReport?.raceResults
-            || raceReport?.drivers
-            || raceReport?.standings
-            || raceReport?.positions
-            || raceReport?.leaderboard
-            || raceReport?.runningOrder
-            || [];
-
-          // Also store the full report for stage winner info
-          if (raceReport) {
-            raceDetailData = { ...apiRace, ...raceReport };
-          }
-
-          const reportKeys = Object.keys(raceReport || {}).join(', ');
-          console.log(`Race report keys for "${apiRaceName}":`, reportKeys);
-        } catch (err: any) {
-          console.error(`Error fetching race report for ${apiRaceName}:`, err.message);
-          // Fall back to inline results if race report fails
-        }
-      }
-
-      // If still no results, try the inline data from the original response
-      if (raceResultsData.length === 0) {
-        raceResultsData = apiRace.results
-          || apiRace.finishing_order
-          || apiRace.finishingOrder
-          || apiRace.raceResults
-          || apiRace.drivers
-          || apiRace.standings
-          || apiRace.positions
-          || apiRace.leaderboard
-          || apiRace.runningOrder
-          || [];
-      }
-
-      if (!raceResultsData || raceResultsData.length === 0) {
-        results.push({
-          race: race.name,
-          status: 'skipped',
-          message: `Matched to "${apiRaceName}" (id: ${raceId || 'none'}) - no results data available (keys: ${availableKeys})`,
+          message: 'No driver results found for this race',
         });
         continue;
       }
 
       try {
-        // Convert to race_results format
-        const raceResults: Array<{
-          race_id: string;
-          driver_id: string;
-          finish_position: number;
-          stage_1_winner: boolean;
-          stage_2_winner: boolean;
-          laps_led: number;
-          most_laps_led: boolean;
-        }> = [];
-
-        // Find most laps led driver
-        let maxLapsLed = 0;
-        let mostLapsLedDriver = '';
-        for (const result of raceResultsData) {
-          const lapsLed = result.lapsLed || result.laps_led || 0;
-          if (lapsLed > maxLapsLed) {
-            maxLapsLed = lapsLed;
-            mostLapsLedDriver = result.driverName || result.driver || '';
-          }
-        }
-
-        // Get stage winners from the detailed race data
-        const stage1Winner = raceDetailData.stage1Winner || raceDetailData.stageWinners?.[0] || '';
-        const stage2Winner = raceDetailData.stage2Winner || raceDetailData.stageWinners?.[1] || '';
-
-        for (const result of raceResultsData) {
-          const carNumber = parseInt(result.carNumber || result.car || result.number || '0');
-          const driverName = result.driverName || result.driver || result.driver_name || '';
-          const position = result.position || result.finishPosition || result.finish_position;
-          const lapsLed = result.lapsLed || result.laps_led || 0;
-
-          // Try to match driver by car number first, then by name
-          let driverId = driverByCarNumber.get(carNumber);
-          if (!driverId && driverName) {
-            driverId = driverByName.get(driverName.toLowerCase());
-            // Try last name only
-            if (!driverId) {
-              const lastName = driverName.split(' ').pop()?.toLowerCase();
-              if (lastName) {
-                driverId = driverByName.get(lastName);
-              }
-            }
-          }
-
-          if (!driverId || !position) continue;
-
-          const isStage1Winner = stage1Winner && driverName.toLowerCase().includes(stage1Winner.toLowerCase());
-          const isStage2Winner = stage2Winner && driverName.toLowerCase().includes(stage2Winner.toLowerCase());
-          const isMostLapsLed = mostLapsLedDriver && driverName === mostLapsLedDriver && maxLapsLed > 0;
-
-          raceResults.push({
-            race_id: race.id,
-            driver_id: driverId,
-            finish_position: position,
-            stage_1_winner: isStage1Winner || false,
-            stage_2_winner: isStage2Winner || false,
-            laps_led: lapsLed,
-            most_laps_led: isMostLapsLed || false,
-          });
-        }
-
-        if (raceResults.length === 0) {
-          results.push({
-            race: race.name,
-            status: 'error',
-            message: 'No drivers could be matched to database',
-          });
-          continue;
-        }
+        // Convert map to insert format
+        const resultsToInsert = Array.from(raceResults.entries()).map(([driverId, data]) => ({
+          race_id: race.id,
+          driver_id: driverId,
+          finish_position: data.finish_position,
+          stage_1_winner: false,
+          stage_2_winner: false,
+          laps_led: data.laps_led,
+          most_laps_led: false,
+        }));
 
         // Delete existing results
         await supabase.from('race_results').delete().eq('race_id', race.id);
@@ -365,7 +310,7 @@ export async function POST(request: Request) {
         // Insert new results
         const { error: insertError } = await supabase
           .from('race_results')
-          .insert(raceResults);
+          .insert(resultsToInsert);
 
         if (insertError) {
           results.push({
@@ -385,8 +330,8 @@ export async function POST(request: Request) {
         results.push({
           race: race.name,
           status: 'success',
-          message: `Matched "${apiRaceName}" - imported ${raceResults.length} results`,
-          resultsCount: raceResults.length,
+          message: `Imported ${resultsToInsert.length} driver results`,
+          resultsCount: resultsToInsert.length,
         });
 
       } catch (err: any) {
@@ -411,6 +356,7 @@ export async function POST(request: Request) {
         skipped: skippedCount,
       },
       results,
+      driverStatus: driverResults,
     });
 
   } catch (error: any) {

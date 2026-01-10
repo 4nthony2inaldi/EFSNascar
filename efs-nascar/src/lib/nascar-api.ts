@@ -141,6 +141,14 @@ class NASCARApiService {
   }
 
   /**
+   * Get race results for a specific driver
+   * Returns the driver's finishing positions across all races for the year
+   */
+  async getDriverRaceResults(driverId: string, year: number): Promise<any> {
+    return this.fetchFromRapidApi(`/race-results?driverId=${driverId}&year=${year}`);
+  }
+
+  /**
    * Get all races for a year - transforms results into schedule format
    */
   async getRacesForYear(year: number): Promise<ScheduleRace[]> {
