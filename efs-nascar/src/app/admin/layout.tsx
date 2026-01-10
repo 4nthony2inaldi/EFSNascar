@@ -48,7 +48,7 @@ export default async function AdminLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-[#0c0a12]">
       <Navbar
         user={userProfile}
         team={userTeam}
@@ -57,8 +57,8 @@ export default async function AdminLayout({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Admin Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-red-500">Commissioner Panel</h1>
-          <p className="text-gray-400">Manage the EFS NASCAR Fantasy League</p>
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500">Commissioner Panel</h1>
+          <p className="text-purple-400">Manage the EFS NASCAR Fantasy League</p>
         </div>
 
         {/* Admin Navigation */}
@@ -67,7 +67,7 @@ export default async function AdminLayout({
             <Link
               key={link.href}
               href={link.href}
-              className="px-4 py-2 bg-gray-800 text-gray-300 rounded-md text-sm font-medium hover:bg-gray-700 hover:text-white transition-colors"
+              className="px-4 py-2 bg-purple-900/30 text-purple-200 rounded-lg text-sm font-medium hover:bg-purple-800/40 hover:text-white transition-colors border border-purple-700/30"
             >
               {link.label}
             </Link>

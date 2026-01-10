@@ -35,7 +35,7 @@ export default async function DashboardLayout({
   const isCommissioner = userProfile?.is_commissioner ?? false;
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-[#0c0a12]">
       <Navbar
         user={userProfile}
         team={userTeam}

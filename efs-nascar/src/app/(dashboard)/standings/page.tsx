@@ -41,7 +41,7 @@ export default async function StandingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Standings</h1>
-          <p className="text-gray-400 mt-1">
+          <p className="text-purple-400 mt-1">
             {activeSeason?.name || 'No active season'} • {completedRaces || 0} races completed
           </p>
         </div>
@@ -50,29 +50,29 @@ export default async function StandingsPage() {
       {/* Standings Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-          <span className="text-gray-400">Playoff Position (1-6)</span>
+          <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+          <span className="text-purple-300">Playoff Position (1-6)</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-          <span className="text-gray-400">Lucky Dog (7th)</span>
+          <div className="w-3 h-3 bg-amber-400 rounded-full"></div>
+          <span className="text-purple-300">Lucky Dog (7th)</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-          <span className="text-gray-400">Consolation (8-15)</span>
+          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+          <span className="text-purple-300">Consolation (8-15)</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <span className="text-gray-400">Bottom 2 (16-17)</span>
+          <span className="text-purple-300">Bottom 2 (16-17)</span>
         </div>
       </div>
 
       {/* Standings Table */}
-      <div className="bg-gray-800 rounded-lg overflow-hidden">
+      <div className="glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-900 text-left text-gray-400 text-sm">
+              <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
                 <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">Team</th>
                 <th className="px-4 py-3 text-right">Points</th>
@@ -87,24 +87,24 @@ export default async function StandingsPage() {
                 const isUserTeam = standing.team_id === userTeamId;
 
                 // Determine playoff status color
-                let statusColor = 'border-gray-600';
-                let rankColor = 'text-gray-400';
+                let statusColor = 'border-purple-600';
+                let rankColor = 'text-purple-400';
                 if (rank <= 6) {
-                  statusColor = 'border-green-500';
-                  rankColor = 'text-green-500';
+                  statusColor = 'border-emerald-500';
+                  rankColor = 'text-emerald-400';
                 } else if (rank === 7) {
-                  statusColor = 'border-yellow-500';
-                  rankColor = 'text-yellow-500';
+                  statusColor = 'border-amber-400';
+                  rankColor = 'text-amber-400';
                 } else if (rank >= 16) {
                   statusColor = 'border-red-500';
-                  rankColor = 'text-red-500';
+                  rankColor = 'text-red-400';
                 }
 
                 return (
                   <tr
                     key={standing.id}
-                    className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors ${
-                      isUserTeam ? 'bg-yellow-500/10' : ''
+                    className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
+                      isUserTeam ? 'bg-amber-500/10' : ''
                     }`}
                   >
                     <td className={`px-4 py-4 border-l-4 ${statusColor}`}>
@@ -113,14 +113,14 @@ export default async function StandingsPage() {
                     <td className="px-4 py-4">
                       <Link
                         href={`/teams/${standing.team_id}`}
-                        className="flex items-center space-x-3 hover:text-yellow-500 transition-colors"
+                        className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
                       >
-                        <span className="text-yellow-500 font-bold">
+                        <span className="text-amber-400 font-bold">
                           #{standing.team?.car_number}
                         </span>
                         <span className="text-white font-medium">{standing.team?.name}</span>
                         {isUserTeam && (
-                          <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded">
+                          <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
                             YOU
                           </span>
                         )}
@@ -129,9 +129,9 @@ export default async function StandingsPage() {
                     <td className="px-4 py-4 text-right">
                       <span className="text-white font-bold text-lg">{standing.total_points}</span>
                     </td>
-                    <td className="px-4 py-4 text-right text-gray-300">{standing.race_wins}</td>
-                    <td className="px-4 py-4 text-right text-gray-300">{standing.stage_wins}</td>
-                    <td className="px-4 py-4 text-right text-gray-300">{standing.top_10_bonuses}</td>
+                    <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
+                    <td className="px-4 py-4 text-right text-purple-200">{standing.stage_wins}</td>
+                    <td className="px-4 py-4 text-right text-purple-200">{standing.top_10_bonuses}</td>
                   </tr>
                 );
               })}
@@ -141,18 +141,18 @@ export default async function StandingsPage() {
       </div>
 
       {(!standings || standings.length === 0) && (
-        <div className="bg-gray-800 rounded-lg p-12 text-center">
-          <p className="text-gray-400">No standings data available yet.</p>
-          <p className="text-gray-500 text-sm mt-2">
+        <div className="glass rounded-xl p-12 text-center">
+          <p className="text-purple-300">No standings data available yet.</p>
+          <p className="text-purple-500 text-sm mt-2">
             Standings will appear after the first race results are entered.
           </p>
         </div>
       )}
 
       {/* Tiebreaker Info */}
-      <div className="bg-gray-800 rounded-lg p-6">
+      <div className="glass rounded-xl p-6">
         <h2 className="text-lg font-bold text-white mb-3">Tiebreakers</h2>
-        <ol className="list-decimal list-inside text-gray-400 space-y-1 text-sm">
+        <ol className="list-decimal list-inside text-purple-300 space-y-1 text-sm">
           <li>Most race winners picked</li>
           <li>Most stage winners picked</li>
           <li>Most &quot;all 3 in top 10&quot; bonuses</li>

@@ -1,8 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #111827;
-  --foreground: #f9fafb;
+  --background: #0c0a12;
+  --foreground: #f5f3ff;
+
+  /* Purple palette */
+  --purple-50: #faf5ff;
+  --purple-100: #f3e8ff;
+  --purple-200: #e9d5ff;
+  --purple-300: #d8b4fe;
+  --purple-400: #c084fc;
+  --purple-500: #a855f7;
+  --purple-600: #9333ea;
+  --purple-700: #7c3aed;
+  --purple-800: #6b21a8;
+  --purple-900: #581c87;
+
+  /* Gold palette */
+  --gold-50: #fffbeb;
+  --gold-100: #fef3c7;
+  --gold-200: #fde68a;
+  --gold-300: #fcd34d;
+  --gold-400: #fbbf24;
+  --gold-500: #d4a f37;
+  --gold-600: #c9a227;
+  --gold-700: #a16207;
+  --gold-800: #854d0e;
+  --gold-900: #713f12;
+
+  /* Surface colors */
+  --surface-1: #13101a;
+  --surface-2: #1c1726;
+  --surface-3: #251e32;
+  --surface-4: #2e263e;
 }
 
 @theme inline {
@@ -15,24 +45,88 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Custom scrollbar for dark theme */
+/* Modern gradient backgrounds */
+.bg-gradient-purple {
+  background: linear-gradient(135deg, #1a1025 0%, #0f0a19 50%, #13101a 100%);
+}
+
+.bg-gradient-card {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.08) 0%, rgba(124, 58, 237, 0.02) 100%);
+}
+
+/* Gold accent glow */
+.gold-glow {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+}
+
+.purple-glow {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+}
+
+/* Custom scrollbar for dark purple theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: #13101a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: linear-gradient(180deg, #7c3aed 0%, #581c87 100%);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: linear-gradient(180deg, #8b5cf6 0%, #6b21a8 100%);
+}
+
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(28, 23, 38, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+/* Modern input styling */
+input, select, textarea {
+  transition: all 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+}
+
+/* Button hover effects */
+.btn-gold {
+  background: linear-gradient(135deg, #d4af37 0%, #f4d03f 50%, #d4af37 100%);
+  background-size: 200% 200%;
+  animation: shimmer 3s ease infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Subtle animation for cards */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.2);
 }

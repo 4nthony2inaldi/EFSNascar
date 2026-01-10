@@ -38,29 +38,31 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
   };
 
   return (
-    <nav className="bg-gray-800 border-b border-gray-700">
+    <nav className="bg-[#13101a]/95 backdrop-blur-md border-b border-purple-900/30 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="text-yellow-500 font-bold text-xl">EFS</span>
-              <span className="text-white font-bold text-xl">NASCAR</span>
+            <Link href="/" className="flex items-center space-x-2 group">
+              <div className="relative">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 font-black text-2xl tracking-tight">EFS</span>
+              </div>
+              <span className="text-white font-bold text-xl tracking-wide group-hover:text-purple-200 transition-colors">NASCAR</span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-1">
             {user && (
               <>
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive(link.href)
-                        ? 'bg-gray-900 text-yellow-500'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        ? 'bg-gradient-to-r from-purple-600/30 to-purple-800/30 text-amber-400 border border-purple-500/30'
+                        : 'text-purple-200 hover:bg-purple-800/20 hover:text-white'
                     }`}
                   >
                     {link.label}
@@ -69,10 +71,10 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 {isCommissioner && (
                   <Link
                     href="/admin"
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       pathname.startsWith('/admin')
-                        ? 'bg-red-900 text-red-300'
-                        : 'text-red-400 hover:bg-red-900/50 hover:text-red-300'
+                        ? 'bg-gradient-to-r from-amber-600/30 to-amber-800/30 text-amber-300 border border-amber-500/30'
+                        : 'text-amber-400/80 hover:bg-amber-900/20 hover:text-amber-300'
                     }`}
                   >
                     Admin
@@ -89,16 +91,17 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 {team && (
                   <Link
                     href={`/teams/${team.id}`}
-                    className="text-sm text-gray-300 hover:text-white"
+                    className="text-sm text-purple-200 hover:text-white flex items-center space-x-1 group"
                   >
-                    <span className="text-yellow-500 font-bold">#{team.car_number}</span>{' '}
-                    {team.name}
+                    <span className="text-amber-400 font-bold group-hover:text-amber-300">#{team.car_number}</span>
+                    <span className="text-purple-300 group-hover:text-white">{team.name}</span>
                   </Link>
                 )}
-                <div className="text-sm text-gray-400">{user.name}</div>
+                <div className="h-4 w-px bg-purple-700/50"></div>
+                <div className="text-sm text-purple-400">{user.name}</div>
                 <button
                   onClick={handleSignOut}
-                  className="text-sm text-gray-400 hover:text-white"
+                  className="text-sm text-purple-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-purple-800/30 transition-all"
                 >
                   Sign Out
                 </button>
@@ -106,7 +109,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
             ) : (
               <Link
                 href="/login"
-                className="px-4 py-2 rounded-md text-sm font-medium bg-yellow-500 text-black hover:bg-yellow-400 transition-colors"
+                className="px-5 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-amber-500 to-yellow-500 text-purple-900 hover:from-amber-400 hover:to-yellow-400 transition-all shadow-lg shadow-amber-500/20"
               >
                 Sign In
               </Link>
@@ -117,7 +120,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
           <div className="md:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-gray-400 hover:text-white"
+              className="text-purple-300 hover:text-white p-2 rounded-lg hover:bg-purple-800/30"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {mobileMenuOpen ? (
@@ -133,8 +136,8 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+        <div className="md:hidden border-t border-purple-800/30 bg-[#13101a]/98 backdrop-blur-md">
+          <div className="px-3 pt-3 pb-4 space-y-1">
             {user && (
               <>
                 {navLinks.map((link) => (
@@ -142,10 +145,10 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    className={`block px-4 py-3 rounded-lg text-base font-medium ${
                       isActive(link.href)
-                        ? 'bg-gray-900 text-yellow-500'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        ? 'bg-purple-800/30 text-amber-400 border border-purple-500/30'
+                        : 'text-purple-200 hover:bg-purple-800/20 hover:text-white'
                     }`}
                   >
                     {link.label}
@@ -155,30 +158,30 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                   <Link
                     href="/admin"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    className={`block px-4 py-3 rounded-lg text-base font-medium ${
                       pathname.startsWith('/admin')
-                        ? 'bg-red-900 text-red-300'
-                        : 'text-red-400 hover:bg-red-900/50'
+                        ? 'bg-amber-800/30 text-amber-300 border border-amber-500/30'
+                        : 'text-amber-400/80 hover:bg-amber-900/20'
                     }`}
                   >
                     Admin
                   </Link>
                 )}
-                <div className="border-t border-gray-700 mt-3 pt-3">
+                <div className="border-t border-purple-800/30 mt-3 pt-3">
                   {team && (
                     <Link
                       href={`/teams/${team.id}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-3 py-2 text-sm text-gray-300"
+                      className="block px-4 py-2 text-sm text-purple-300"
                     >
-                      <span className="text-yellow-500 font-bold">#{team.car_number}</span>{' '}
+                      <span className="text-amber-400 font-bold">#{team.car_number}</span>{' '}
                       {team.name}
                     </Link>
                   )}
-                  <div className="px-3 py-2 text-sm text-gray-400">{user.name}</div>
+                  <div className="px-4 py-2 text-sm text-purple-400">{user.name}</div>
                   <button
                     onClick={handleSignOut}
-                    className="block w-full text-left px-3 py-2 text-sm text-gray-400 hover:text-white"
+                    className="block w-full text-left px-4 py-2 text-sm text-purple-400 hover:text-white rounded-lg hover:bg-purple-800/30"
                   >
                     Sign Out
                   </button>
@@ -189,7 +192,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
               <Link
                 href="/login"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-md text-base font-medium bg-yellow-500 text-black"
+                className="block px-4 py-3 rounded-lg text-base font-semibold text-center bg-gradient-to-r from-amber-500 to-yellow-500 text-purple-900"
               >
                 Sign In
               </Link>

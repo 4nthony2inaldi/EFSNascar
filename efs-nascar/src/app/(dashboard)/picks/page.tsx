@@ -251,16 +251,16 @@ export default function PicksPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-400">Loading...</div>
+        <div className="text-purple-400">Loading...</div>
       </div>
     );
   }
 
   if (!userTeam) {
     return (
-      <div className="bg-yellow-500/10 border border-yellow-500 text-yellow-500 px-4 py-3 rounded-lg">
+      <div className="bg-amber-500/10 border border-amber-500/50 text-amber-400 px-4 py-3 rounded-lg">
         <p className="font-medium">You&apos;re not assigned to a team.</p>
-        <p className="text-sm mt-1">Contact a commissioner to be added to a team.</p>
+        <p className="text-sm mt-1 text-amber-400/80">Contact a commissioner to be added to a team.</p>
       </div>
     );
   }
@@ -269,18 +269,18 @@ export default function PicksPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white">Submit Picks</h1>
-        <p className="text-gray-400 mt-1">Select 3 drivers for the upcoming race</p>
+        <p className="text-purple-400 mt-1">Select 3 drivers for the upcoming race</p>
       </div>
 
       {/* Race Selector */}
-      <div className="bg-gray-800 rounded-lg p-6">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
+      <div className="glass rounded-xl p-6">
+        <label className="block text-sm font-medium text-purple-200 mb-2">
           Select Race
         </label>
         <select
           value={selectedRace?.id || ''}
           onChange={(e) => handleRaceChange(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+          className="w-full px-4 py-3 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           {races.length === 0 && <option value="">No upcoming races</option>}
           {races.map((race) => (
@@ -291,13 +291,13 @@ export default function PicksPage() {
         </select>
 
         {selectedRace && (
-          <div className="mt-4 text-sm text-gray-400">
+          <div className="mt-4 text-sm text-purple-300">
             <p>
-              <span className="text-gray-500">Deadline:</span>{' '}
+              <span className="text-purple-500">Deadline:</span>{' '}
               {new Date(selectedRace.deadline_datetime).toLocaleString()}
             </p>
             <p>
-              <span className="text-gray-500">Race Time:</span>{' '}
+              <span className="text-purple-500">Race Time:</span>{' '}
               {new Date(selectedRace.scheduled_datetime).toLocaleString()}
             </p>
           </div>
@@ -307,7 +307,7 @@ export default function PicksPage() {
       {selectedRace && (
         <>
           {/* Selected Drivers */}
-          <div className="bg-gray-800 rounded-lg p-6">
+          <div className="glass rounded-xl p-6">
             <h2 className="text-xl font-bold text-white mb-4">Your Picks</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[0, 1, 2].map((slot) => {
@@ -320,27 +320,27 @@ export default function PicksPage() {
                   <div
                     key={slot}
                     className={`border-2 rounded-lg p-4 ${
-                      driver ? 'border-yellow-500 bg-yellow-500/10' : 'border-gray-600 border-dashed'
+                      driver ? 'border-amber-400/50 bg-amber-500/10' : 'border-purple-600/50 border-dashed bg-purple-900/20'
                     }`}
                   >
-                    <div className="text-sm text-gray-400 mb-2">Driver {slot + 1}</div>
+                    <div className="text-sm text-purple-400 mb-2">Driver {slot + 1}</div>
                     {driver ? (
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-yellow-500 font-bold">#{driver.car_number}</span>
+                            <span className="text-amber-400 font-bold">#{driver.car_number}</span>
                             <span className="text-white font-medium">{driver.name}</span>
                           </div>
-                          <div className="text-sm text-gray-400">{driver.team_name}</div>
+                          <div className="text-sm text-purple-400">{driver.team_name}</div>
                           <div className={`text-sm ${
-                            usage >= maxUses - 1 ? 'text-red-500' : 'text-gray-500'
+                            usage >= maxUses - 1 ? 'text-red-400' : 'text-purple-500'
                           }`}>
                             {usage}/{maxUses} uses
                           </div>
                         </div>
                         <button
                           onClick={() => handleDriverSelect(slot, null)}
-                          className="text-red-500 hover:text-red-400"
+                          className="text-red-400 hover:text-red-300"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -348,7 +348,7 @@ export default function PicksPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="text-gray-500 text-center py-2">
+                      <div className="text-purple-500 text-center py-2">
                         Select a driver below
                       </div>
                     )}
@@ -358,13 +358,13 @@ export default function PicksPage() {
             </div>
 
             {error && (
-              <div className="mt-4 bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded">
+              <div className="mt-4 bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="mt-4 bg-green-500/10 border border-green-500 text-green-500 px-4 py-3 rounded">
+              <div className="mt-4 bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg">
                 Picks submitted successfully!
               </div>
             )}
@@ -372,14 +372,14 @@ export default function PicksPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting || selectedDrivers.some((d) => !d)}
-              className="mt-4 w-full py-3 px-4 bg-yellow-500 text-black font-medium rounded-md hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="mt-4 w-full py-3 px-4 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 transition-all"
             >
               {submitting ? 'Submitting...' : existingPick ? 'Update Picks' : 'Submit Picks'}
             </button>
           </div>
 
           {/* Driver Selection */}
-          <div className="bg-gray-800 rounded-lg p-6">
+          <div className="glass rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white">Available Drivers</h2>
               <input
@@ -387,14 +387,14 @@ export default function PicksPage() {
                 placeholder="Search drivers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 w-64"
+                className="px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500 w-64"
               />
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
+                  <tr className="text-left text-purple-400 text-sm border-b border-purple-700/30">
                     <th className="pb-3 pr-4">#</th>
                     <th className="pb-3 pr-4">Driver</th>
                     <th className="pb-3 pr-4">Team</th>
@@ -412,28 +412,28 @@ export default function PicksPage() {
                     return (
                       <tr
                         key={driver.id}
-                        className={`border-b border-gray-700/50 ${
-                          selected ? 'bg-yellow-500/10' : !available ? 'opacity-50' : ''
+                        className={`border-b border-purple-800/20 ${
+                          selected ? 'bg-amber-500/10' : !available ? 'opacity-50' : ''
                         }`}
                       >
-                        <td className="py-3 pr-4 text-yellow-500 font-bold">
+                        <td className="py-3 pr-4 text-amber-400 font-bold">
                           {driver.car_number}
                         </td>
                         <td className="py-3 pr-4 text-white">{driver.name}</td>
-                        <td className="py-3 pr-4 text-gray-400">{driver.team_name}</td>
+                        <td className="py-3 pr-4 text-purple-300">{driver.team_name}</td>
                         <td className="py-3 text-center">
                           <span className={`font-medium ${
-                            usage >= maxUses ? 'text-red-500' :
-                            usage >= maxUses - 1 ? 'text-yellow-500' : 'text-white'
+                            usage >= maxUses ? 'text-red-400' :
+                            usage >= maxUses - 1 ? 'text-amber-400' : 'text-white'
                           }`}>
                             {usage}/{maxUses}
                           </span>
                         </td>
                         <td className="py-3 text-center">
                           {selected ? (
-                            <span className="text-yellow-500 text-sm">Selected</span>
+                            <span className="text-amber-400 text-sm">Selected</span>
                           ) : !available ? (
-                            <span className="text-red-500 text-sm">Maxed</span>
+                            <span className="text-red-400 text-sm">Maxed</span>
                           ) : (
                             <button
                               onClick={() => {
@@ -443,7 +443,7 @@ export default function PicksPage() {
                                 }
                               }}
                               disabled={selectedDrivers.every((d) => d !== null)}
-                              className="px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              className="px-3 py-1 bg-purple-700/30 text-purple-200 text-sm rounded-lg hover:bg-purple-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-purple-600/30"
                             >
                               Select
                             </button>
