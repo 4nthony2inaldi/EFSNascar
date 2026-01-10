@@ -50,8 +50,12 @@ export default async function StandingsPage() {
       {/* Standings Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full"></div>
+          <span className="text-purple-300">Catbird Seats (1-2) - First Round Bye</span>
+        </div>
+        <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-          <span className="text-purple-300">Playoff Position (1-6)</span>
+          <span className="text-purple-300">Playoff Position (3-6)</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-amber-400 rounded-full"></div>
@@ -63,7 +67,7 @@ export default async function StandingsPage() {
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <span className="text-purple-300">Bottom 2 (16-17)</span>
+          <span className="text-purple-300">Muddy Mile (16-17)</span>
         </div>
       </div>
 
@@ -86,18 +90,30 @@ export default async function StandingsPage() {
                 const rank = standing.rank || index + 1;
                 const isUserTeam = standing.team_id === userTeamId;
 
-                // Determine playoff status color
+                // Determine playoff status color and labels
                 let statusColor = 'border-purple-600';
                 let rankColor = 'text-purple-400';
-                if (rank <= 6) {
+                let statusLabel = '';
+
+                if (rank <= 2) {
+                  // Catbird Seats - First Round Bye
+                  statusColor = 'border-amber-400 border-l-[6px]';
+                  rankColor = 'text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300';
+                  statusLabel = '🪺 Catbird';
+                } else if (rank <= 6) {
+                  // Playoff Position
                   statusColor = 'border-emerald-500';
                   rankColor = 'text-emerald-400';
                 } else if (rank === 7) {
+                  // Lucky Dog
                   statusColor = 'border-amber-400';
                   rankColor = 'text-amber-400';
+                  statusLabel = '🍀 Lucky Dog';
                 } else if (rank >= 16) {
+                  // Muddy Mile
                   statusColor = 'border-red-500';
                   rankColor = 'text-red-400';
+                  statusLabel = '🏚️ Muddy Mile';
                 }
 
                 return (
@@ -122,6 +138,15 @@ export default async function StandingsPage() {
                         {isUserTeam && (
                           <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
                             YOU
+                          </span>
+                        )}
+                        {statusLabel && (
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            rank <= 2 ? 'bg-amber-500/20 text-amber-400' :
+                            rank === 7 ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {statusLabel}
                           </span>
                         )}
                       </Link>
