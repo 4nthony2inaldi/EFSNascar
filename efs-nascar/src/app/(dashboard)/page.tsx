@@ -220,7 +220,14 @@ export default async function DashboardPage() {
                       Picks not submitted
                     </div>
                   )}
-                  {!isDeadlinePassed && (
+                  {isDeadlinePassed ? (
+                    <Link
+                      href={`/races/${nextRace.id}/picks`}
+                      className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 shadow-lg shadow-purple-500/25 transition-all"
+                    >
+                      View All Picks
+                    </Link>
+                  ) : (
                     <Link
                       href={`/picks?race=${nextRace.id}`}
                       className="px-5 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all"
