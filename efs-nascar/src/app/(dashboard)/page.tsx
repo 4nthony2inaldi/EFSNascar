@@ -314,12 +314,15 @@ export default async function DashboardPage() {
                         {statusLabel && <span className="ml-1">{statusLabel}</span>}
                       </td>
                       <td className="py-3 pr-4">
-                        <div className="flex items-center">
+                        <Link
+                          href={`/teams/${standing.team?.id}`}
+                          className="flex items-center hover:text-amber-400 transition-colors"
+                        >
                           <span className="text-amber-400 font-bold mr-2">
                             #{standing.team?.car_number}
                           </span>
-                          <span className="text-white">{standing.team?.name}</span>
-                        </div>
+                          <span className="text-white hover:text-amber-300">{standing.team?.name}</span>
+                        </Link>
                       </td>
                       <td className="py-3 pr-4 text-right text-white font-medium">
                         {standing.total_points}
