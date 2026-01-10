@@ -22,7 +22,7 @@
   --gold-200: #fde68a;
   --gold-300: #fcd34d;
   --gold-400: #fbbf24;
-  --gold-500: #d4a f37;
+  --gold-500: #d4af37;
   --gold-600: #c9a227;
   --gold-700: #a16207;
   --gold-800: #854d0e;
@@ -38,8 +38,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 body {

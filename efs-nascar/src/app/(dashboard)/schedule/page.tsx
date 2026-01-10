@@ -129,7 +129,7 @@ export default async function SchedulePage() {
       </div>
 
       {/* Schedule by Month */}
-      {Object.entries(racesByMonth).map(([month, monthRaces]) => (
+      {(Object.entries(racesByMonth) as [string, Race[]][]).map(([month, monthRaces]) => (
         <div key={month} className="space-y-4">
           <h2 className="text-xl font-bold text-white">{month}</h2>
           <div className="space-y-3">
