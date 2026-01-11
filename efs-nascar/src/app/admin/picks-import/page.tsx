@@ -39,6 +39,8 @@ export default function PicksImportPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [addingDrivers, setAddingDrivers] = useState(false);
+  const [driversAdded, setDriversAdded] = useState<string[] | null>(null);
 
   // Fetch seasons on mount
   useState(() => {
@@ -113,6 +115,41 @@ export default function PicksImportPage() {
       setError(err.message || 'Import failed');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleAddMissingDrivers = async () => {
+    if (!preview?.unmatched.drivers.length) return;
+
+    setAddingDrivers(true);
+    setDriversAdded(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/drivers/bulk-add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverNames: preview.unmatched.drivers
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to add drivers');
+      }
+
+      setDriversAdded(data.drivers || []);
+
+      // Re-run preview to update matches
+      if (data.added > 0) {
+        setTimeout(() => handlePreview(), 500);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to add drivers');
+    } finally {
+      setAddingDrivers(false);
     }
   };
 
@@ -248,12 +285,26 @@ export default function PicksImportPage() {
                 )}
                 {preview.unmatched.drivers.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-medium text-purple-300 mb-2">Drivers not found:</h3>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-purple-300">Drivers not found:</h3>
+                      <button
+                        onClick={handleAddMissingDrivers}
+                        disabled={addingDrivers}
+                        className="px-3 py-1 bg-amber-500/20 text-amber-300 rounded text-sm font-medium hover:bg-amber-500/30 disabled:opacity-50 border border-amber-500/30"
+                      >
+                        {addingDrivers ? 'Adding...' : 'Add Missing Drivers'}
+                      </button>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {preview.unmatched.drivers.map((d, i) => (
                         <span key={i} className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-sm">{d}</span>
                       ))}
                     </div>
+                    {driversAdded && driversAdded.length > 0 && (
+                      <p className="text-emerald-400 text-sm mt-2">
+                        ✓ Added {driversAdded.length} drivers: {driversAdded.join(', ')}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
