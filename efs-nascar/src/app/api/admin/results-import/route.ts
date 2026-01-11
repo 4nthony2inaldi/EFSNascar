@@ -45,7 +45,7 @@ function normalizeTrackName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Match JSON race data to database race - prioritize name match, then track
+// Match JSON race data to database race - prioritize race_number match, verify with track
 function findMatchingRace(
   raceData: RaceData,
   dbRaces: Array<{ id: string; race_number: number; name: string; track_name: string | null }>,
@@ -57,10 +57,37 @@ function findMatchingRace(
   // Get available races (not already matched)
   const availableRaces = dbRaces.filter(r => !alreadyMatched.has(r.id));
 
-  // STEP 1: Try exact race name match first (highest priority)
+  // Helper to check if track names match
+  const trackMatches = (dbRace: { track_name: string | null; name: string }) => {
+    const dbTrack = normalizeTrackName(dbRace.track_name || '');
+    const dbName = normalizeTrackName(dbRace.name);
+    if (jsonTrack.length < 4) return false;
+    return (dbTrack.includes(jsonTrack) || jsonTrack.includes(dbTrack)) ||
+           (dbName.includes(jsonTrack) && jsonTrack.length > 5);
+  };
+
+  // STEP 1: Try EXACT race_number match first (most reliable for same-year data)
+  // NASCAR race numbers are consistent within a season
+  const exactRaceNumberMatch = availableRaces.find(r => r.race_number === raceData.race_number);
+  if (exactRaceNumberMatch) {
+    // Verify with track name if possible, but trust race_number as primary
+    return exactRaceNumberMatch;
+  }
+
+  // STEP 2: Try race_number with small tolerance (+/- 1) and track verification
+  // This handles cases where database might have slightly different numbering
+  for (const offset of [1, -1, 2, -2]) {
+    const nearbyMatch = availableRaces.find(r =>
+      r.race_number === raceData.race_number + offset && trackMatches(r)
+    );
+    if (nearbyMatch) {
+      return nearbyMatch;
+    }
+  }
+
+  // STEP 3: Try exact race name match
   for (const race of availableRaces) {
     const dbName = normalizeTrackName(race.name);
-    // Check if race names are very similar (one contains the other significantly)
     if (dbName === jsonRaceName ||
         (dbName.includes(jsonRaceName) && jsonRaceName.length > 5) ||
         (jsonRaceName.includes(dbName) && dbName.length > 5)) {
@@ -68,7 +95,7 @@ function findMatchingRace(
     }
   }
 
-  // STEP 2: Try matching by key race name parts (e.g., "daytona500" in both)
+  // STEP 4: Try matching by key race name parts (e.g., "daytona500" in both)
   const keyParts = ['daytona500', 'coca-cola600', 'southernpoint500', 'brickyard400'];
   for (const part of keyParts) {
     if (jsonRaceName.includes(part.replace(/[^a-z0-9]/g, ''))) {
@@ -79,31 +106,19 @@ function findMatchingRace(
     }
   }
 
-  // STEP 3: Match by track name - find all races at this track
-  const trackMatches = availableRaces.filter(r => {
-    const dbTrack = normalizeTrackName(r.track_name || '');
-    const dbName = normalizeTrackName(r.name);
+  // STEP 5: Match by track name only - find all races at this track
+  const trackMatchingRaces = availableRaces.filter(r => trackMatches(r));
 
-    // Track must match - be strict here
-    if (jsonTrack.length < 4) return false; // Skip very short track names
-
-    return (dbTrack.includes(jsonTrack) || jsonTrack.includes(dbTrack)) ||
-           (dbName.includes(jsonTrack) && jsonTrack.length > 5);
-  });
-
-  if (trackMatches.length === 0) {
+  if (trackMatchingRaces.length === 0) {
     return null;
   }
 
-  if (trackMatches.length === 1) {
-    return trackMatches[0];
+  if (trackMatchingRaces.length === 1) {
+    return trackMatchingRaces[0];
   }
 
-  // STEP 4: Multiple races at same track (e.g., 2 Atlanta races, 2 Daytona races)
-  // Use race_number to pick the closest match
-  const sorted = [...trackMatches].sort((a, b) => a.race_number - b.race_number);
-
-  // Find the one with closest race_number to the JSON race_number
+  // STEP 6: Multiple races at same track - use race_number proximity
+  const sorted = [...trackMatchingRaces].sort((a, b) => a.race_number - b.race_number);
   const closestMatch = sorted.reduce((closest, race) => {
     const closestDiff = Math.abs(closest.race_number - raceData.race_number);
     const raceDiff = Math.abs(race.race_number - raceData.race_number);
