@@ -30,21 +30,30 @@ export async function POST(request: NextRequest) {
 
     let success = 0;
     let failed = 0;
+    const errors: string[] = [];
+    let skippedInvalid = 0;
 
     for (const pick of picks as MatchedRow[]) {
       if (!pick.isValid || !pick.raceMatch || !pick.teamMatch || !pick.driver1Match || !pick.driver2Match || !pick.driver3Match) {
+        skippedInvalid++;
         failed++;
         continue;
       }
 
       try {
         // Check if pick already exists for this team/race
-        const { data: existing } = await supabase
+        const { data: existing, error: selectError } = await supabase
           .from('picks')
           .select('id')
           .eq('race_id', pick.raceMatch.id)
           .eq('team_id', pick.teamMatch.id)
-          .single();
+          .maybeSingle();
+
+        if (selectError) {
+          errors.push(`Select error for ${pick.teamMatch.name}: ${selectError.message}`);
+          failed++;
+          continue;
+        }
 
         if (existing) {
           // Update existing pick
@@ -59,7 +68,7 @@ export async function POST(request: NextRequest) {
             .eq('id', existing.id);
 
           if (error) {
-            console.error('Failed to update pick:', error);
+            errors.push(`Update error for ${pick.teamMatch.name}: ${error.message}`);
             failed++;
           } else {
             success++;
@@ -77,19 +86,25 @@ export async function POST(request: NextRequest) {
             });
 
           if (error) {
-            console.error('Failed to insert pick:', error);
+            errors.push(`Insert error for ${pick.teamMatch.name} @ ${pick.raceMatch.name}: ${error.message}`);
             failed++;
           } else {
             success++;
           }
         }
-      } catch (err) {
-        console.error('Error processing pick:', err);
+      } catch (err: any) {
+        errors.push(`Exception for ${pick.teamMatch?.name || 'unknown'}: ${err.message}`);
         failed++;
       }
     }
 
-    return NextResponse.json({ success, failed });
+    return NextResponse.json({
+      success,
+      failed,
+      skippedInvalid,
+      errors: errors.slice(0, 10), // Return first 10 errors for debugging
+      totalPicks: picks.length
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

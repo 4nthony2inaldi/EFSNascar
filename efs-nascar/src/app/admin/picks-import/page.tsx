@@ -37,7 +37,7 @@ export default function PicksImportPage() {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors?: string[]; skippedInvalid?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addingDrivers, setAddingDrivers] = useState(false);
   const [driversAdded, setDriversAdded] = useState<string[] | null>(null);
@@ -229,14 +229,29 @@ export default function PicksImportPage() {
 
       {/* Import Result */}
       {importResult && (
-        <div className="glass rounded-xl p-6 border border-emerald-500/50 bg-emerald-500/10">
-          <h3 className="text-lg font-semibold text-emerald-400 mb-2">Import Complete!</h3>
+        <div className={`glass rounded-xl p-6 border ${importResult.success > 0 ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-red-500/50 bg-red-500/10'}`}>
+          <h3 className={`text-lg font-semibold mb-2 ${importResult.success > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            Import {importResult.success > 0 ? 'Complete' : 'Failed'}!
+          </h3>
           <p className="text-purple-200">
             Successfully imported <span className="text-emerald-400 font-bold">{importResult.success}</span> picks.
             {importResult.failed > 0 && (
               <span className="text-red-400 ml-2">({importResult.failed} failed)</span>
             )}
+            {importResult.skippedInvalid !== undefined && importResult.skippedInvalid > 0 && (
+              <span className="text-yellow-400 ml-2">({importResult.skippedInvalid} skipped - invalid matches)</span>
+            )}
           </p>
+          {importResult.errors && importResult.errors.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-red-400 mb-2">Error Details:</h4>
+              <ul className="text-sm text-red-300 space-y-1 max-h-40 overflow-y-auto">
+                {importResult.errors.map((err, i) => (
+                  <li key={i} className="bg-red-500/10 px-2 py-1 rounded">{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
