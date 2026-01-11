@@ -51,8 +51,9 @@ export async function GET() {
     .select('id, name, car_number, team_name');
 
   // Build lookup maps
+  type Driver = { id: string; name: string; car_number: number; team_name: string };
   const driverById = new Map(drivers?.map(d => [d.id, d]) || []);
-  const driversByName = new Map<string, typeof drivers[0]>();
+  const driversByName = new Map<string, Driver>();
 
   for (const d of drivers || []) {
     // Store by exact name (lowercase)
