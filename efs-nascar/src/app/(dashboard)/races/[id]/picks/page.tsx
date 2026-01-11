@@ -13,12 +13,12 @@ function getPopularityColor(count: number, totalTeams: number): string {
 
   const percentage = (count / totalTeams) * 100;
 
-  if (count === 1) return 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50'; // Unique pick
-  if (percentage <= 20) return 'bg-green-500/30 text-green-300 border-green-500/50'; // Rare
-  if (percentage <= 35) return 'bg-blue-500/30 text-blue-300 border-blue-500/50'; // Uncommon
-  if (percentage <= 50) return 'bg-yellow-500/30 text-yellow-300 border-yellow-500/50'; // Common
-  if (percentage <= 70) return 'bg-orange-500/30 text-orange-300 border-orange-500/50'; // Popular
-  return 'bg-red-500/30 text-red-300 border-red-500/50'; // Very Popular
+  if (count === 1) return 'bg-green-800/40 text-green-300 border-green-700/50'; // Unique - Dark green
+  if (percentage <= 20) return 'bg-green-500/30 text-green-300 border-green-400/50'; // Rare - Light green
+  if (percentage <= 35) return 'bg-yellow-500/30 text-yellow-300 border-yellow-500/50'; // Uncommon - Yellow
+  if (percentage <= 50) return 'bg-orange-500/30 text-orange-300 border-orange-500/50'; // Common - Orange
+  if (percentage <= 70) return 'bg-red-400/30 text-red-300 border-red-400/50'; // Popular - Light red
+  return 'bg-red-700/40 text-red-300 border-red-700/50'; // Chalk - Dark red
 }
 
 function getPopularityLabel(count: number, totalTeams: number): string {
@@ -152,47 +152,47 @@ export default async function PicksRevealPage({ params }: PageProps) {
       </div>
 
       {/* Legend */}
-      <div className="glass rounded-xl p-6">
-        <h2 className="text-lg font-bold text-white mb-4">Pick Popularity Legend</h2>
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-emerald-500/30 text-emerald-300 border-emerald-500/50">
+      <div className="glass rounded-xl p-3 sm:p-6">
+        <h2 className="text-sm sm:text-lg font-bold text-white mb-2 sm:mb-4">Pick Popularity</h2>
+        <div className="flex flex-wrap gap-1.5 sm:gap-3">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-green-800/40 text-green-300 border-green-700/50">
             <span className="font-medium">Unique</span>
-            <span className="text-xs opacity-75">(1 team)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(1 team)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-green-500/30 text-green-300 border-green-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-green-500/30 text-green-300 border-green-400/50">
             <span className="font-medium">Rare</span>
-            <span className="text-xs opacity-75">(&le;20%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;20%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-blue-500/30 text-blue-300 border-blue-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
             <span className="font-medium">Uncommon</span>
-            <span className="text-xs opacity-75">(&le;35%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;35%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-orange-500/30 text-orange-300 border-orange-500/50">
             <span className="font-medium">Common</span>
-            <span className="text-xs opacity-75">(&le;50%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;50%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-orange-500/30 text-orange-300 border-orange-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-red-400/30 text-red-300 border-red-400/50">
             <span className="font-medium">Popular</span>
-            <span className="text-xs opacity-75">(&le;70%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;70%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-red-500/30 text-red-300 border-red-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-red-700/40 text-red-300 border-red-700/50">
             <span className="font-medium">Chalk</span>
-            <span className="text-xs opacity-75">(&gt;70%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&gt;70%)</span>
           </div>
         </div>
       </div>
 
       {/* Compact All Picks Table */}
-      <div className="glass rounded-xl p-6">
-        <h2 className="text-xl font-bold text-white mb-4">All Picks At A Glance</h2>
+      <div className="glass rounded-xl p-3 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-4">All Picks At A Glance</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-purple-400 text-sm border-b border-purple-700/30">
-                <th className="pb-3 pr-4 whitespace-nowrap">Team</th>
-                <th className="pb-3 pr-4 text-center">Driver 1</th>
-                <th className="pb-3 pr-4 text-center">Driver 2</th>
-                <th className="pb-3 text-center">Driver 3</th>
+              <tr className="text-left text-purple-400 text-xs sm:text-sm border-b border-purple-700/30">
+                <th className="pb-2 sm:pb-3 pr-2 sm:pr-4 whitespace-nowrap">Team</th>
+                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 1</th>
+                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 2</th>
+                <th className="pb-2 sm:pb-3 text-center">Driver 3</th>
               </tr>
             </thead>
             <tbody>
@@ -207,8 +207,9 @@ export default async function PicksRevealPage({ params }: PageProps) {
                   const pickCount = driverPickCounts[driverId] || 0;
 
                   return (
-                    <span className={`inline-block px-2 py-1 rounded text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
-                      #{driver.car_number} {driver.name}
+                    <span className={`inline-block px-1 py-0.5 sm:px-2 sm:py-1 rounded text-xs sm:text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
+                      <span className="sm:hidden">#{driver.car_number}</span>
+                      <span className="hidden sm:inline">#{driver.car_number} {driver.name}</span>
                     </span>
                   );
                 };
@@ -218,12 +219,12 @@ export default async function PicksRevealPage({ params }: PageProps) {
                     key={team.id}
                     className={`border-b border-purple-800/20 ${isUserTeam ? 'bg-amber-500/10' : ''}`}
                   >
-                    <td className="py-2 pr-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-amber-400 font-bold">#{team.car_number}</span>
-                        <span className="text-white font-medium">{team.name}</span>
+                    <td className="py-1 sm:py-2 pr-2 sm:pr-4">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
+                        <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
                         {isUserTeam && (
-                          <span className="text-xs bg-amber-400 text-purple-900 px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
                             YOU
                           </span>
                         )}
@@ -231,12 +232,12 @@ export default async function PicksRevealPage({ params }: PageProps) {
                     </td>
                     {pick ? (
                       <>
-                        <td className="py-2 pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
-                        <td className="py-2 pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
-                        <td className="py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
+                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
+                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
+                        <td className="py-1 sm:py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
                       </>
                     ) : (
-                      <td colSpan={3} className="py-2 text-center text-red-400 text-sm">
+                      <td colSpan={3} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
                         No picks submitted
                       </td>
                     )}
@@ -304,7 +305,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
                 return (
                   <div
                     key={driverId}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg border bg-emerald-500/30 text-emerald-300 border-emerald-500/50"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border bg-green-800/40 text-green-300 border-green-700/50"
                   >
                     <div className="flex items-center space-x-3">
                       <span className="font-bold text-amber-400">#{driver.car_number}</span>

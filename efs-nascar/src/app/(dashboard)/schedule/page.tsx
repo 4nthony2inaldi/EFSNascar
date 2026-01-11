@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Pick, Track, TrackType, Season } from '@/types';
+// Schedule page with season selector and picks links
 
 interface RaceWithTrack extends Race {
   track_info: Track | null;
