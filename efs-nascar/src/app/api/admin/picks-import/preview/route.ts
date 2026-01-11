@@ -81,20 +81,7 @@ function fuzzyMatchRace(
 ): { id: string; name: string; race_number: number } | null {
   const normalizedInput = normalize(input);
 
-  // Filter out exhibition races for "week" matching
-  const pointsRaces = races.filter(r => r.race_type !== 'exhibition');
-  const sortedPointsRaces = [...pointsRaces].sort((a, b) => a.race_number - b.race_number);
-
-  // PRIORITY 1: Use week number directly if provided
-  // Week X maps to the Xth points race of the season
-  if (week > 0 && week <= sortedPointsRaces.length) {
-    const raceByWeek = sortedPointsRaces[week - 1];
-    if (raceByWeek) {
-      return raceByWeek;
-    }
-  }
-
-  // PRIORITY 2: Find all races matching the track name
+  // STEP 1: Find all races matching the track name
   const matchingRaces: Array<{ id: string; name: string; race_number: number; race_type: string }> = [];
 
   // Check direct name match
@@ -120,39 +107,41 @@ function fuzzyMatchRace(
     }
   }
 
-  // If multiple races match the track, use week number to pick the right one
-  if (matchingRaces.length > 1 && week > 0) {
-    // Sort matching races by race_number
+  // STEP 2: If we found matching races, use week number to pick the right one
+  if (matchingRaces.length > 0) {
+    // Sort by race_number
     const sortedMatches = [...matchingRaces].sort((a, b) => a.race_number - b.race_number);
 
-    // Find which occurrence this week corresponds to
-    // Count how many of these track's races come before the target week
-    let occurrenceIndex = 0;
-    for (const race of sortedPointsRaces) {
-      if (race.race_number <= week && matchingRaces.some(m => m.id === race.id)) {
-        occurrenceIndex++;
-      }
+    // If only one match, return it
+    if (sortedMatches.length === 1) {
+      return sortedMatches[0];
     }
 
-    // Get the race at this track that's closest to the week number
-    const targetRaceNumber = week; // Week X should be around race number X (accounting for exhibitions)
-    const closestMatch = sortedMatches.reduce((closest, race) => {
-      const closestDiff = Math.abs((closest?.race_number || 0) - targetRaceNumber);
-      const raceDiff = Math.abs(race.race_number - targetRaceNumber);
-      return raceDiff < closestDiff ? race : closest;
-    }, sortedMatches[0]);
+    // Multiple matches (like 2 Atlanta races) - use week to pick closest one
+    if (week > 0) {
+      // The week number roughly corresponds to race_number (with some offset for exhibitions)
+      // Find the race whose race_number is closest to the week
+      const closestMatch = sortedMatches.reduce((closest, race) => {
+        const closestDiff = Math.abs(closest.race_number - week);
+        const raceDiff = Math.abs(race.race_number - week);
+        return raceDiff < closestDiff ? race : closest;
+      }, sortedMatches[0]);
 
-    return closestMatch;
+      return closestMatch;
+    }
+
+    // No week provided, return first match
+    return sortedMatches[0];
   }
 
-  // Return first match if only one
-  if (matchingRaces.length === 1) {
-    return matchingRaces[0];
-  }
+  // STEP 3: No track name match - fall back to week number only
+  if (week > 0) {
+    const pointsRaces = races.filter(r => r.race_type !== 'exhibition');
+    const sortedPointsRaces = [...pointsRaces].sort((a, b) => a.race_number - b.race_number);
 
-  // Return first match if any
-  if (matchingRaces.length > 0) {
-    return matchingRaces[0];
+    if (week <= sortedPointsRaces.length) {
+      return sortedPointsRaces[week - 1];
+    }
   }
 
   return null;
