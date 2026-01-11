@@ -13,12 +13,12 @@ function getPopularityColor(count: number, totalTeams: number): string {
 
   const percentage = (count / totalTeams) * 100;
 
-  if (count === 1) return 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50'; // Unique pick
-  if (percentage <= 20) return 'bg-green-500/30 text-green-300 border-green-500/50'; // Rare
-  if (percentage <= 35) return 'bg-blue-500/30 text-blue-300 border-blue-500/50'; // Uncommon
-  if (percentage <= 50) return 'bg-yellow-500/30 text-yellow-300 border-yellow-500/50'; // Common
-  if (percentage <= 70) return 'bg-orange-500/30 text-orange-300 border-orange-500/50'; // Popular
-  return 'bg-red-500/30 text-red-300 border-red-500/50'; // Very Popular
+  if (count === 1) return 'bg-green-800/40 text-green-300 border-green-700/50'; // Unique - Dark green
+  if (percentage <= 20) return 'bg-green-500/30 text-green-300 border-green-400/50'; // Rare - Light green
+  if (percentage <= 35) return 'bg-yellow-500/30 text-yellow-300 border-yellow-500/50'; // Uncommon - Yellow
+  if (percentage <= 50) return 'bg-orange-500/30 text-orange-300 border-orange-500/50'; // Common - Orange
+  if (percentage <= 70) return 'bg-red-400/30 text-red-300 border-red-400/50'; // Popular - Light red
+  return 'bg-red-700/40 text-red-300 border-red-700/50'; // Chalk - Dark red
 }
 
 function getPopularityLabel(count: number, totalTeams: number): string {
@@ -155,27 +155,27 @@ export default async function PicksRevealPage({ params }: PageProps) {
       <div className="glass rounded-xl p-6">
         <h2 className="text-lg font-bold text-white mb-4">Pick Popularity Legend</h2>
         <div className="flex flex-wrap gap-3">
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-emerald-500/30 text-emerald-300 border-emerald-500/50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-green-800/40 text-green-300 border-green-700/50">
             <span className="font-medium">Unique</span>
             <span className="text-xs opacity-75">(1 team)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-green-500/30 text-green-300 border-green-500/50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-green-500/30 text-green-300 border-green-400/50">
             <span className="font-medium">Rare</span>
             <span className="text-xs opacity-75">(&le;20%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-blue-500/30 text-blue-300 border-blue-500/50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
             <span className="font-medium">Uncommon</span>
             <span className="text-xs opacity-75">(&le;35%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-orange-500/30 text-orange-300 border-orange-500/50">
             <span className="font-medium">Common</span>
             <span className="text-xs opacity-75">(&le;50%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-orange-500/30 text-orange-300 border-orange-500/50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-red-400/30 text-red-300 border-red-400/50">
             <span className="font-medium">Popular</span>
             <span className="text-xs opacity-75">(&le;70%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-red-500/30 text-red-300 border-red-500/50">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-red-700/40 text-red-300 border-red-700/50">
             <span className="font-medium">Chalk</span>
             <span className="text-xs opacity-75">(&gt;70%)</span>
           </div>
@@ -305,7 +305,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
                 return (
                   <div
                     key={driverId}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg border bg-emerald-500/30 text-emerald-300 border-emerald-500/50"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border bg-green-800/40 text-green-300 border-green-700/50"
                   >
                     <div className="flex items-center space-x-3">
                       <span className="font-bold text-amber-400">#{driver.car_number}</span>
