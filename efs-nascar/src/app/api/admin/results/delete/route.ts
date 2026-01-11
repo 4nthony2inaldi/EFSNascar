@@ -3,67 +3,75 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { raceId, seasonId } = await request.json();
+    const { seasonId, raceId } = await request.json();
 
-    if (!raceId && !seasonId) {
-      return NextResponse.json({ error: 'Must provide raceId or seasonId' }, { status: 400 });
+    if (!seasonId && !raceId) {
+      return NextResponse.json({ error: 'Either seasonId or raceId is required' }, { status: 400 });
     }
 
     const supabase = await createClient();
 
     if (raceId) {
       // Delete results for a specific race
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('race_results')
         .delete()
-        .eq('race_id', raceId)
-        .select('id');
+        .eq('race_id', raceId);
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({
-        message: `Deleted ${data?.length || 0} results for race`,
-        deleted: data?.length || 0
-      });
-    }
+      // Reset race status back to 'upcoming'
+      await supabase
+        .from('races')
+        .update({ status: 'upcoming' })
+        .eq('id', raceId);
 
-    if (seasonId) {
-      // Get all race IDs for the season
+      return NextResponse.json({
+        message: `Deleted results for race`,
+        deleted: 1
+      });
+    } else {
+      // Delete results for entire season
+      // First get all race IDs for this season
       const { data: races, error: racesError } = await supabase
         .from('races')
-        .select('id, name')
+        .select('id')
         .eq('season_id', seasonId);
 
       if (racesError) {
         return NextResponse.json({ error: racesError.message }, { status: 500 });
       }
 
-      if (!races || races.length === 0) {
-        return NextResponse.json({ message: 'No races found for season', deleted: 0 });
+      const raceIds = (races || []).map(r => r.id);
+
+      if (raceIds.length === 0) {
+        return NextResponse.json({ message: 'No races found for this season', deleted: 0 });
       }
 
-      const raceIds = races.map(r => r.id);
-
-      // Delete all results for those races
-      const { data, error } = await supabase
+      // Delete all results for these races
+      const { error } = await supabase
         .from('race_results')
         .delete()
-        .in('race_id', raceIds)
-        .select('id');
+        .in('race_id', raceIds);
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
+      // Reset race statuses back to 'upcoming'
+      await supabase
+        .from('races')
+        .update({ status: 'upcoming' })
+        .in('id', raceIds);
+
       return NextResponse.json({
-        message: `Deleted ${data?.length || 0} results for season (${races.length} races)`,
-        deleted: data?.length || 0
+        message: `Deleted all results for season`,
+        deleted: raceIds.length,
+        racesAffected: raceIds.length
       });
     }
-
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

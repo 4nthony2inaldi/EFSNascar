@@ -45,7 +45,7 @@ function normalizeTrackName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-// Match JSON race data to database race by track name
+// Match JSON race data to database race - prioritize name match, then track
 function findMatchingRace(
   raceData: RaceData,
   dbRaces: Array<{ id: string; race_number: number; name: string; track_name: string | null }>,
@@ -54,15 +54,41 @@ function findMatchingRace(
   const jsonTrack = normalizeTrackName(raceData.track);
   const jsonRaceName = normalizeTrackName(raceData.name);
 
-  // Find all races at this track that haven't been matched yet
-  const trackMatches = dbRaces.filter(r => {
-    if (alreadyMatched.has(r.id)) return false;
+  // Get available races (not already matched)
+  const availableRaces = dbRaces.filter(r => !alreadyMatched.has(r.id));
+
+  // STEP 1: Try exact race name match first (highest priority)
+  for (const race of availableRaces) {
+    const dbName = normalizeTrackName(race.name);
+    // Check if race names are very similar (one contains the other significantly)
+    if (dbName === jsonRaceName ||
+        (dbName.includes(jsonRaceName) && jsonRaceName.length > 5) ||
+        (jsonRaceName.includes(dbName) && dbName.length > 5)) {
+      return race;
+    }
+  }
+
+  // STEP 2: Try matching by key race name parts (e.g., "daytona500" in both)
+  const keyParts = ['daytona500', 'coca-cola600', 'southernpoint500', 'brickyard400'];
+  for (const part of keyParts) {
+    if (jsonRaceName.includes(part.replace(/[^a-z0-9]/g, ''))) {
+      const match = availableRaces.find(r =>
+        normalizeTrackName(r.name).includes(part.replace(/[^a-z0-9]/g, ''))
+      );
+      if (match) return match;
+    }
+  }
+
+  // STEP 3: Match by track name - find all races at this track
+  const trackMatches = availableRaces.filter(r => {
     const dbTrack = normalizeTrackName(r.track_name || '');
     const dbName = normalizeTrackName(r.name);
-    // Match by track name or race name containing track info
-    return dbTrack.includes(jsonTrack) || jsonTrack.includes(dbTrack) ||
-           dbName.includes(jsonTrack) || jsonTrack.includes(dbName) ||
-           dbTrack.includes(jsonRaceName) || jsonRaceName.includes(dbTrack);
+
+    // Track must match - be strict here
+    if (jsonTrack.length < 4) return false; // Skip very short track names
+
+    return (dbTrack.includes(jsonTrack) || jsonTrack.includes(dbTrack)) ||
+           (dbName.includes(jsonTrack) && jsonTrack.length > 5);
   });
 
   if (trackMatches.length === 0) {
@@ -73,10 +99,18 @@ function findMatchingRace(
     return trackMatches[0];
   }
 
-  // Multiple matches (e.g., 2 Atlanta races) - pick the one with closest race_number
-  // Sort by race_number and pick the first unmatched one
+  // STEP 4: Multiple races at same track (e.g., 2 Atlanta races, 2 Daytona races)
+  // Use race_number to pick the closest match
   const sorted = [...trackMatches].sort((a, b) => a.race_number - b.race_number);
-  return sorted[0];
+
+  // Find the one with closest race_number to the JSON race_number
+  const closestMatch = sorted.reduce((closest, race) => {
+    const closestDiff = Math.abs(closest.race_number - raceData.race_number);
+    const raceDiff = Math.abs(race.race_number - raceData.race_number);
+    return raceDiff < closestDiff ? race : closest;
+  }, sorted[0]);
+
+  return closestMatch;
 }
 
 export async function POST(request: NextRequest) {
