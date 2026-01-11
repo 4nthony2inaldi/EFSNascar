@@ -2,6 +2,13 @@ import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { POSITION_POINTS } from '@/types';
 
+// Weights for recency tiers (most recent 30, middle 30, oldest 30)
+const TIER_WEIGHTS = {
+  recent: 3,   // Races 1-30 (most recent)
+  middle: 2,   // Races 31-60
+  oldest: 1,   // Races 61-90
+};
+
 export interface DriverRanking {
   driver_id: string;
   driver_name: string;
@@ -9,6 +16,8 @@ export interface DriverRanking {
   team_name: string | null;
   is_active: boolean;
   total_points: number;
+  weighted_score: number;
+  weighted_per_race: number;
   position_points: number;
   stage_wins: number;
   stage_points: number;
@@ -27,7 +36,7 @@ export async function GET() {
     // Get the last 90 races that have results (status = 'final')
     const { data: races, error: racesError } = await supabase
       .from('races')
-      .select('id')
+      .select('id, scheduled_datetime')
       .eq('status', 'final')
       .order('scheduled_datetime', { ascending: false })
       .limit(90);
@@ -44,6 +53,18 @@ export async function GET() {
         message: 'No completed races found'
       });
     }
+
+    // Create a map of race_id to tier weight based on recency
+    const raceWeights: Record<string, number> = {};
+    races.forEach((race, index) => {
+      if (index < 30) {
+        raceWeights[race.id] = TIER_WEIGHTS.recent;
+      } else if (index < 60) {
+        raceWeights[race.id] = TIER_WEIGHTS.middle;
+      } else {
+        raceWeights[race.id] = TIER_WEIGHTS.oldest;
+      }
+    });
 
     const raceIds = races.map(r => r.id);
 
@@ -69,8 +90,11 @@ export async function GET() {
       team_name: string | null;
       is_active: boolean;
       total_position_points: number;
+      weighted_position_points: number;
       stage_wins: number;
+      weighted_stage_points: number;
       laps_led_bonuses: number;
+      weighted_laps_led: number;
       races_counted: number;
       total_finish_position: number;
       wins: number;
@@ -82,6 +106,8 @@ export async function GET() {
       const driver = result.driver;
       if (!driver) continue;
 
+      const weight = raceWeights[result.race_id] || 1;
+
       if (!driverStats[driver.id]) {
         driverStats[driver.id] = {
           driver_id: driver.id,
@@ -90,8 +116,11 @@ export async function GET() {
           team_name: driver.team_name,
           is_active: driver.is_active,
           total_position_points: 0,
+          weighted_position_points: 0,
           stage_wins: 0,
+          weighted_stage_points: 0,
           laps_led_bonuses: 0,
+          weighted_laps_led: 0,
           races_counted: 0,
           total_finish_position: 0,
           wins: 0,
@@ -105,13 +134,23 @@ export async function GET() {
       // Position points
       const posPoints = POSITION_POINTS[result.finish_position] || 0;
       stats.total_position_points += posPoints;
+      stats.weighted_position_points += posPoints * weight;
 
       // Stage wins
-      if (result.stage_1_winner) stats.stage_wins += 1;
-      if (result.stage_2_winner) stats.stage_wins += 1;
+      if (result.stage_1_winner) {
+        stats.stage_wins += 1;
+        stats.weighted_stage_points += 1 * weight;
+      }
+      if (result.stage_2_winner) {
+        stats.stage_wins += 1;
+        stats.weighted_stage_points += 1 * weight;
+      }
 
       // Most laps led bonus
-      if (result.most_laps_led) stats.laps_led_bonuses += 1;
+      if (result.most_laps_led) {
+        stats.laps_led_bonuses += 1;
+        stats.weighted_laps_led += 1 * weight;
+      }
 
       // Race count and finish position for average
       stats.races_counted += 1;
@@ -124,25 +163,35 @@ export async function GET() {
     }
 
     // Convert to rankings array with calculated totals
-    const rankings: DriverRanking[] = Object.values(driverStats).map(stats => ({
-      driver_id: stats.driver_id,
-      driver_name: stats.driver_name,
-      car_number: stats.car_number,
-      team_name: stats.team_name,
-      is_active: stats.is_active,
-      position_points: stats.total_position_points,
-      stage_wins: stats.stage_wins,
-      stage_points: stats.stage_wins, // 1 point per stage win
-      laps_led_bonuses: stats.laps_led_bonuses,
-      total_points: stats.total_position_points + stats.stage_wins + stats.laps_led_bonuses,
-      races_counted: stats.races_counted,
-      avg_finish: stats.races_counted > 0
-        ? Math.round((stats.total_finish_position / stats.races_counted) * 10) / 10
-        : 0,
-      wins: stats.wins,
-      top_5s: stats.top_5s,
-      top_10s: stats.top_10s,
-    }));
+    const rankings: DriverRanking[] = Object.values(driverStats).map(stats => {
+      const totalPoints = stats.total_position_points + stats.stage_wins + stats.laps_led_bonuses;
+      const weightedScore = stats.weighted_position_points + stats.weighted_stage_points + stats.weighted_laps_led;
+      const weightedPerRace = stats.races_counted > 0
+        ? Math.round((weightedScore / stats.races_counted) * 100) / 100
+        : 0;
+
+      return {
+        driver_id: stats.driver_id,
+        driver_name: stats.driver_name,
+        car_number: stats.car_number,
+        team_name: stats.team_name,
+        is_active: stats.is_active,
+        position_points: stats.total_position_points,
+        stage_wins: stats.stage_wins,
+        stage_points: stats.stage_wins,
+        laps_led_bonuses: stats.laps_led_bonuses,
+        total_points: totalPoints,
+        weighted_score: weightedScore,
+        weighted_per_race: weightedPerRace,
+        races_counted: stats.races_counted,
+        avg_finish: stats.races_counted > 0
+          ? Math.round((stats.total_finish_position / stats.races_counted) * 10) / 10
+          : 0,
+        wins: stats.wins,
+        top_5s: stats.top_5s,
+        top_10s: stats.top_10s,
+      };
+    });
 
     // Sort by total points descending
     rankings.sort((a, b) => b.total_points - a.total_points);
@@ -150,6 +199,7 @@ export async function GET() {
     return NextResponse.json({
       rankings,
       races_analyzed: races.length,
+      tier_weights: TIER_WEIGHTS,
     });
   } catch (error: unknown) {
     console.error('Error calculating driver rankings:', error);
