@@ -183,16 +183,16 @@ export default async function PicksRevealPage({ params }: PageProps) {
       </div>
 
       {/* Compact All Picks Table */}
-      <div className="glass rounded-xl p-6">
-        <h2 className="text-xl font-bold text-white mb-4">All Picks At A Glance</h2>
+      <div className="glass rounded-xl p-3 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-4">All Picks At A Glance</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-purple-400 text-sm border-b border-purple-700/30">
-                <th className="pb-3 pr-4 whitespace-nowrap">Team</th>
-                <th className="pb-3 pr-4 text-center">Driver 1</th>
-                <th className="pb-3 pr-4 text-center">Driver 2</th>
-                <th className="pb-3 text-center">Driver 3</th>
+              <tr className="text-left text-purple-400 text-xs sm:text-sm border-b border-purple-700/30">
+                <th className="pb-2 sm:pb-3 pr-2 sm:pr-4 whitespace-nowrap">Team</th>
+                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 1</th>
+                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 2</th>
+                <th className="pb-2 sm:pb-3 text-center">Driver 3</th>
               </tr>
             </thead>
             <tbody>
@@ -207,8 +207,9 @@ export default async function PicksRevealPage({ params }: PageProps) {
                   const pickCount = driverPickCounts[driverId] || 0;
 
                   return (
-                    <span className={`inline-block px-2 py-1 rounded text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
-                      #{driver.car_number} {driver.name}
+                    <span className={`inline-block px-1 py-0.5 sm:px-2 sm:py-1 rounded text-xs sm:text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
+                      <span className="sm:hidden">#{driver.car_number}</span>
+                      <span className="hidden sm:inline">#{driver.car_number} {driver.name}</span>
                     </span>
                   );
                 };
@@ -218,12 +219,12 @@ export default async function PicksRevealPage({ params }: PageProps) {
                     key={team.id}
                     className={`border-b border-purple-800/20 ${isUserTeam ? 'bg-amber-500/10' : ''}`}
                   >
-                    <td className="py-2 pr-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-amber-400 font-bold">#{team.car_number}</span>
-                        <span className="text-white font-medium">{team.name}</span>
+                    <td className="py-1 sm:py-2 pr-2 sm:pr-4">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
+                        <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
                         {isUserTeam && (
-                          <span className="text-xs bg-amber-400 text-purple-900 px-1.5 py-0.5 rounded font-bold">
+                          <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
                             YOU
                           </span>
                         )}
@@ -231,12 +232,12 @@ export default async function PicksRevealPage({ params }: PageProps) {
                     </td>
                     {pick ? (
                       <>
-                        <td className="py-2 pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
-                        <td className="py-2 pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
-                        <td className="py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
+                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
+                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
+                        <td className="py-1 sm:py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
                       </>
                     ) : (
-                      <td colSpan={3} className="py-2 text-center text-red-400 text-sm">
+                      <td colSpan={3} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
                         No picks submitted
                       </td>
                     )}
