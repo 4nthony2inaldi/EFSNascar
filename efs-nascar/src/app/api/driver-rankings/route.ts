@@ -68,18 +68,37 @@ export async function GET() {
 
     const raceIds = races.map(r => r.id);
 
-    // Get all results for these races
+    // Get all results for these races (without join - more reliable)
     const { data: results, error: resultsError } = await supabase
       .from('race_results')
-      .select(`
-        *,
-        driver:drivers(id, name, car_number, team_name, is_active)
-      `)
+      .select('*')
       .in('race_id', raceIds);
 
     if (resultsError) {
       console.error('Error fetching results:', resultsError);
       return NextResponse.json({ error: 'Failed to fetch race results' }, { status: 500 });
+    }
+
+    // Get all drivers separately
+    const { data: drivers, error: driversError } = await supabase
+      .from('drivers')
+      .select('id, name, car_number, team_name, is_active');
+
+    if (driversError) {
+      console.error('Error fetching drivers:', driversError);
+      return NextResponse.json({ error: 'Failed to fetch drivers' }, { status: 500 });
+    }
+
+    // Create a map of driver_id to driver info
+    const driverMap: Record<string, {
+      id: string;
+      name: string;
+      car_number: number;
+      team_name: string | null;
+      is_active: boolean;
+    }> = {};
+    for (const driver of drivers || []) {
+      driverMap[driver.id] = driver;
     }
 
     // Aggregate driver stats
@@ -103,7 +122,7 @@ export async function GET() {
     }> = {};
 
     for (const result of results || []) {
-      const driver = result.driver;
+      const driver = driverMap[result.driver_id];
       if (!driver) continue;
 
       const weight = raceWeights[result.race_id] || 1;
