@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { POSITION_POINTS } from '@/types';
 
+// Force dynamic rendering to always get fresh data
+export const dynamic = 'force-dynamic';
+
 // Weights for recency tiers (most recent 30, middle 30, oldest 30)
 const TIER_WEIGHTS = {
   recent: 3,   // Races 1-30 (most recent)
