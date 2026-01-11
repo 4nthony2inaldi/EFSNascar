@@ -42,6 +42,7 @@ export default async function AdminLayout({
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/seasons', label: 'Seasons' },
     { href: '/admin/races', label: 'Races' },
+    { href: '/admin/schedule', label: 'Schedule Mgmt' },
     { href: '/admin/drivers', label: 'Drivers' },
     { href: '/admin/results', label: 'Results' },
     { href: '/admin/import', label: 'API Import' },
