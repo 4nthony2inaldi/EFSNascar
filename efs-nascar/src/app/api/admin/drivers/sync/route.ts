@@ -10,34 +10,46 @@ import results2025 from '@/data/results/nascar-results-2025.json';
 
 interface RaceResult {
   driver: string;
+  car: string;
   [key: string]: any;
 }
 
 interface RaceData {
   results: RaceResult[];
+  season: number;
   [key: string]: any;
 }
 
-// Extract all unique driver names from all years
-function getAllDrivers(): string[] {
+interface DriverInfo {
+  name: string;
+  car_number: string;
+}
+
+// Extract all unique drivers with their most recent car numbers
+function getAllDriversWithCarNumbers(): DriverInfo[] {
+  // Process in reverse chronological order so most recent car number wins
   const allResults = [
-    ...(results2020 as RaceData[]),
-    ...(results2022 as RaceData[]),
-    ...(results2023 as RaceData[]),
-    ...(results2024 as RaceData[]),
     ...(results2025 as RaceData[]),
+    ...(results2024 as RaceData[]),
+    ...(results2023 as RaceData[]),
+    ...(results2022 as RaceData[]),
+    ...(results2020 as RaceData[]),
   ];
 
-  const driverSet = new Set<string>();
+  const driverMap = new Map<string, string>(); // driver name -> car number
+
   for (const race of allResults) {
     for (const result of race.results) {
-      if (result.driver) {
-        driverSet.add(result.driver);
+      if (result.driver && !driverMap.has(result.driver)) {
+        // Only set if not already set (since we're going newest to oldest)
+        driverMap.set(result.driver, result.car || '0');
       }
     }
   }
 
-  return Array.from(driverSet).sort();
+  return Array.from(driverMap.entries())
+    .map(([name, car_number]) => ({ name, car_number }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function normalizeDriverName(name: string): string {
@@ -62,12 +74,12 @@ export async function POST() {
       (existingDrivers || []).map(d => normalizeDriverName(d.name))
     );
 
-    // Get all drivers from historical data
-    const allDrivers = getAllDrivers();
+    // Get all drivers from historical data with car numbers
+    const allDrivers = getAllDriversWithCarNumbers();
 
     // Find drivers that don't exist yet
     const missingDrivers = allDrivers.filter(
-      d => !existingNormalized.has(normalizeDriverName(d))
+      d => !existingNormalized.has(normalizeDriverName(d.name))
     );
 
     if (missingDrivers.length === 0) {
@@ -79,10 +91,13 @@ export async function POST() {
       });
     }
 
-    // Add missing drivers
+    // Add missing drivers with car numbers
     const { data: insertedDrivers, error: insertError } = await supabase
       .from('drivers')
-      .insert(missingDrivers.map(name => ({ name })))
+      .insert(missingDrivers.map(d => ({
+        name: d.name,
+        car_number: d.car_number
+      })))
       .select('name');
 
     if (insertError) {
@@ -103,7 +118,7 @@ export async function POST() {
 
 export async function GET() {
   // Return the list of all drivers from historical data
-  const allDrivers = getAllDrivers();
+  const allDrivers = getAllDriversWithCarNumbers();
   return NextResponse.json({
     totalDrivers: allDrivers.length,
     drivers: allDrivers,
