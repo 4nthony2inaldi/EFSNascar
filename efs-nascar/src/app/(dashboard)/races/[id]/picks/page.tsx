@@ -152,32 +152,32 @@ export default async function PicksRevealPage({ params }: PageProps) {
       </div>
 
       {/* Legend */}
-      <div className="glass rounded-xl p-6">
-        <h2 className="text-lg font-bold text-white mb-4">Pick Popularity Legend</h2>
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-green-800/40 text-green-300 border-green-700/50">
+      <div className="glass rounded-xl p-3 sm:p-6">
+        <h2 className="text-sm sm:text-lg font-bold text-white mb-2 sm:mb-4">Pick Popularity</h2>
+        <div className="flex flex-wrap gap-1.5 sm:gap-3">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-green-800/40 text-green-300 border-green-700/50">
             <span className="font-medium">Unique</span>
-            <span className="text-xs opacity-75">(1 team)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(1 team)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-green-500/30 text-green-300 border-green-400/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-green-500/30 text-green-300 border-green-400/50">
             <span className="font-medium">Rare</span>
-            <span className="text-xs opacity-75">(&le;20%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;20%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
             <span className="font-medium">Uncommon</span>
-            <span className="text-xs opacity-75">(&le;35%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;35%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-orange-500/30 text-orange-300 border-orange-500/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-orange-500/30 text-orange-300 border-orange-500/50">
             <span className="font-medium">Common</span>
-            <span className="text-xs opacity-75">(&le;50%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;50%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-red-400/30 text-red-300 border-red-400/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-red-400/30 text-red-300 border-red-400/50">
             <span className="font-medium">Popular</span>
-            <span className="text-xs opacity-75">(&le;70%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&le;70%)</span>
           </div>
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-lg border bg-red-700/40 text-red-300 border-red-700/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-red-700/40 text-red-300 border-red-700/50">
             <span className="font-medium">Chalk</span>
-            <span className="text-xs opacity-75">(&gt;70%)</span>
+            <span className="hidden sm:inline text-xs opacity-75">(&gt;70%)</span>
           </div>
         </div>
       </div>
