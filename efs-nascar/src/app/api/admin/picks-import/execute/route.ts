@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
           const { error } = await supabase
             .from('picks')
             .update({
-              driver1_id: pick.driver1Match.id,
-              driver2_id: pick.driver2Match.id,
-              driver3_id: pick.driver3Match.id,
+              driver_1_id: pick.driver1Match.id,
+              driver_2_id: pick.driver2Match.id,
+              driver_3_id: pick.driver3Match.id,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existing.id);
@@ -88,9 +88,9 @@ export async function POST(request: NextRequest) {
             .insert({
               race_id: pick.raceMatch.id,
               team_id: pick.teamMatch.id,
-              driver1_id: pick.driver1Match.id,
-              driver2_id: pick.driver2Match.id,
-              driver3_id: pick.driver3Match.id,
+              driver_1_id: pick.driver1Match.id,
+              driver_2_id: pick.driver2Match.id,
+              driver_3_id: pick.driver3Match.id,
             });
 
           if (error) {
