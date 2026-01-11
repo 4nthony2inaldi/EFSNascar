@@ -105,6 +105,9 @@ export interface RaceResult {
   stage_2_winner: boolean;
   laps_led: number;
   most_laps_led: boolean;
+  // Original API data for re-matching when drivers change car numbers
+  api_driver_name: string | null;
+  api_car_number: number | null;
   created_at: string;
 }
 
@@ -266,6 +269,9 @@ export interface CreateRaceResultInput {
   stage_2_winner?: boolean;
   laps_led?: number;
   most_laps_led?: boolean;
+  // Original API data for re-matching when drivers change car numbers
+  api_driver_name?: string;
+  api_car_number?: number;
 }
 
 // ============================================

@@ -374,13 +374,40 @@ While the full solution is implemented, manually fix SVG's records:
 
 | File | Purpose |
 |------|---------|
-| `/src/app/api/nascar/fetch-results/route.ts` | Import race results |
-| `/src/app/api/nascar/bulk-import/route.ts` | Bulk import winners |
+| `/src/app/api/nascar/fetch-results/route.ts` | Import race results (stores api_driver_name) |
+| `/src/app/api/nascar/bulk-import/route.ts` | Bulk import winners (stores api_driver_name) |
+| `/src/app/api/admin/merge-drivers/route.ts` | **NEW** Merge duplicate driver records |
+| `/src/app/api/admin/find-duplicate-drivers/route.ts` | **NEW** Find potential duplicate drivers |
+| `/src/app/api/admin/relink-results/route.ts` | **NEW** Re-link results using api_driver_name |
 | `/src/app/api/admin/fix-results-by-name/route.ts` | Fix mislinked results |
 | `/src/app/api/admin/fix-driver-links/route.ts` | Fix orphaned driver IDs |
 | `/src/app/api/admin/fix-car-number-conflicts/route.ts` | Diagnose car # conflicts |
 | `/src/app/(dashboard)/driver-rankings/page.tsx` | Driver rankings display |
 | `/src/app/api/driver-rankings/route.ts` | Driver rankings calculation |
+| `/supabase/migrations/008_add_api_driver_columns.sql` | **NEW** Migration for api_driver_name columns |
+
+---
+
+## Implementation Status
+
+**IMPLEMENTED** (January 2026)
+
+### Completed:
+1. Added `api_driver_name` and `api_car_number` columns to `race_results` table
+2. Updated `fetch-results` endpoint to store original API driver name/car number
+3. Updated `bulk-import` endpoint to store original API driver name
+4. Created `merge-drivers` endpoint to merge duplicate driver records
+5. Created `find-duplicate-drivers` endpoint to identify potential duplicates
+6. Created `relink-results` endpoint to re-match results using stored API names
+7. Created SQL migration for new columns
+
+### Usage:
+1. Run the SQL migration: `008_add_api_driver_columns.sql`
+2. Use `GET /api/admin/find-duplicate-drivers` to identify duplicates
+3. Use `GET /api/admin/merge-drivers?keep_driver_id=X&merge_driver_id=Y` to preview merge
+4. Use `POST /api/admin/merge-drivers` to execute merge
+5. Use `GET /api/admin/relink-results` to preview re-linking
+6. Use `POST /api/admin/relink-results` to re-link results
 
 ---
 
@@ -395,5 +422,6 @@ While the full solution is implemented, manually fix SVG's records:
 ---
 
 *Created: January 2026*
+*Updated: January 2026 (Implementation complete)*
 *Author: Claude*
 *Related Issue: SVG #16/#88 car number change causing points discrepancy*

@@ -307,6 +307,8 @@ export async function POST(request: Request) {
             stage_2_winner: false,
             laps_led: 0,
             most_laps_led: false,
+            api_driver_name: winnerName,
+            api_car_number: winnerDriver.car_number, // Best guess since API only provides name
           });
 
         if (insertError) {
