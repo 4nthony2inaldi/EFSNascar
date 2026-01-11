@@ -156,6 +156,8 @@ export async function POST(request: Request) {
       stage_2_winner: boolean;
       laps_led: number;
       most_laps_led: boolean;
+      api_driver_name: string;
+      api_car_number: number;
     }> = [];
 
     const unmatchedDrivers: string[] = [];
@@ -184,6 +186,8 @@ export async function POST(request: Request) {
         stage_2_winner: result.isStage2Winner,
         laps_led: result.lapsLed,
         most_laps_led: result.isMostLapsLed,
+        api_driver_name: result.driverName,
+        api_car_number: result.carNumber,
       });
     }
 

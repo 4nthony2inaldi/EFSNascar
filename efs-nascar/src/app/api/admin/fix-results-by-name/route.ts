@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+type Driver = { id: string; name: string; car_number: number; team_name?: string; is_active?: boolean };
+
 /**
  * This endpoint fixes race_results where the driver_id doesn't match
  * the correct driver based on name matching.
@@ -58,9 +60,9 @@ export async function GET() {
     .select('id, name, car_number, team_name, is_active');
 
   // Build name lookup maps
-  const driverByExactName = new Map<string, typeof drivers[0]>();
-  const driverByNormalizedName = new Map<string, typeof drivers[0]>();
-  const driverByLastName = new Map<string, typeof drivers[0][]>();
+  const driverByExactName = new Map<string, Driver>();
+  const driverByNormalizedName = new Map<string, Driver>();
+  const driverByLastName = new Map<string, Driver[]>();
 
   for (const d of drivers || []) {
     driverByExactName.set(d.name.toLowerCase(), d);
@@ -74,7 +76,7 @@ export async function GET() {
   }
 
   // Function to find best matching driver by name
-  const findDriverByName = (name: string, carNumber: number): typeof drivers[0] | null => {
+  const findDriverByName = (name: string, carNumber: number): Driver | null => {
     // 1. Exact name match
     const exact = driverByExactName.get(name.toLowerCase());
     if (exact) return exact;
@@ -208,9 +210,9 @@ export async function POST() {
     .select('id, name, car_number, is_active');
 
   // Build name lookup maps
-  const driverByExactName = new Map<string, typeof drivers[0]>();
-  const driverByNormalizedName = new Map<string, typeof drivers[0]>();
-  const driverByLastName = new Map<string, typeof drivers[0][]>();
+  const driverByExactName = new Map<string, Driver>();
+  const driverByNormalizedName = new Map<string, Driver>();
+  const driverByLastName = new Map<string, Driver[]>();
 
   for (const d of drivers || []) {
     driverByExactName.set(d.name.toLowerCase(), d);
@@ -223,7 +225,7 @@ export async function POST() {
     driverByLastName.get(lastName)!.push(d);
   }
 
-  const findDriverByName = (name: string, carNumber: number): typeof drivers[0] | null => {
+  const findDriverByName = (name: string, carNumber: number): Driver | null => {
     const exact = driverByExactName.get(name.toLowerCase());
     if (exact) return exact;
 
