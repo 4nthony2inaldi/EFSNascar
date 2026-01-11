@@ -30,7 +30,6 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
     { href: '/picks', label: 'Picks' },
     { href: '/schedule', label: 'Schedule' },
     { href: '/teams', label: 'Teams' },
-    { href: '/driver-rankings', label: 'Drivers' },
     { href: '/rules', label: 'Rules' },
   ];
 

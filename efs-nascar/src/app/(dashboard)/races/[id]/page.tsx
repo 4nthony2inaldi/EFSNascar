@@ -81,6 +81,14 @@ export default async function RaceResultsPage({ params }: PageProps) {
     return POSITION_POINTS[position] || 0;
   };
 
+  // Calculate total points for a driver including bonuses
+  const calculateDriverTotalPoints = (result: any) => {
+    const positionPoints = POSITION_POINTS[result.finish_position] || 0;
+    const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0);
+    const lapsLedBonus = result.most_laps_led ? 1 : 0;
+    return positionPoints + stageBonus + lapsLedBonus;
+  };
+
   // Find stage winners and most laps led
   const stage1Winner = results?.find((r: any) => r.stage_1_winner);
   const stage2Winner = results?.find((r: any) => r.stage_2_winner);
@@ -255,12 +263,16 @@ export default async function RaceResultsPage({ params }: PageProps) {
 
                     if (!result) return <span className="text-gray-500">Unknown</span>;
 
+                    const totalPoints = calculateDriverTotalPoints(result);
+                    const posPoints = formatPoints(result.finish_position);
+                    const hasBonus = totalPoints > posPoints;
+
                     return (
                       <div className={`inline-flex items-center space-x-2 px-2 py-1 rounded ${getOverlapColor(pickCount)}`}>
                         <span className="font-bold">#{result.driver?.car_number}</span>
                         <span>{result.driver?.name}</span>
                         <span className="text-xs opacity-75">
-                          P{result.finish_position} ({formatPoints(result.finish_position)}pts)
+                          P{result.finish_position} ({totalPoints}pts{hasBonus && <span className="text-green-300"> +{totalPoints - posPoints}</span>})
                         </span>
                       </div>
                     );
@@ -353,8 +365,22 @@ export default async function RaceResultsPage({ params }: PageProps) {
                         </div>
                       </td>
                       <td className="py-3 pr-4 text-gray-400">{result.driver?.team_name}</td>
-                      <td className="py-3 text-center text-white font-medium">
-                        {formatPoints(result.finish_position)}
+                      <td className="py-3 text-center">
+                        {(() => {
+                          const posPoints = formatPoints(result.finish_position);
+                          const totalPoints = calculateDriverTotalPoints(result);
+                          const hasBonus = totalPoints > posPoints;
+                          return (
+                            <div className="flex items-center justify-center space-x-1">
+                              <span className="text-white font-medium">{totalPoints}</span>
+                              {hasBonus && (
+                                <span className="text-green-400 text-xs">
+                                  (+{totalPoints - posPoints})
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 text-center">
                         <span className={`px-2 py-1 rounded text-sm ${getOverlapColor(pickCount)}`}>
