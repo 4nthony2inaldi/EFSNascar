@@ -40,6 +40,8 @@ export default function ResultsImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteResult, setDeleteResult] = useState<{ message: string; deleted: number } | null>(null);
+  const [syncingDrivers, setSyncingDrivers] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ message: string; added: number; drivers?: string[] } | null>(null);
 
   useEffect(() => {
     // Fetch available years and seasons
@@ -68,6 +70,30 @@ export default function ResultsImportPage() {
       }
     }
   }, [selectedYear, seasons]);
+
+  const handleSyncDrivers = async () => {
+    setSyncingDrivers(true);
+    setSyncResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/drivers/sync', {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Sync failed');
+      }
+
+      setSyncResult(data);
+    } catch (err: any) {
+      setError(err.message || 'Sync failed');
+    } finally {
+      setSyncingDrivers(false);
+    }
+  };
 
   const handleDeleteSeasonResults = async () => {
     if (!selectedSeasonId) {
@@ -156,12 +182,39 @@ export default function ResultsImportPage() {
           Results data is sourced from the nascaR.data R package, which compiles NASCAR Cup Series
           race results from driveraverages.com. Data includes:
         </p>
-        <ul className="text-purple-300 text-sm space-y-1 list-disc list-inside">
+        <ul className="text-purple-300 text-sm space-y-1 list-disc list-inside mb-4">
           <li>Finishing positions for all drivers</li>
           <li>Stage 1 and Stage 2 winners</li>
           <li>Laps led by each driver</li>
           <li>Most laps led designation</li>
         </ul>
+
+        {/* Sync Drivers Section */}
+        <div className="mt-4 pt-4 border-t border-purple-700/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-white">Sync Historical Drivers</h3>
+              <p className="text-purple-400 text-xs">Add all 108 NASCAR Cup drivers from 2020-2025 to the database</p>
+            </div>
+            <button
+              onClick={handleSyncDrivers}
+              disabled={syncingDrivers}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
+            >
+              {syncingDrivers ? 'Syncing...' : 'Sync Drivers'}
+            </button>
+          </div>
+          {syncResult && (
+            <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+              <p className="text-emerald-400 text-sm">{syncResult.message}</p>
+              {syncResult.drivers && syncResult.drivers.length > 0 && (
+                <p className="text-emerald-300 text-xs mt-1">
+                  Added: {syncResult.drivers.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Import Controls */}
