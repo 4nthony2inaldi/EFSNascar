@@ -554,10 +554,17 @@ interface RaceResult {
 ```
 
 ### Driver Matching Strategy
+
+**IMPORTANT**: Match by name first, car number as fallback. Car numbers change between seasons (e.g., SVG moved from #88 to #16), so name-based matching is more reliable.
+
 Since our driver IDs won't match NASCAR's:
-1. Match by car number (most reliable)
-2. Fallback to fuzzy name matching
-3. Manual mapping table for edge cases
+1. **Match by exact name** (case-insensitive)
+2. **Match by normalized name** (removes punctuation, extra spaces)
+3. **Match by unique last name** (if only one driver has that surname)
+4. **Match by last name + car number** (when multiple drivers share surname)
+5. **Fallback to car number** (only when name matching fails completely)
+
+See [SPEC-driver-matching.md](./SPEC-driver-matching.md) for details on the name-first matching strategy and how to handle drivers who change car numbers between seasons.
 
 ---
 
@@ -604,4 +611,4 @@ See `/supabase/migrations/` for database schema.
 ---
 
 *Last Updated: January 2026*
-*Version: 1.0*
+*Version: 1.1* - Updated driver matching strategy to name-first approach
