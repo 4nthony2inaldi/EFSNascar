@@ -6,6 +6,7 @@ interface RaceResult {
   race: string;
   imported: number;
   skipped: number;
+  dbRace?: string;
 }
 
 interface ImportResponse {
@@ -196,7 +197,8 @@ export default function ResultsImportPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-purple-700/50">
-                      <th className="text-left py-2 px-3 text-purple-400">Race</th>
+                      <th className="text-left py-2 px-3 text-purple-400">Source Race</th>
+                      <th className="text-left py-2 px-3 text-purple-400">Matched To</th>
                       <th className="text-right py-2 px-3 text-purple-400">Imported</th>
                       <th className="text-right py-2 px-3 text-purple-400">Skipped</th>
                     </tr>
@@ -205,6 +207,7 @@ export default function ResultsImportPage() {
                     {result.raceResults.map((race, i) => (
                       <tr key={i} className="border-b border-purple-800/30">
                         <td className="py-2 px-3 text-purple-200">{race.race}</td>
+                        <td className="py-2 px-3 text-emerald-300">{race.dbRace || '-'}</td>
                         <td className="py-2 px-3 text-right text-emerald-400">{race.imported}</td>
                         <td className="py-2 px-3 text-right text-yellow-400">{race.skipped}</td>
                       </tr>

@@ -41,6 +41,44 @@ function normalizeDriverName(name: string): string {
   return name.toLowerCase().replace(/[^a-z]/g, '');
 }
 
+function normalizeTrackName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Match JSON race data to database race by track name
+function findMatchingRace(
+  raceData: RaceData,
+  dbRaces: Array<{ id: string; race_number: number; name: string; track_name: string | null }>,
+  alreadyMatched: Set<string>
+): { id: string; race_number: number; name: string } | null {
+  const jsonTrack = normalizeTrackName(raceData.track);
+  const jsonRaceName = normalizeTrackName(raceData.name);
+
+  // Find all races at this track that haven't been matched yet
+  const trackMatches = dbRaces.filter(r => {
+    if (alreadyMatched.has(r.id)) return false;
+    const dbTrack = normalizeTrackName(r.track_name || '');
+    const dbName = normalizeTrackName(r.name);
+    // Match by track name or race name containing track info
+    return dbTrack.includes(jsonTrack) || jsonTrack.includes(dbTrack) ||
+           dbName.includes(jsonTrack) || jsonTrack.includes(dbName) ||
+           dbTrack.includes(jsonRaceName) || jsonRaceName.includes(dbTrack);
+  });
+
+  if (trackMatches.length === 0) {
+    return null;
+  }
+
+  if (trackMatches.length === 1) {
+    return trackMatches[0];
+  }
+
+  // Multiple matches (e.g., 2 Atlanta races) - pick the one with closest race_number
+  // Sort by race_number and pick the first unmatched one
+  const sorted = [...trackMatches].sort((a, b) => a.race_number - b.race_number);
+  return sorted[0];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { year, raceNumber } = await request.json();
@@ -69,12 +107,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Season not found for year ${year}` }, { status: 400 });
     }
 
-    // Get all races for this season
+    // Get all races for this season with track info
     const { data: races, error: racesError } = await supabase
       .from('races')
-      .select('id, race_number, name')
+      .select('id, race_number, name, tracks(name)')
       .eq('season_id', season.id)
       .order('race_number', { ascending: true });
+
+    // Flatten track name for easier access
+    const racesWithTrack = (races || []).map(r => ({
+      id: r.id,
+      race_number: r.race_number,
+      name: r.name,
+      track_name: (r.tracks as any)?.name || null
+    }));
 
     if (racesError) {
       return NextResponse.json({ error: racesError.message }, { status: 500 });
@@ -104,15 +150,17 @@ export async function POST(request: NextRequest) {
     let totalSkipped = 0;
     let driversNotFound: string[] = [];
     let racesNotFound: string[] = [];
-    const raceResults: { race: string; imported: number; skipped: number }[] = [];
+    const raceResults: { race: string; imported: number; skipped: number; dbRace: string }[] = [];
+    const alreadyMatchedRaces = new Set<string>();
 
     for (const raceData of racesToImport) {
-      // Find matching race in database
-      const race = races?.find(r => r.race_number === raceData.race_number);
+      // Find matching race in database by track name
+      const race = findMatchingRace(raceData, racesWithTrack, alreadyMatchedRaces);
       if (!race) {
-        racesNotFound.push(`Race ${raceData.race_number}: ${raceData.name}`);
+        racesNotFound.push(`${raceData.name} @ ${raceData.track}`);
         continue;
       }
+      alreadyMatchedRaces.add(race.id);
 
       // Delete existing results for this race
       await supabase
@@ -170,20 +218,16 @@ export async function POST(request: NextRequest) {
 
       totalImported += imported;
       totalSkipped += skipped;
-      raceResults.push({ race: raceData.name, imported, skipped });
+      raceResults.push({ race: raceData.name, imported, skipped, dbRace: race.name });
     }
 
     // Update race status to 'final' for imported races
-    if (racesToImport.length > 0) {
-      const raceNumbers = racesToImport.map(r => r.race_number);
-      const raceIds = races?.filter(r => raceNumbers.includes(r.race_number)).map(r => r.id) || [];
-
-      if (raceIds.length > 0) {
-        await supabase
-          .from('races')
-          .update({ status: 'final' })
-          .in('id', raceIds);
-      }
+    if (alreadyMatchedRaces.size > 0) {
+      const raceIds = Array.from(alreadyMatchedRaces);
+      await supabase
+        .from('races')
+        .update({ status: 'final' })
+        .in('id', raceIds);
     }
 
     return NextResponse.json({
