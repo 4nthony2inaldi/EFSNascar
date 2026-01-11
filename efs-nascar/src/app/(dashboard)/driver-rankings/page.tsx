@@ -63,10 +63,12 @@ export default async function DriverRankingsPage() {
     const raceIds = races.map(r => r.id);
 
     // Get all results for these races (without join - more reliable)
+    // Note: Must set limit higher than default 1000 to get all results (90 races * ~40 drivers = ~3600)
     const { data: results } = await supabase
       .from('race_results')
       .select('*')
-      .in('race_id', raceIds);
+      .in('race_id', raceIds)
+      .limit(5000);
 
     // Get all drivers separately
     const { data: drivers } = await supabase

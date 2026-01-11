@@ -69,10 +69,12 @@ export async function GET() {
     const raceIds = races.map(r => r.id);
 
     // Get all results for these races (without join - more reliable)
+    // Note: Must set limit higher than default 1000 to get all results (90 races * ~40 drivers = ~3600)
     const { data: results, error: resultsError } = await supabase
       .from('race_results')
       .select('*')
-      .in('race_id', raceIds);
+      .in('race_id', raceIds)
+      .limit(5000);
 
     if (resultsError) {
       console.error('Error fetching results:', resultsError);
