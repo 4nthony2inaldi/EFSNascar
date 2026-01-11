@@ -62,14 +62,28 @@ export default async function DriverRankingsPage() {
 
     const raceIds = races.map(r => r.id);
 
-    // Get all results for these races
+    // Get all results for these races (without join - more reliable)
     const { data: results } = await supabase
       .from('race_results')
-      .select(`
-        *,
-        driver:drivers(id, name, car_number, team_name, is_active)
-      `)
+      .select('*')
       .in('race_id', raceIds);
+
+    // Get all drivers separately
+    const { data: drivers } = await supabase
+      .from('drivers')
+      .select('id, name, car_number, team_name, is_active');
+
+    // Create a map of driver_id to driver info
+    const driverMap: Record<string, {
+      id: string;
+      name: string;
+      car_number: number;
+      team_name: string | null;
+      is_active: boolean;
+    }> = {};
+    for (const driver of drivers || []) {
+      driverMap[driver.id] = driver;
+    }
 
     // Aggregate driver stats
     const driverStats: Record<string, {
@@ -92,13 +106,13 @@ export default async function DriverRankingsPage() {
     }> = {};
 
     for (const result of results || []) {
-      const driver = result.driver;
+      const driver = driverMap[result.driver_id];
       if (!driver) continue;
 
       const weight = raceWeights[result.race_id] || 1;
 
-      if (!driverStats[driver.id]) {
-        driverStats[driver.id] = {
+      if (!driverStats[result.driver_id]) {
+        driverStats[result.driver_id] = {
           driver_id: driver.id,
           driver_name: driver.name,
           car_number: driver.car_number,
@@ -118,7 +132,7 @@ export default async function DriverRankingsPage() {
         };
       }
 
-      const stats = driverStats[driver.id];
+      const stats = driverStats[result.driver_id];
 
       // Position points
       const posPoints = POSITION_POINTS[result.finish_position] || 0;
