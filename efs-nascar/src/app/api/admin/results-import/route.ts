@@ -162,18 +162,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Get all races for this season with track info
+    // Include both the 'track' TEXT column and the 'tracks(name)' FK join
+    // to handle cases where track_id is NULL
     const { data: races, error: racesError } = await supabase
       .from('races')
-      .select('id, race_number, name, tracks(name)')
+      .select('id, race_number, name, track, tracks(name)')
       .eq('season_id', season.id)
       .order('race_number', { ascending: true });
 
     // Flatten track name for easier access
+    // Use tracks(name) from FK join, falling back to the track TEXT column
     const racesWithTrack = (races || []).map(r => ({
       id: r.id,
       race_number: r.race_number,
       name: r.name,
-      track_name: (r.tracks as any)?.name || null
+      track_name: (r.tracks as any)?.name || (r as any).track || null
     }));
 
     if (racesError) {
