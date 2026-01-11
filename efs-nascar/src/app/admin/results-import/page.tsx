@@ -22,27 +22,87 @@ interface ImportResponse {
   error?: string;
 }
 
+interface Season {
+  id: string;
+  name: string;
+  year: number;
+}
+
 export default function ResultsImportPage() {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | ''>('');
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
   const [raceNumber, setRaceNumber] = useState<number | ''>('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ message: string; deleted: number } | null>(null);
 
   useEffect(() => {
-    // Fetch available years
-    fetch('/api/admin/results-import')
-      .then(res => res.json())
-      .then(data => {
-        if (data.availableYears) {
-          setAvailableYears(data.availableYears);
+    // Fetch available years and seasons
+    Promise.all([
+      fetch('/api/admin/results-import').then(res => res.json()),
+      fetch('/api/admin/seasons').then(res => res.json())
+    ])
+      .then(([yearsData, seasonsData]) => {
+        if (yearsData.availableYears) {
+          setAvailableYears(yearsData.availableYears);
+        }
+        if (seasonsData.seasons) {
+          setSeasons(seasonsData.seasons);
         }
       })
       .catch(console.error)
       .finally(() => setChecking(false));
   }, []);
+
+  // Auto-select season when year changes
+  useEffect(() => {
+    if (selectedYear) {
+      const matchingSeason = seasons.find(s => s.year === selectedYear);
+      if (matchingSeason) {
+        setSelectedSeasonId(matchingSeason.id);
+      }
+    }
+  }, [selectedYear, seasons]);
+
+  const handleDeleteSeasonResults = async () => {
+    if (!selectedSeasonId) {
+      setError('Please select a year first');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete ALL race results for this season? This cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/results/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seasonId: selectedSeasonId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Delete failed');
+      }
+
+      setDeleteResult(data);
+    } catch (err: any) {
+      setError(err.message || 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleImport = async () => {
     if (!selectedYear) {
@@ -144,6 +204,28 @@ export default function ResultsImportPage() {
             </p>
           </div>
         </div>
+
+        {/* Delete Season Results */}
+        {selectedYear && selectedSeasonId && (
+          <div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <div>
+              <p className="text-red-300 text-sm">Need to start over? Delete all results for {selectedYear} first.</p>
+            </div>
+            <button
+              onClick={handleDeleteSeasonResults}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleting ? 'Deleting...' : 'Delete Season Results'}
+            </button>
+          </div>
+        )}
+
+        {deleteResult && (
+          <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+            <p className="text-emerald-400">{deleteResult.message}</p>
+          </div>
+        )}
 
         <div className="pt-4">
           <button
