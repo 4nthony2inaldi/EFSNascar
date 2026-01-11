@@ -45,6 +45,7 @@ export default async function AdminLayout({
     { href: '/admin/drivers', label: 'Drivers' },
     { href: '/admin/results', label: 'Results' },
     { href: '/admin/import', label: 'API Import' },
+    { href: '/admin/picks-import', label: 'Picks Import' },
     { href: '/admin/teams', label: 'Teams' },
   ];
 
