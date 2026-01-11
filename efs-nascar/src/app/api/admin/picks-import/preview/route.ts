@@ -83,42 +83,76 @@ function fuzzyMatchRace(
 
   // Filter out exhibition races for "week" matching
   const pointsRaces = races.filter(r => r.race_type !== 'exhibition');
+  const sortedPointsRaces = [...pointsRaces].sort((a, b) => a.race_number - b.race_number);
 
-  // Try direct name match first
-  const directMatch = races.find(r =>
-    normalize(r.name).includes(normalizedInput) ||
-    normalizedInput.includes(normalize(r.name))
-  );
-  if (directMatch) return directMatch;
-
-  // Try alias matching
-  for (const [alias, patterns] of Object.entries(RACE_NAME_ALIASES)) {
-    if (normalizedInput.includes(alias) || patterns.some(p => normalizedInput.includes(normalize(p)))) {
-      const match = races.find(r => {
-        const raceName = normalize(r.name);
-        return patterns.some(p => raceName.includes(normalize(p))) || raceName.includes(alias);
-      });
-      if (match) return match;
+  // PRIORITY 1: Use week number directly if provided
+  // Week X maps to the Xth points race of the season
+  if (week > 0 && week <= sortedPointsRaces.length) {
+    const raceByWeek = sortedPointsRaces[week - 1];
+    if (raceByWeek) {
+      return raceByWeek;
     }
   }
 
-  // Try matching by week number (week 1 = first points race, etc.)
-  if (week > 0 && week <= pointsRaces.length) {
-    // Sort by race_number to get correct order
-    const sortedRaces = [...pointsRaces].sort((a, b) => a.race_number - b.race_number);
-    const raceByWeek = sortedRaces[week - 1];
+  // PRIORITY 2: Find all races matching the track name
+  const matchingRaces: Array<{ id: string; name: string; race_number: number; race_type: string }> = [];
 
-    // Verify the track name somewhat matches
-    if (raceByWeek) {
-      const raceTrackNorm = normalize(raceByWeek.name);
-      // Check if input track name is anywhere in the race name
-      if (raceTrackNorm.includes(normalizedInput) ||
-          normalizedInput.split(/\s+/).some(w => w.length > 3 && raceTrackNorm.includes(w))) {
-        return raceByWeek;
-      }
-      // If week matches and no better match found, use it anyway
-      return raceByWeek;
+  // Check direct name match
+  for (const race of races) {
+    const raceName = normalize(race.name);
+    if (raceName.includes(normalizedInput) || normalizedInput.includes(raceName)) {
+      matchingRaces.push(race);
     }
+  }
+
+  // Check alias matching if no direct matches
+  if (matchingRaces.length === 0) {
+    for (const [alias, patterns] of Object.entries(RACE_NAME_ALIASES)) {
+      if (normalizedInput.includes(alias) || patterns.some(p => normalizedInput.includes(normalize(p)))) {
+        for (const race of races) {
+          const raceName = normalize(race.name);
+          if (patterns.some(p => raceName.includes(normalize(p))) || raceName.includes(alias)) {
+            matchingRaces.push(race);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // If multiple races match the track, use week number to pick the right one
+  if (matchingRaces.length > 1 && week > 0) {
+    // Sort matching races by race_number
+    const sortedMatches = [...matchingRaces].sort((a, b) => a.race_number - b.race_number);
+
+    // Find which occurrence this week corresponds to
+    // Count how many of these track's races come before the target week
+    let occurrenceIndex = 0;
+    for (const race of sortedPointsRaces) {
+      if (race.race_number <= week && matchingRaces.some(m => m.id === race.id)) {
+        occurrenceIndex++;
+      }
+    }
+
+    // Get the race at this track that's closest to the week number
+    const targetRaceNumber = week; // Week X should be around race number X (accounting for exhibitions)
+    const closestMatch = sortedMatches.reduce((closest, race) => {
+      const closestDiff = Math.abs((closest?.race_number || 0) - targetRaceNumber);
+      const raceDiff = Math.abs(race.race_number - targetRaceNumber);
+      return raceDiff < closestDiff ? race : closest;
+    }, sortedMatches[0]);
+
+    return closestMatch;
+  }
+
+  // Return first match if only one
+  if (matchingRaces.length === 1) {
+    return matchingRaces[0];
+  }
+
+  // Return first match if any
+  if (matchingRaces.length > 0) {
+    return matchingRaces[0];
   }
 
   return null;
