@@ -41,6 +41,8 @@ export default function PicksImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [addingDrivers, setAddingDrivers] = useState(false);
   const [driversAdded, setDriversAdded] = useState<string[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<{ message: string; deleted: number } | null>(null);
 
   // Fetch seasons on mount
   useState(() => {
@@ -153,6 +155,41 @@ export default function PicksImportPage() {
     }
   };
 
+  const handleDeleteSeasonPicks = async () => {
+    if (!seasonId) {
+      setError('Please select a season first');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete ALL picks for this season? This cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/picks/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seasonId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Delete failed');
+      }
+
+      setDeleteResult(data);
+    } catch (err: any) {
+      setError(err.message || 'Delete failed');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const validCount = preview?.matched.filter(m => m.isValid).length || 0;
   const invalidCount = preview?.matched.filter(m => !m.isValid).length || 0;
 
@@ -198,6 +235,28 @@ export default function PicksImportPage() {
             ))}
           </select>
         </div>
+
+        {/* Delete Season Picks */}
+        {seasonId && (
+          <div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <div>
+              <p className="text-red-300 text-sm">Need to start over? Delete all picks for this season first.</p>
+            </div>
+            <button
+              onClick={handleDeleteSeasonPicks}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleting ? 'Deleting...' : 'Delete Season Picks'}
+            </button>
+          </div>
+        )}
+
+        {deleteResult && (
+          <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+            <p className="text-emerald-400">{deleteResult.message}</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-purple-300 mb-2">
