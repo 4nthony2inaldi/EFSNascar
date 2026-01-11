@@ -105,23 +105,64 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No drivers found in database' }, { status: 400 });
     }
 
-    // Build driver lookup by name (various formats)
-    const driverByName = new Map<string, { id: string; name: string; car_number: number }>();
+    // Helper to normalize names for matching
+    const normalizeName = (name: string): string => {
+      return safeToLower(name)
+        .replace(/[^a-z\s]/g, '') // Remove non-alpha characters
+        .replace(/\s+/g, ' ')     // Normalize spaces
+        .trim();
+    };
+
+    // Helper to get last name
+    const getLastName = (name: string): string => {
+      const parts = name.trim().split(/\s+/);
+      return parts[parts.length - 1].toLowerCase();
+    };
+
+    // Build driver lookups - NAME is PRIMARY matching method
+    const driverByExactName = new Map<string, { id: string; name: string; car_number: number }>();
+    const driverByNormalizedName = new Map<string, { id: string; name: string; car_number: number }>();
+    const driverByLastName = new Map<string, { id: string; name: string; car_number: number }[]>();
+
     for (const d of drivers) {
       const nameLower = safeToLower(d.name);
-      driverByName.set(nameLower, d);
-      // Also add by last name
-      const lastName = d.name?.split(' ').pop();
-      if (lastName) {
-        driverByName.set(safeToLower(lastName), d);
+      driverByExactName.set(nameLower, d);
+      driverByNormalizedName.set(normalizeName(d.name), d);
+
+      // Last name lookup (for partial matching)
+      const lastName = getLastName(d.name);
+      if (!driverByLastName.has(lastName)) {
+        driverByLastName.set(lastName, []);
       }
-      // Add by first name + last initial pattern (e.g., "Kyle L.")
-      const parts = d.name?.split(' ');
-      if (parts && parts.length >= 2) {
-        const firstLast = `${parts[0]} ${parts[parts.length - 1][0]}`.toLowerCase();
-        driverByName.set(firstLast, d);
-      }
+      driverByLastName.get(lastName)!.push(d);
     }
+
+    // Function to find driver - NAME FIRST
+    const findDriverByName = (apiName: string): { id: string; name: string; car_number: number } | null => {
+      // 1. Try exact name match
+      const exactMatch = driverByExactName.get(safeToLower(apiName));
+      if (exactMatch) return exactMatch;
+
+      // 2. Try normalized name match
+      const normalizedMatch = driverByNormalizedName.get(normalizeName(apiName));
+      if (normalizedMatch) return normalizedMatch;
+
+      // 3. Try last name match (if unique)
+      const lastName = getLastName(apiName);
+      const lastNameMatches = driverByLastName.get(lastName);
+      if (lastNameMatches && lastNameMatches.length === 1) {
+        return lastNameMatches[0];
+      }
+
+      // 4. Try partial match (name contains or is contained)
+      for (const [key, driver] of driverByExactName.entries()) {
+        if (safeToLower(apiName).includes(key) || key.includes(safeToLower(apiName))) {
+          return driver;
+        }
+      }
+
+      return null;
+    };
 
     // Get season for the year
     const { data: season } = await supabase
@@ -239,19 +280,8 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Find driver in our database
-      const winnerLower = safeToLower(winnerName);
-      let winnerDriver = driverByName.get(winnerLower);
-
-      // Try partial matches if exact match fails
-      if (!winnerDriver) {
-        for (const [key, driver] of driverByName.entries()) {
-          if (winnerLower.includes(key) || key.includes(winnerLower)) {
-            winnerDriver = driver;
-            break;
-          }
-        }
-      }
+      // Find driver in our database using name-first matching
+      const winnerDriver = findDriverByName(winnerName);
 
       if (!winnerDriver) {
         results.push({

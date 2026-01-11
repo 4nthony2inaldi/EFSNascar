@@ -78,17 +78,74 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No drivers found in database' }, { status: 400 });
     }
 
-    // Match drivers by car number (most reliable)
-    const driverMap = new Map<number, string>();
+    // Helper to normalize names for matching
+    const normalizeName = (name: string): string => {
+      return name
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, '') // Remove non-alpha characters
+        .replace(/\s+/g, ' ')     // Normalize spaces
+        .trim();
+    };
+
+    // Helper to get last name
+    const getLastName = (name: string): string => {
+      const parts = name.trim().split(/\s+/);
+      return parts[parts.length - 1].toLowerCase();
+    };
+
+    // Build name-based lookups (PRIMARY matching method)
+    const driverByExactName = new Map<string, { id: string; name: string; car_number: number }>();
+    const driverByNormalizedName = new Map<string, { id: string; name: string; car_number: number }>();
+    const driverByLastName = new Map<string, { id: string; name: string; car_number: number }[]>();
+
+    for (const d of drivers) {
+      // Exact lowercase match
+      driverByExactName.set(d.name.toLowerCase(), d);
+      // Normalized match (no punctuation, normalized spaces)
+      driverByNormalizedName.set(normalizeName(d.name), d);
+      // Last name match (for partial matching)
+      const lastName = getLastName(d.name);
+      if (!driverByLastName.has(lastName)) {
+        driverByLastName.set(lastName, []);
+      }
+      driverByLastName.get(lastName)!.push(d);
+    }
+
+    // Car number lookup (FALLBACK only - used when name doesn't match)
+    const driverByCarNumber = new Map<number, { id: string; name: string; car_number: number }>();
     drivers.forEach(d => {
-      driverMap.set(d.car_number, d.id);
+      driverByCarNumber.set(d.car_number, d);
     });
 
-    // Also create a name-based lookup as fallback
-    const driverNameMap = new Map<string, string>();
-    drivers.forEach(d => {
-      driverNameMap.set(d.name.toLowerCase(), d.id);
-    });
+    // Function to find driver - NAME FIRST, then car number as fallback
+    const findDriver = (apiName: string, carNumber: number): { id: string; name: string; car_number: number } | null => {
+      // 1. Try exact name match
+      const exactMatch = driverByExactName.get(apiName.toLowerCase());
+      if (exactMatch) return exactMatch;
+
+      // 2. Try normalized name match
+      const normalizedMatch = driverByNormalizedName.get(normalizeName(apiName));
+      if (normalizedMatch) return normalizedMatch;
+
+      // 3. Try last name match (if unique)
+      const lastName = getLastName(apiName);
+      const lastNameMatches = driverByLastName.get(lastName);
+      if (lastNameMatches && lastNameMatches.length === 1) {
+        return lastNameMatches[0];
+      }
+
+      // 4. Try last name + car number combo (for cases like multiple Smiths)
+      if (lastNameMatches && lastNameMatches.length > 1) {
+        const carMatch = lastNameMatches.find(d => d.car_number === carNumber);
+        if (carMatch) return carMatch;
+      }
+
+      // 5. FALLBACK: Car number only (when name matching fails completely)
+      const carNumberMatch = driverByCarNumber.get(carNumber);
+      if (carNumberMatch) return carNumberMatch;
+
+      return null;
+    };
 
     // Convert to race_results format
     const raceResults: Array<{
@@ -102,24 +159,26 @@ export async function POST(request: Request) {
     }> = [];
 
     const unmatchedDrivers: string[] = [];
+    const matchedByFallback: string[] = [];
 
     for (const result of transformedData.results) {
-      // Try to find driver by car number first
-      let driverId = driverMap.get(result.carNumber);
+      const matchedDriver = findDriver(result.driverName, result.carNumber);
 
-      // Fallback to name match
-      if (!driverId) {
-        driverId = driverNameMap.get(result.driverName.toLowerCase());
-      }
-
-      if (!driverId) {
+      if (!matchedDriver) {
         unmatchedDrivers.push(`#${result.carNumber} ${result.driverName}`);
         continue;
       }
 
+      // Track if we used car number fallback (name didn't match)
+      const nameMatched = driverByExactName.has(result.driverName.toLowerCase()) ||
+                          driverByNormalizedName.has(normalizeName(result.driverName));
+      if (!nameMatched) {
+        matchedByFallback.push(`#${result.carNumber} ${result.driverName} -> ${matchedDriver.name}`);
+      }
+
       raceResults.push({
         race_id,
-        driver_id: driverId,
+        driver_id: matchedDriver.id,
         finish_position: result.finishPosition,
         stage_1_winner: result.isStage1Winner,
         stage_2_winner: result.isStage2Winner,
@@ -161,9 +220,12 @@ export async function POST(request: Request) {
         stage2Winner: transformedData.stage2Winner,
         mostLapsLed: transformedData.mostLapsLedDriver,
       },
-      warnings: unmatchedDrivers.length > 0 ? {
-        unmatchedDrivers,
-        message: 'Some drivers could not be matched to your database. You may need to add them manually.',
+      warnings: unmatchedDrivers.length > 0 || matchedByFallback.length > 0 ? {
+        unmatchedDrivers: unmatchedDrivers.length > 0 ? unmatchedDrivers : undefined,
+        matchedByCarNumberOnly: matchedByFallback.length > 0 ? matchedByFallback : undefined,
+        message: unmatchedDrivers.length > 0
+          ? 'Some drivers could not be matched. You may need to add them manually.'
+          : 'Some drivers were matched by car number only (name not found in database).',
       } : undefined,
     });
   } catch (error: any) {
