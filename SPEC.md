@@ -133,6 +133,29 @@ A web application to manage a 17-team fantasy NASCAR league, replacing manual Go
 
 ---
 
+## Driver Rankings & Analytics
+
+### Weighted Scoring System
+The driver rankings page uses a weighted scoring system to emphasize recent performance:
+
+| Tier | Races | Weight |
+|------|-------|--------|
+| Recent | Last 30 races | 3x |
+| Middle | Races 31-60 | 2x |
+| Oldest | Races 61-90 | 1x |
+
+### Metrics Displayed
+- **Total Points**: Raw fantasy points (position + stage wins + laps led bonuses)
+- **Weighted Score**: Points multiplied by recency weights
+- **Per-Race Score**: Weighted score / races run (identifies efficient performers)
+- **Position Points**: Points from finish position only
+- **Stage Wins**: Total stage wins
+- **Laps Led Bonuses**: Times driver led most laps
+- **Average Finish**: Mean finishing position
+- **Wins / Top 5s / Top 10s**: Race result statistics
+
+---
+
 ## Pick Submission
 
 ### Weekly Flow
@@ -268,6 +291,13 @@ A web application to manage a 17-team fantasy NASCAR league, replacing manual Go
 - Season totals
 - Who's close to max
 
+### Driver Rankings
+- Sortable table of all drivers
+- Weighted and raw fantasy point totals
+- Per-race efficiency scoring
+- Win/Top 5/Top 10 statistics
+- Color-coded average finish indicators
+
 ### Admin Panel
 - Enter/confirm race results
 - Adjust deadlines
@@ -340,8 +370,13 @@ A web application to manage a 17-team fantasy NASCAR league, replacing manual Go
 - Historical season data
 - Team history & accolades
 - Announcements system
-- Advanced stats & analytics
 - Mobile PWA
+
+### Implemented Features (Current State)
+- Driver Rankings page with weighted scoring system
+- Pick overlap/popularity color coding (green-yellow-red gradient)
+- 2024-2026 historical race data imported
+- Complete race schedules with track information
 
 ### Future Ideas
 - Live race tracking
@@ -409,14 +444,25 @@ A web application to manage a 17-team fantasy NASCAR league, replacing manual Go
 - **Domain**: efsnascar.com
 - **Hosting**: Vercel (free tier)
 - **Database**: Supabase (free tier)
-- **Timeline**: MVP before Daytona 500 (February 2025)
+- **Initial Timeline**: MVP launched before Daytona 500 2025
+- **Current Status**: Active development with 2024-2026 race data
 
 ---
 
-## Next Steps
+## Development Progress
 
-1. Review this spec—let me know any corrections or additions
-2. Set up development environment (Claude Code)
-3. Initialize Next.js project with auth
-4. Build data model & database schema
-5. Start with MVP features (picks, scoring, standings)
+### Completed
+1. Next.js project initialized with Supabase Auth
+2. Database schema implemented with all core tables
+3. MVP features: picks, scoring, standings
+4. Race schedule and results management
+5. Admin panel for commissioners
+6. Driver rankings with weighted scoring
+7. Pick popularity color coding
+8. 2024-2026 race data imported
+
+### In Progress / Next
+1. Playoff bracket visualization
+2. All-Star draft system
+3. Email notifications
+4. Historical team accolades tracking
