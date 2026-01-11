@@ -29,8 +29,8 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
     { href: '/standings', label: 'Standings' },
     { href: '/picks', label: 'Picks' },
     { href: '/schedule', label: 'Schedule' },
-    { href: '/teams', label: 'Teams' },
     { href: '/driver-rankings', label: 'Drivers' },
+    { href: '/teams', label: 'Teams' },
     { href: '/rules', label: 'Rules' },
   ];
 
