@@ -34,7 +34,15 @@ export async function POST(request: NextRequest) {
     let skippedInvalid = 0;
 
     for (const pick of picks as MatchedRow[]) {
-      if (!pick.isValid || !pick.raceMatch || !pick.teamMatch || !pick.driver1Match || !pick.driver2Match || !pick.driver3Match) {
+      // Check for required match data (don't rely on isValid since it may not serialize)
+      if (!pick.raceMatch || !pick.teamMatch || !pick.driver1Match || !pick.driver2Match || !pick.driver3Match) {
+        const missing = [];
+        if (!pick.raceMatch) missing.push('race');
+        if (!pick.teamMatch) missing.push('team');
+        if (!pick.driver1Match) missing.push('driver1');
+        if (!pick.driver2Match) missing.push('driver2');
+        if (!pick.driver3Match) missing.push('driver3');
+        errors.push(`Missing: ${missing.join(', ')} for ${pick.original?.team || 'unknown'}`);
         skippedInvalid++;
         failed++;
         continue;
