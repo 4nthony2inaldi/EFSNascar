@@ -85,6 +85,96 @@ export default async function DashboardPage() {
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
 
+  // Get laps_led_bonuses from race_scores for luckydog calculation
+  const { data: raceScoresData } = await supabase
+    .from('race_scores')
+    .select('team_id, laps_led_bonus, race:races!inner(season_id)')
+    .eq('race.season_id', activeSeason?.id);
+
+  // Aggregate laps_led_bonuses per team
+  const lapsLedByTeam: Record<string, number> = {};
+  for (const score of raceScoresData || []) {
+    if (!lapsLedByTeam[score.team_id]) {
+      lapsLedByTeam[score.team_id] = 0;
+    }
+    lapsLedByTeam[score.team_id] += score.laps_led_bonus || 0;
+  }
+
+  // Calculate user's standing info
+  const userStanding = standings?.find((s: any) => s.team_id === userTeam?.id);
+  const userRank = userStanding?.rank || null;
+  const userPoints = userStanding?.total_points || 0;
+
+  // Find points at key positions for deficit calculations
+  const getPointsAtRank = (rank: number) => {
+    const standing = standings?.find((s: any) => s.rank === rank);
+    return standing?.total_points || 0;
+  };
+
+  const points2nd = getPointsAtRank(2); // Second catbird seat
+  const points6th = getPointsAtRank(6); // Last standard playoff spot
+  const points15th = getPointsAtRank(15); // Last consolation spot (above muddy mile)
+
+  // Calculate deficits (positive = ahead, negative = behind)
+  const deficitVs2nd = userPoints - points2nd;
+  const deficitVs6th = userPoints - points6th;
+  const deficitVs15th = userPoints - points15th;
+
+  // Get user's designation
+  const getUserDesignation = (rank: number | null) => {
+    if (!rank) return null;
+    if (rank <= 2) return { emoji: '🐱', label: 'Catbird Seat', color: 'text-amber-400' };
+    if (rank <= 6) return { emoji: '✅', label: 'Playoff Position', color: 'text-emerald-400' };
+    if (rank === 7) return { emoji: '🐕', label: 'Lucky Dog', color: 'text-amber-400' };
+    if (rank >= 16) return { emoji: '💩', label: 'Muddy Mile', color: 'text-red-400' };
+    return { emoji: '', label: 'Consolation', color: 'text-purple-400' };
+  };
+
+  const userDesignation = getUserDesignation(userRank);
+
+  // Calculate Lucky Dog points and ranking
+  // Lucky Dog: team outside top 6 with most race wins, with tiebreakers:
+  // 1. Race wins, 2. Stage wins, 3. Laps led leaders chosen, 4. Top 10 bonuses
+  interface LuckyDogStats {
+    team_id: string;
+    team_name: string;
+    rank: number;
+    total_points: number;
+    race_wins: number;
+    stage_wins: number;
+    laps_led_bonuses: number;
+    top_10_bonuses: number;
+  }
+
+  const luckyDogEligible: LuckyDogStats[] = (standings || [])
+    .filter((s: any) => s.rank && s.rank > 6)
+    .map((s: any) => ({
+      team_id: s.team_id,
+      team_name: s.team?.name || 'Unknown',
+      rank: s.rank,
+      total_points: s.total_points,
+      race_wins: s.race_wins || 0,
+      stage_wins: s.stage_wins || 0,
+      laps_led_bonuses: lapsLedByTeam[s.team_id] || 0,
+      top_10_bonuses: s.top_10_bonuses || 0,
+    }));
+
+  // Sort by lucky dog criteria
+  luckyDogEligible.sort((a, b) => {
+    if (b.race_wins !== a.race_wins) return b.race_wins - a.race_wins;
+    if (b.stage_wins !== a.stage_wins) return b.stage_wins - a.stage_wins;
+    if (b.laps_led_bonuses !== a.laps_led_bonuses) return b.laps_led_bonuses - a.laps_led_bonuses;
+    return b.top_10_bonuses - a.top_10_bonuses;
+  });
+
+  // Find user's lucky dog rank (1 = in lucky dog position)
+  const userLuckyDogRank = userRank && userRank > 6
+    ? luckyDogEligible.findIndex((t) => t.team_id === userTeam?.id) + 1
+    : null;
+
+  // Get the team in actual lucky dog position for comparison
+  const luckyDogLeader = luckyDogEligible[0] || null;
+
   // Get recent announcements
   const { data: announcements } = await supabase
     .from('announcements')
@@ -236,22 +326,122 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Your Team Card */}
+        {/* Your Team Card - Enhanced */}
         {userTeam && (
           <div className="glass rounded-xl p-6 card-hover">
-            <h2 className="text-xl font-bold text-white mb-4">Your Team</h2>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-600/30 to-purple-800/30 border border-purple-500/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">#{userTeam.car_number}</span>
-              </div>
-              <h3 className="text-xl font-bold text-white">{userTeam.name}</h3>
-              <Link
-                href={`/teams/${userTeam.id}`}
-                className="text-amber-400 hover:text-amber-300 text-sm mt-2 inline-block"
-              >
-                View Team Profile →
-              </Link>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Your Team</h2>
+              {userRank && (
+                <div className={`flex items-center gap-1 ${userDesignation?.color || 'text-purple-400'}`}>
+                  <span className="text-lg font-bold">#{userRank}</span>
+                  {userDesignation?.emoji && <span>{userDesignation.emoji}</span>}
+                </div>
+              )}
             </div>
+
+            {/* Team Identity */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-600/30 to-purple-800/30 border border-purple-500/30 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {userTeam.logo_url ? (
+                  <Image
+                    src={userTeam.logo_url}
+                    alt={userTeam.name}
+                    width={56}
+                    height={56}
+                    className="object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">#{userTeam.car_number}</span>
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">{userTeam.name}</h3>
+                {userDesignation && (
+                  <span className={`text-sm ${userDesignation.color}`}>{userDesignation.label}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Points */}
+            {userStanding && (
+              <div className="mb-4 p-3 bg-purple-900/30 rounded-lg">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                    {userPoints}
+                  </div>
+                  <div className="text-xs text-purple-400">Total Points</div>
+                </div>
+              </div>
+            )}
+
+            {/* Position Deficits */}
+            {userStanding && standings && standings.length > 0 && (
+              <div className="space-y-2 mb-4">
+                <div className="text-xs text-purple-400 uppercase tracking-wider mb-2">Position Gaps</div>
+
+                {/* vs 2nd (Catbird Seat) */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-purple-300">vs 2nd 🐱</span>
+                  <span className={deficitVs2nd >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                    {deficitVs2nd >= 0 ? '+' : ''}{deficitVs2nd}
+                  </span>
+                </div>
+
+                {/* vs 6th (Last Playoff Spot) */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-purple-300">vs 6th ✅</span>
+                  <span className={deficitVs6th >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                    {deficitVs6th >= 0 ? '+' : ''}{deficitVs6th}
+                  </span>
+                </div>
+
+                {/* vs 15th (Last Consolation Spot) */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-purple-300">vs 15th</span>
+                  <span className={deficitVs15th >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                    {deficitVs15th >= 0 ? '+' : ''}{deficitVs15th}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Lucky Dog Standings (only if outside top 6) */}
+            {userLuckyDogRank && userStanding && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-amber-400 font-medium">🐕 Lucky Dog Race</span>
+                  <span className="text-sm font-bold text-amber-400">
+                    {userLuckyDogRank === 1 ? 'In Position!' : `#${userLuckyDogRank}`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="text-purple-300">
+                    Wins: <span className="text-white font-medium">{userStanding.race_wins || 0}</span>
+                  </div>
+                  <div className="text-purple-300">
+                    Stages: <span className="text-white font-medium">{userStanding.stage_wins || 0}</span>
+                  </div>
+                  <div className="text-purple-300">
+                    Laps Led: <span className="text-white font-medium">{lapsLedByTeam[userTeam.id] || 0}</span>
+                  </div>
+                  <div className="text-purple-300">
+                    Top 10s: <span className="text-white font-medium">{userStanding.top_10_bonuses || 0}</span>
+                  </div>
+                </div>
+                {userLuckyDogRank > 1 && luckyDogLeader && (
+                  <div className="mt-2 pt-2 border-t border-amber-500/20 text-xs text-purple-400">
+                    Leader: {luckyDogLeader.team_name} ({luckyDogLeader.race_wins}W / {luckyDogLeader.stage_wins}S)
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Link
+              href={`/teams/${userTeam.id}`}
+              className="block text-center text-amber-400 hover:text-amber-300 text-sm"
+            >
+              View Team Profile →
+            </Link>
           </div>
         )}
       </div>
