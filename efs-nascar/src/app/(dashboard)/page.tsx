@@ -102,18 +102,71 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   // Get all standings for the selected season
-  const { data: standings } = await supabase
+  let { data: standings } = await supabase
     .from('standings')
     .select('*, team:teams(*)')
     .eq('season_id', selectedSeasonId)
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
 
-  // Get laps_led_bonuses from race_scores for luckydog calculation
+  // Get all race scores for the selected season (used for laps_led calculation and fallback standings)
   const { data: raceScoresData } = await supabase
     .from('race_scores')
-    .select('team_id, laps_led_bonus, race:races!inner(season_id)')
+    .select('*, team:teams(*), race:races!inner(season_id)')
     .eq('race.season_id', selectedSeasonId);
+
+  // If no pre-calculated standings exist, calculate from race_scores
+  if ((!standings || standings.length === 0) && raceScoresData && raceScoresData.length > 0) {
+    // Aggregate scores by team
+    const teamTotals: Record<string, {
+      team_id: string;
+      team: any;
+      total_points: number;
+      race_wins: number;
+      stage_wins: number;
+      top_10_bonuses: number;
+      laps_led_bonuses: number;
+    }> = {};
+
+    for (const score of raceScoresData) {
+      if (!teamTotals[score.team_id]) {
+        teamTotals[score.team_id] = {
+          team_id: score.team_id,
+          team: score.team,
+          total_points: 0,
+          race_wins: 0,
+          stage_wins: 0,
+          top_10_bonuses: 0,
+          laps_led_bonuses: 0,
+        };
+      }
+      teamTotals[score.team_id].total_points += score.total_points || 0;
+      teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
+      teamTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
+      teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
+      if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
+        teamTotals[score.team_id].race_wins += 1;
+      }
+    }
+
+    const calculatedStandings = Object.values(teamTotals)
+      .sort((a, b) => b.total_points - a.total_points)
+      .map((team, index) => ({
+        id: `calc-${team.team_id}`,
+        team_id: team.team_id,
+        season_id: selectedSeasonId,
+        race_id: null,
+        total_points: team.total_points,
+        race_wins: team.race_wins,
+        stage_wins: team.stage_wins,
+        top_10_bonuses: team.top_10_bonuses,
+        rank: index + 1,
+        team: team.team,
+        updated_at: new Date().toISOString(),
+      }));
+
+    standings = calculatedStandings as any;
+  }
 
   // Aggregate laps_led_bonuses per team
   const lapsLedByTeam: Record<string, number> = {};

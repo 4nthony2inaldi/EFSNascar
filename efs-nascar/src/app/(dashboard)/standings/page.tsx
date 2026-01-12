@@ -40,12 +40,76 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
   // Get all standings for selected season
-  const { data: standings } = await supabase
+  let { data: standings } = await supabase
     .from('standings')
     .select('*, team:teams(*)')
     .eq('season_id', selectedSeasonId)
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
+
+  // If no pre-calculated standings exist, calculate from race_scores
+  if (!standings || standings.length === 0) {
+    // Get all race scores for the selected season
+    const { data: raceScores } = await supabase
+      .from('race_scores')
+      .select('*, team:teams(*), race:races!inner(season_id)')
+      .eq('race.season_id', selectedSeasonId);
+
+    if (raceScores && raceScores.length > 0) {
+      // Aggregate scores by team
+      const teamTotals: Record<string, {
+        team_id: string;
+        team: any;
+        total_points: number;
+        race_wins: number;
+        stage_wins: number;
+        top_10_bonuses: number;
+        laps_led_bonuses: number;
+      }> = {};
+
+      for (const score of raceScores) {
+        if (!teamTotals[score.team_id]) {
+          teamTotals[score.team_id] = {
+            team_id: score.team_id,
+            team: score.team,
+            total_points: 0,
+            race_wins: 0,
+            stage_wins: 0,
+            top_10_bonuses: 0,
+            laps_led_bonuses: 0,
+          };
+        }
+        teamTotals[score.team_id].total_points += score.total_points || 0;
+        teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
+        teamTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
+        // Stage bonus of 1 = 1 stage win, 2 = 2 stage wins
+        teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
+        // Check if any driver got position 1 (10 points)
+        if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
+          teamTotals[score.team_id].race_wins += 1;
+        }
+      }
+
+      // Convert to array and sort by points
+      const calculatedStandings = Object.values(teamTotals)
+        .sort((a, b) => b.total_points - a.total_points)
+        .map((team, index) => ({
+          id: `calc-${team.team_id}`,
+          team_id: team.team_id,
+          season_id: selectedSeasonId,
+          race_id: null,
+          total_points: team.total_points,
+          race_wins: team.race_wins,
+          stage_wins: team.stage_wins,
+          top_10_bonuses: team.top_10_bonuses,
+          rank: index + 1,
+          team: team.team,
+          updated_at: new Date().toISOString(),
+        }));
+
+      standings = calculatedStandings as any;
+    }
+  }
 
   // Get completed races count for selected season
   const { count: completedRaces } = await supabase
