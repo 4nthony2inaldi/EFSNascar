@@ -40,6 +40,7 @@ export async function GET() {
   const supabase = await createClient();
 
   // Get all race results with driver info
+  // Note: Must set limit higher than default 1000 to get all results
   const { data: results, error: resultsError } = await supabase
     .from('race_results')
     .select(`
@@ -48,7 +49,8 @@ export async function GET() {
       driver_id,
       finish_position,
       driver:drivers(id, name, car_number, team_name)
-    `);
+    `)
+    .limit(5000);
 
   if (resultsError) {
     return NextResponse.json({ error: resultsError.message }, { status: 500 });
@@ -180,13 +182,15 @@ export async function POST() {
   const supabase = await createClient();
 
   // Get all race results with driver info
+  // Note: Must set limit higher than default 1000 to get all results
   const { data: results } = await supabase
     .from('race_results')
     .select(`
       id,
       driver_id,
       driver:drivers(id, name, car_number)
-    `);
+    `)
+    .limit(5000);
 
   // Get all drivers for name matching
   const { data: drivers } = await supabase
