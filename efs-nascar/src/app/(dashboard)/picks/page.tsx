@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Race, Driver, Pick, Team, DriverUsage } from '@/types';
+import type { Race, Driver, Pick, Team } from '@/types';
 import { BASE_DRIVER_USES } from '@/types';
 
 export default function PicksPage() {
@@ -86,16 +86,18 @@ export default function PicksPage() {
 
         setDrivers(allDrivers || []);
 
-        // Get driver usages for this team
-        const { data: usages } = await supabase
-          .from('driver_usages')
-          .select('*')
+        // Calculate driver usages from submitted picks for this team
+        const { data: allPicks } = await supabase
+          .from('picks')
+          .select('driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
           .eq('team_id', membership.team.id)
-          .eq('season_id', season.id);
+          .eq('races.season_id', season.id);
 
         const usageMap: Record<string, number> = {};
-        usages?.forEach((u: DriverUsage) => {
-          usageMap[u.driver_id] = u.times_used;
+        allPicks?.forEach((pick: any) => {
+          [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
+            usageMap[driverId] = (usageMap[driverId] || 0) + 1;
+          });
         });
         setDriverUsages(usageMap);
 
