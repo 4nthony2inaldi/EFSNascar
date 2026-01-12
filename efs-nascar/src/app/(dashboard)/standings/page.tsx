@@ -327,6 +327,105 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
 
       chartData.push(dataPoint);
     }
+  } else {
+    // Fallback: Calculate chart data from picks + race_results
+    const { data: chartPicks } = await supabase
+      .from('picks')
+      .select('team_id, driver_1_id, driver_2_id, driver_3_id, race:races!inner(id, race_number, name, season_id)')
+      .eq('race.season_id', selectedSeasonId);
+
+    const { data: chartRaceResults } = await supabase
+      .from('race_results')
+      .select('race_id, driver_id, finish_position, stage_1_winner, stage_2_winner, most_laps_led')
+      .in('race_id', chartPicks?.map(p => (p.race as any)?.id).filter(Boolean) || []);
+
+    if (chartPicks && chartPicks.length > 0 && chartRaceResults && chartRaceResults.length > 0) {
+      // Build results lookup
+      const resultsByRaceAndDriver: Record<string, {
+        finish_position: number;
+        stage_1_winner: boolean;
+        stage_2_winner: boolean;
+        most_laps_led: boolean;
+      }> = {};
+
+      for (const result of chartRaceResults) {
+        const key = `${result.race_id}-${result.driver_id}`;
+        resultsByRaceAndDriver[key] = {
+          finish_position: result.finish_position,
+          stage_1_winner: result.stage_1_winner,
+          stage_2_winner: result.stage_2_winner,
+          most_laps_led: result.most_laps_led,
+        };
+      }
+
+      const POSITION_POINTS: Record<number, number> = {
+        1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
+      };
+
+      // Group picks by race and calculate points
+      const scoresByRace: Record<number, { raceName: string; raceId: string; scores: { teamId: string; points: number }[] }> = {};
+
+      for (const pick of chartPicks) {
+        const race = pick.race as unknown as { id: string; race_number: number; name: string };
+        if (!race) continue;
+        const raceNum = race.race_number;
+
+        if (!scoresByRace[raceNum]) {
+          scoresByRace[raceNum] = { raceName: race.name, raceId: race.id, scores: [] };
+        }
+
+        // Calculate points for this pick
+        const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+        let racePoints = 0;
+        let stageBonus = 0;
+        let lapsLedBonus = 0;
+        let allTop10 = true;
+
+        for (const driverId of driverIds) {
+          const key = `${race.id}-${driverId}`;
+          const result = resultsByRaceAndDriver[key];
+
+          if (result) {
+            racePoints += POSITION_POINTS[result.finish_position] || 0;
+            if (result.stage_1_winner) stageBonus += 1;
+            if (result.stage_2_winner) stageBonus += 1;
+            if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = 1;
+            if (result.finish_position > 10) allTop10 = false;
+          } else {
+            allTop10 = false;
+          }
+        }
+
+        if (allTop10) racePoints += 1;
+        const totalPoints = racePoints + stageBonus + lapsLedBonus;
+
+        scoresByRace[raceNum].scores.push({
+          teamId: pick.team_id,
+          points: totalPoints,
+        });
+      }
+
+      // Build cumulative data
+      const sortedRaceNums = Object.keys(scoresByRace).map(Number).sort((a, b) => a - b);
+
+      for (const raceNum of sortedRaceNums) {
+        const raceData = scoresByRace[raceNum];
+        const dataPoint: ChartRaceData = {
+          raceNumber: raceNum,
+          raceName: raceData.raceName,
+        };
+
+        for (const { teamId, points } of raceData.scores) {
+          cumulativeByTeam[teamId] = (cumulativeByTeam[teamId] || 0) + points;
+        }
+
+        for (const teamId in cumulativeByTeam) {
+          dataPoint[teamId] = cumulativeByTeam[teamId];
+        }
+
+        chartData.push(dataPoint);
+      }
+    }
   }
 
   // Build teams array for chart
