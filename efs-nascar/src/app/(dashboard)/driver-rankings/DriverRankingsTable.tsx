@@ -46,6 +46,14 @@ function getTierColor(tier: number): string {
 }
 
 function TierBadge({ tier }: { tier: number }) {
+  // Tier 0 means part-time/ineligible driver
+  if (tier === 0) {
+    return (
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-gray-700 text-gray-400">
+        -
+      </span>
+    );
+  }
   return (
     <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${getTierColor(tier)}`}>
       {tier}

@@ -209,8 +209,21 @@ export default async function DriverRankingsPage() {
     if (result.most_laps_led) stats.laps_led_races += 1;
   }
 
-  // Step 5: Convert to array and calculate averages
-  // First, create driver stats without tier
+  // Step 5: Count races in the most recent 30 races per driver (for full-time eligibility)
+  // Full-time drivers must have at least 15 races in the most recent 30 to be tier-eligible
+  const MIN_RECENT_RACES_FOR_TIER = 15;
+  const recentRaceIds = new Set(races.slice(0, 30).map(r => r.id));
+
+  const recentRaceCountByDriver: Record<string, number> = {};
+  for (const result of allResults) {
+    const driverName = result.api_driver_name;
+    if (!driverName) continue;
+    if (recentRaceIds.has(result.race_id)) {
+      recentRaceCountByDriver[driverName] = (recentRaceCountByDriver[driverName] || 0) + 1;
+    }
+  }
+
+  // Create driver stats without tier
   const driverStatsWithoutTier = Object.values(statsByName)
     .map(stats => ({
       driver_name: stats.driver_name,
@@ -228,26 +241,43 @@ export default async function DriverRankingsPage() {
       weighted_fantasy_points: stats.weighted_fantasy_points,
       fantasy_points_per_race: stats.races > 0 ? stats.fantasy_points / stats.races : 0,
       weighted_fantasy_points_per_race: stats.total_weight > 0 ? stats.weighted_fantasy_points / stats.total_weight : 0,
+      recent_races: recentRaceCountByDriver[stats.driver_name] || 0,
     }))
     .filter(d => d.races > 0);
 
   // Sort by weighted fantasy points to assign tiers (6 drivers per tier)
-  const sortedByWeighted = [...driverStatsWithoutTier].sort(
-    (a, b) => b.weighted_fantasy_points - a.weighted_fantasy_points
-  );
+  // Only include full-time drivers (15+ races in most recent 30) for tier assignment
+  const fullTimeDrivers = driverStatsWithoutTier
+    .filter(d => d.recent_races >= MIN_RECENT_RACES_FOR_TIER)
+    .sort((a, b) => b.weighted_fantasy_points - a.weighted_fantasy_points);
 
-  // Create a map of driver name to tier
+  // Create a map of driver name to tier (only for full-time drivers)
   const tierMap = new Map<string, number>();
-  sortedByWeighted.forEach((driver, index) => {
+  fullTimeDrivers.forEach((driver, index) => {
     const tier = Math.floor(index / 6) + 1; // Tier 1 = ranks 1-6, Tier 2 = ranks 7-12, etc.
     tierMap.set(driver.driver_name, tier);
   });
 
   // Add tier to each driver and sort by default (fantasy points)
+  // Part-time drivers get tier 0 (displayed as "-")
   const rankings: DriverStats[] = driverStatsWithoutTier
     .map(driver => ({
-      ...driver,
-      tier: tierMap.get(driver.driver_name) || 99,
+      driver_name: driver.driver_name,
+      car_numbers: driver.car_numbers,
+      current_car_number: driver.current_car_number,
+      team_name: driver.team_name,
+      races: driver.races,
+      wins: driver.wins,
+      stage_wins: driver.stage_wins,
+      laps_led_races: driver.laps_led_races,
+      avg_finish: driver.avg_finish,
+      top_5s: driver.top_5s,
+      top_10s: driver.top_10s,
+      fantasy_points: driver.fantasy_points,
+      weighted_fantasy_points: driver.weighted_fantasy_points,
+      fantasy_points_per_race: driver.fantasy_points_per_race,
+      weighted_fantasy_points_per_race: driver.weighted_fantasy_points_per_race,
+      tier: tierMap.get(driver.driver_name) || 0, // 0 = part-time/ineligible
     }))
     .sort((a, b) => {
       // Default sort by fantasy points desc
@@ -293,7 +323,7 @@ export default async function DriverRankingsPage() {
         <h2 className="text-lg font-bold text-white mb-3">Column Definitions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-purple-300">
           <div>
-            <span className="text-fuchsia-400 font-semibold">Tier:</span> Driver tier based on weighted fantasy points (6 drivers per tier, Tier 1 = best)
+            <span className="text-fuchsia-400 font-semibold">Tier:</span> Driver tier based on weighted fantasy points (6 full-time drivers per tier, Tier 1 = best). Full-time = 15+ races in last 30. Part-time drivers show &quot;-&quot;.
           </div>
           <div>
             <span className="text-amber-400 font-semibold">FPts:</span> Total fantasy points (P1=10, P2=9, ... P10=1, +1 per stage win, +1 for most laps led)
