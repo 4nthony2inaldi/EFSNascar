@@ -88,14 +88,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     .eq('season_id', selectedSeasonId)
     .single();
 
-  // Get all races for selected season
+  // Get all races for selected season with track info
   const { data: racesData } = await supabase
     .from('races')
-    .select('*')
+    .select('*, track_info:tracks(*)')
     .eq('season_id', selectedSeasonId)
     .order('race_number', { ascending: true });
 
-  const races = (racesData || []) as Race[];
+  const races = (racesData || []) as (Race & { track_info: { track_type: string } | null })[];
 
   // Get all picks for this team in selected season
   const { data: picksData } = await supabase
@@ -233,7 +233,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   // Calculate points for each race
   interface RacePickData {
-    race: Race;
+    race: Race & { track_info: { track_type: string } | null };
     pick: any | null;
     drivers: {
       driver: Driver;
@@ -247,6 +247,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     lapsLedBonus: number;
     top10Bonus: number;
     strategy: ReturnType<typeof getPickStrategy> | null;
+    trackType: string | null;
   }
 
   const racePicksData: RacePickData[] = races
@@ -264,6 +265,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           lapsLedBonus: 0,
           top10Bonus: 0,
           strategy: null,
+          trackType: race.track_info?.track_type || null,
         };
       }
 
@@ -339,8 +341,62 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         lapsLedBonus,
         top10Bonus,
         strategy,
+        trackType: race.track_info?.track_type || null,
       };
     });
+
+  // Calculate average points by pick strategy
+  const strategyStats: Record<string, { totalPoints: number; count: number }> = {};
+  for (const raceData of racePicksData) {
+    if (raceData.race.status === 'final' && raceData.strategy && raceData.pick) {
+      const strategyName = raceData.strategy.name;
+      if (!strategyStats[strategyName]) {
+        strategyStats[strategyName] = { totalPoints: 0, count: 0 };
+      }
+      strategyStats[strategyName].totalPoints += raceData.totalPoints;
+      strategyStats[strategyName].count += 1;
+    }
+  }
+
+  const strategyAverages = Object.entries(strategyStats)
+    .map(([name, stats]) => ({
+      name,
+      avgPoints: stats.count > 0 ? Math.round((stats.totalPoints / stats.count) * 10) / 10 : 0,
+      totalPoints: stats.totalPoints,
+      raceCount: stats.count,
+    }))
+    .sort((a, b) => b.avgPoints - a.avgPoints);
+
+  // Calculate average points by track type
+  const trackTypeStats: Record<string, { totalPoints: number; count: number }> = {};
+  for (const raceData of racePicksData) {
+    if (raceData.race.status === 'final' && raceData.trackType && raceData.pick) {
+      if (!trackTypeStats[raceData.trackType]) {
+        trackTypeStats[raceData.trackType] = { totalPoints: 0, count: 0 };
+      }
+      trackTypeStats[raceData.trackType].totalPoints += raceData.totalPoints;
+      trackTypeStats[raceData.trackType].count += 1;
+    }
+  }
+
+  const trackTypeLabels: Record<string, string> = {
+    superspeedway: 'Superspeedway',
+    intermediate: 'Intermediate',
+    short_track: 'Short Track',
+    road_course: 'Road Course',
+    street_course: 'Street Course',
+    dirt: 'Dirt',
+  };
+
+  const trackTypeAverages = Object.entries(trackTypeStats)
+    .map(([type, stats]) => ({
+      type,
+      label: trackTypeLabels[type] || type,
+      avgPoints: stats.count > 0 ? Math.round((stats.totalPoints / stats.count) * 10) / 10 : 0,
+      totalPoints: stats.totalPoints,
+      raceCount: stats.count,
+    }))
+    .sort((a, b) => b.avgPoints - a.avgPoints);
 
   const owners = team.team_memberships?.filter((m: any) => m.role === 'owner') || [];
   const members = team.team_memberships?.filter((m: any) => m.role === 'member') || [];
@@ -559,6 +615,70 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
               <p className="text-gray-400 text-sm">No members assigned to this team.</p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Performance Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Average Points by Pick Strategy */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Strategy</h2>
+          {strategyAverages.length > 0 ? (
+            <div className="space-y-3">
+              {strategyAverages.map((strategy) => (
+                <div key={strategy.name} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-1 text-xs font-bold rounded ${
+                      strategy.name === 'Chalk' ? 'bg-amber-500/20 text-amber-400' :
+                      strategy.name === 'Contrarian' ? 'bg-purple-500/20 text-purple-400' :
+                      'bg-emerald-500/20 text-emerald-400'
+                    }`}>
+                      {strategy.name}
+                    </span>
+                    <span className="text-gray-400 text-sm">({strategy.raceCount} races)</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl font-bold text-white">{strategy.avgPoints}</span>
+                    <span className="text-gray-500 text-sm ml-1">avg</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400">No completed races with strategy data yet.</p>
+          )}
+        </div>
+
+        {/* Average Points by Track Type */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Track Type</h2>
+          {trackTypeAverages.length > 0 ? (
+            <div className="space-y-3">
+              {trackTypeAverages.map((track) => (
+                <div key={track.type} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-1 text-xs font-bold rounded ${
+                      track.type === 'superspeedway' ? 'bg-red-500/20 text-red-400' :
+                      track.type === 'intermediate' ? 'bg-blue-500/20 text-blue-400' :
+                      track.type === 'short_track' ? 'bg-amber-500/20 text-amber-400' :
+                      track.type === 'road_course' ? 'bg-emerald-500/20 text-emerald-400' :
+                      track.type === 'street_course' ? 'bg-purple-500/20 text-purple-400' :
+                      'bg-orange-500/20 text-orange-400'
+                    }`}>
+                      {track.label}
+                    </span>
+                    <span className="text-gray-400 text-sm">({track.raceCount} races)</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl font-bold text-white">{track.avgPoints}</span>
+                    <span className="text-gray-500 text-sm ml-1">avg</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400">No completed races with track data yet.</p>
+          )}
         </div>
       </div>
 
