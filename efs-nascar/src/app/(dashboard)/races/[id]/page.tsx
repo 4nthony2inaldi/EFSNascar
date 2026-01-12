@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, RaceResult, Driver, Pick, Team, RaceScore } from '@/types';
 import { POSITION_POINTS } from '@/types';
+import { calculateDriverTiers } from '@/lib/driverTiers';
+import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
+import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -58,12 +61,24 @@ export default async function RaceResultsPage({ params }: PageProps) {
     resultsMap[r.driver_id] = r;
   });
 
-  // Count how many teams picked each driver
+  // Calculate driver tiers for strategy labels
+  const driverTiers = await calculateDriverTiers(supabase);
+
+  // Count how many teams picked each driver and calculate strategies
   const driverPickCounts: Record<string, number> = {};
+  const teamStrategies: Record<string, PickStrategy> = {};
   picks?.forEach((pick: any) => {
     [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
       driverPickCounts[driverId] = (driverPickCounts[driverId] || 0) + 1;
     });
+
+    // Calculate pick strategy for this team
+    const tiers = [
+      driverTiers.get(pick.driver_1_id) || 0,
+      driverTiers.get(pick.driver_2_id) || 0,
+      driverTiers.get(pick.driver_3_id) || 0,
+    ];
+    teamStrategies[pick.team_id] = getPickStrategy(tiers);
   });
 
   const getOverlapColor = (count: number) => {
@@ -181,6 +196,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">#</th>
                   <th className="pb-3 pr-4">Team</th>
+                  <th className="pb-3 pr-4 text-center">Strategy</th>
                   <th className="pb-3 pr-4 text-center">Driver 1</th>
                   <th className="pb-3 pr-4 text-center">Driver 2</th>
                   <th className="pb-3 pr-4 text-center">Driver 3</th>
@@ -215,6 +231,11 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           )}
                         </Link>
                       </td>
+                      <td className="py-3 pr-4 text-center">
+                        {teamStrategies[score.team_id] && (
+                          <PickStrategyBadge strategy={teamStrategies[score.team_id]} size="sm" />
+                        )}
+                      </td>
                       <td className="py-3 pr-4 text-center text-white">
                         {score.driver_1_points}
                       </td>
@@ -248,6 +269,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
               <thead>
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">Team</th>
+                  <th className="pb-3 pr-4">Strategy</th>
                   <th className="pb-3 pr-4">Driver 1</th>
                   <th className="pb-3 pr-4">Driver 2</th>
                   <th className="pb-3 pr-4">Driver 3</th>
@@ -293,6 +315,11 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           </span>
                           <span className="text-white">{pick.team?.name}</span>
                         </Link>
+                      </td>
+                      <td className="py-3 pr-4">
+                        {teamStrategies[pick.team_id] && (
+                          <PickStrategyBadge strategy={teamStrategies[pick.team_id]} size="sm" />
+                        )}
                       </td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
