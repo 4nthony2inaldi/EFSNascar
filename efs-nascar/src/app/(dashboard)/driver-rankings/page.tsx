@@ -293,28 +293,6 @@ export default async function DriverRankingsPage() {
         </p>
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass rounded-xl p-4">
-          <div className="text-3xl font-bold text-amber-400">{racesAnalyzed}</div>
-          <div className="text-purple-300 text-sm">Races Analyzed</div>
-        </div>
-        <div className="glass rounded-xl p-4">
-          <div className="text-3xl font-bold text-emerald-400">{rankings.length}</div>
-          <div className="text-purple-300 text-sm">Drivers</div>
-        </div>
-        <div className="glass rounded-xl p-4">
-          <div className="text-3xl font-bold text-cyan-400">{allResults.length}</div>
-          <div className="text-purple-300 text-sm">Total Results</div>
-        </div>
-        <div className="glass rounded-xl p-4">
-          <div className="text-3xl font-bold text-purple-400">
-            {rankings.filter(d => d.wins > 0).length}
-          </div>
-          <div className="text-purple-300 text-sm">Race Winners</div>
-        </div>
-      </div>
-
       {/* Rankings Table */}
       <DriverRankingsTable rankings={rankings} />
 
