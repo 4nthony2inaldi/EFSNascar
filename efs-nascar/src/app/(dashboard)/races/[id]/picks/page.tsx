@@ -112,8 +112,55 @@ export default async function PicksRevealPage({ params }: PageProps) {
 
   const totalTeamsWithPicks = picks?.length || 0;
 
-  // Sort teams by car number
-  const sortedTeams = [...(allTeams || [])].sort((a, b) => a.car_number - b.car_number);
+  // Fetch race scores to check if results are in
+  const { data: raceScores } = await supabase
+    .from('race_scores')
+    .select('*')
+    .eq('race_id', id);
+
+  // Create a map of team_id to total_points
+  const teamScoresMap: Record<string, number> = {};
+  raceScores?.forEach((score: any) => {
+    teamScoresMap[score.team_id] = score.total_points;
+  });
+  const hasRaceResults = (raceScores?.length || 0) > 0;
+
+  // Sort teams by pick intensity (ascending) for "picks at a glance"
+  // Teams without picks go at the end
+  const sortedTeamsByIntensity = [...(allTeams || [])].sort((a, b) => {
+    const strategyA = teamStrategies[a.id];
+    const strategyB = teamStrategies[b.id];
+
+    // Teams without picks go at the end
+    if (!strategyA && !strategyB) return a.car_number - b.car_number;
+    if (!strategyA) return 1;
+    if (!strategyB) return -1;
+
+    // Sort by intensity ascending (lower = more aggressive)
+    if (strategyA.intensity !== strategyB.intensity) {
+      return strategyA.intensity - strategyB.intensity;
+    }
+    // Tie-breaker: car number
+    return a.car_number - b.car_number;
+  });
+
+  // Sort teams by points (descending) when results are in, otherwise by intensity
+  const sortedTeamsByPoints = [...(allTeams || [])].sort((a, b) => {
+    const pointsA = teamScoresMap[a.id] ?? -1;
+    const pointsB = teamScoresMap[b.id] ?? -1;
+
+    // Teams without scores go at the end
+    if (pointsA === -1 && pointsB === -1) return a.car_number - b.car_number;
+    if (pointsA === -1) return 1;
+    if (pointsB === -1) return -1;
+
+    // Sort by points descending
+    if (pointsA !== pointsB) {
+      return pointsB - pointsA;
+    }
+    // Tie-breaker: car number
+    return a.car_number - b.car_number;
+  });
 
   // Get current user's team for highlighting
   const { data: { user } } = await supabase.auth.getUser();
@@ -215,7 +262,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
               </tr>
             </thead>
             <tbody>
-              {sortedTeams.map((team) => {
+              {sortedTeamsByIntensity.map((team) => {
                 const pick = teamPicks[team.id];
                 const isUserTeam = team.id === userTeamId;
 
@@ -350,12 +397,18 @@ export default async function PicksRevealPage({ params }: PageProps) {
 
       {/* All Teams' Picks */}
       <div className="glass rounded-xl p-6">
-        <h2 className="text-xl font-bold text-white mb-6">All Teams&apos; Picks</h2>
+        <h2 className="text-xl font-bold text-white mb-6">
+          All Teams&apos; Picks
+          {hasRaceResults && (
+            <span className="text-purple-400 text-sm font-normal ml-2">(sorted by points)</span>
+          )}
+        </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {sortedTeams.map((team) => {
+          {(hasRaceResults ? sortedTeamsByPoints : sortedTeamsByIntensity).map((team) => {
             const pick = teamPicks[team.id];
             const isUserTeam = team.id === userTeamId;
+            const teamPoints = teamScoresMap[team.id];
 
             return (
               <div
@@ -380,9 +433,16 @@ export default async function PicksRevealPage({ params }: PageProps) {
                       </span>
                     )}
                   </Link>
-                  {teamStrategies[team.id] && (
-                    <PickStrategyBadge strategy={teamStrategies[team.id]} size="sm" />
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {hasRaceResults && teamPoints !== undefined && (
+                      <span className="text-lg font-bold text-amber-400">
+                        {teamPoints} pts
+                      </span>
+                    )}
+                    {teamStrategies[team.id] && (
+                      <PickStrategyBadge strategy={teamStrategies[team.id]} size="sm" />
+                    )}
+                  </div>
                 </div>
 
                 {/* Picks */}
