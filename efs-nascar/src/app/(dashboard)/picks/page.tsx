@@ -189,8 +189,62 @@ export default function PicksPage() {
   const handleSubmit = async () => {
     if (!selectedRace || !userTeam) return;
 
-    // Validate all slots filled
-    if (selectedDrivers.some((d) => !d)) {
+    const hasAllDrivers = selectedDrivers.every((d) => d !== null);
+    const hasNoDrivers = selectedDrivers.every((d) => d === null);
+
+    // If no drivers selected and existing pick, delete it
+    if (hasNoDrivers && existingPick) {
+      setSubmitting(true);
+      setError(null);
+
+      try {
+        const { error: deleteError } = await supabase
+          .from('picks')
+          .delete()
+          .eq('id', existingPick.id);
+
+        if (deleteError) throw deleteError;
+
+        setSuccess(true);
+        setExistingPick(null);
+
+        // Recalculate driver usages after deletion
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: membership } = await supabase
+          .from('team_memberships')
+          .select('team_id')
+          .eq('user_id', user?.id)
+          .single();
+        const { data: season } = await supabase
+          .from('seasons')
+          .select('id')
+          .eq('is_active', true)
+          .single();
+        if (membership && season) {
+          const { data: allPicks } = await supabase
+            .from('picks')
+            .select('driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
+            .eq('team_id', membership.team_id)
+            .eq('races.season_id', season.id);
+          const usageMap: Record<string, number> = {};
+          allPicks?.forEach((pick: any) => {
+            [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
+              usageMap[driverId] = (usageMap[driverId] || 0) + 1;
+            });
+          });
+          setDriverUsages(usageMap);
+        }
+      } catch (err: any) {
+        console.error('Error deleting pick:', err);
+        setError(err.message || 'Failed to delete picks.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Validate all slots filled for new/update
+    if (!hasAllDrivers) {
       setError('Please select 3 drivers.');
       return;
     }
@@ -236,6 +290,33 @@ export default function PicksPage() {
 
       setSuccess(true);
       setExistingPick({ ...pickData, id: existingPick?.id || '', submitted_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+
+      // Recalculate driver usages after submission
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: membership } = await supabase
+        .from('team_memberships')
+        .select('team_id')
+        .eq('user_id', user?.id)
+        .single();
+      const { data: season } = await supabase
+        .from('seasons')
+        .select('id')
+        .eq('is_active', true)
+        .single();
+      if (membership && season) {
+        const { data: allPicks } = await supabase
+          .from('picks')
+          .select('driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
+          .eq('team_id', membership.team_id)
+          .eq('races.season_id', season.id);
+        const usageMap: Record<string, number> = {};
+        allPicks?.forEach((pick: any) => {
+          [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
+            usageMap[driverId] = (usageMap[driverId] || 0) + 1;
+          });
+        });
+        setDriverUsages(usageMap);
+      }
     } catch (err: any) {
       console.error('Error submitting pick:', err);
       setError(err.message || 'Failed to submit picks.');
@@ -373,10 +454,12 @@ export default function PicksPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={submitting || selectedDrivers.some((d) => !d)}
+              disabled={submitting || (!existingPick && selectedDrivers.some((d) => !d))}
               className="mt-4 w-full py-3 px-4 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 transition-all"
             >
-              {submitting ? 'Submitting...' : existingPick ? 'Update Picks' : 'Submit Picks'}
+              {submitting ? 'Submitting...' :
+               existingPick && selectedDrivers.every((d) => !d) ? 'Delete Picks' :
+               existingPick ? 'Update Picks' : 'Submit Picks'}
             </button>
           </div>
 
