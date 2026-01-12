@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Team, Standing, Pick, Track, TrackType } from '@/types';
+import { LocalTime } from '@/components/LocalTime';
 
 interface RaceWithTrack extends Race {
   track_info: Track | null;
@@ -272,13 +273,7 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between text-sm text-purple-400 mb-6">
                 <span>
                   Race #{nextRace.race_number} •{' '}
-                  {new Date(nextRace.scheduled_datetime).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
+                  <LocalTime dateStr={nextRace.scheduled_datetime} format="long" />
                 </span>
               </div>
 
@@ -310,7 +305,14 @@ export default async function DashboardPage() {
                       Picks not submitted
                     </div>
                   )}
-                  {!isDeadlinePassed && (
+                  {isDeadlinePassed ? (
+                    <Link
+                      href={`/races/${nextRace.id}/picks`}
+                      className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 shadow-lg shadow-purple-500/25 transition-all"
+                    >
+                      View All Picks
+                    </Link>
+                  ) : (
                     <Link
                       href={`/picks?race=${nextRace.id}`}
                       className="px-5 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all"
@@ -484,7 +486,7 @@ export default async function DashboardPage() {
                     rankColor = 'text-emerald-400';
                   } else if (rank === 7) {
                     rankColor = 'text-amber-400';
-                    statusLabel = '🐕';
+                    statusLabel = '🐶';
                   } else if (rank >= 16) {
                     rankColor = 'text-red-400';
                     statusLabel = '💩';
@@ -504,12 +506,15 @@ export default async function DashboardPage() {
                         {statusLabel && <span className="ml-1">{statusLabel}</span>}
                       </td>
                       <td className="py-3 pr-4">
-                        <div className="flex items-center">
+                        <Link
+                          href={`/teams/${standing.team?.id}`}
+                          className="flex items-center hover:text-amber-400 transition-colors"
+                        >
                           <span className="text-amber-400 font-bold mr-2">
                             #{standing.team?.car_number}
                           </span>
-                          <span className="text-white">{standing.team?.name}</span>
-                        </div>
+                          <span className="text-white hover:text-amber-300">{standing.team?.name}</span>
+                        </Link>
                       </td>
                       <td className="py-3 pr-4 text-right text-white font-medium">
                         {standing.total_points}
@@ -539,7 +544,7 @@ export default async function DashboardPage() {
                 <p className="text-purple-300 text-sm mt-1">{announcement.body}</p>
                 <p className="text-purple-500 text-xs mt-2">
                   {announcement.author?.name} •{' '}
-                  {new Date(announcement.posted_at).toLocaleDateString()}
+                  <LocalTime dateStr={announcement.posted_at} format="dateOnly" />
                 </p>
               </div>
             ))}

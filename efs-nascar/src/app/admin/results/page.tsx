@@ -14,6 +14,23 @@ interface ResultEntry {
   most_laps_led: boolean;
 }
 
+interface ApiImportResult {
+  success: boolean;
+  message: string;
+  raceInfo?: {
+    name: string;
+    track: string;
+    resultsCount: number;
+    stage1Winner?: { name: string; carNumber: number } | null;
+    stage2Winner?: { name: string; carNumber: number } | null;
+    mostLapsLed?: { name: string; carNumber: number; lapsLed: number } | null;
+  };
+  warnings?: {
+    unmatchedDrivers: string[];
+    message: string;
+  };
+}
+
 export default function AdminResultsPage() {
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -27,6 +44,9 @@ export default function AdminResultsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [fetchingFromApi, setFetchingFromApi] = useState(false);
+  const [apiResult, setApiResult] = useState<ApiImportResult | null>(null);
+  const [seasonYear, setSeasonYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     loadData();
@@ -50,6 +70,9 @@ export default function AdminResultsPage() {
       setLoading(false);
       return;
     }
+
+    // Set season year for API calls
+    setSeasonYear(season.year);
 
     // Get all races for the season
     const { data: racesData } = await supabase
@@ -232,6 +255,42 @@ export default function AdminResultsPage() {
     return drivers.filter((d) => !usedIds.has(d.id));
   };
 
+  const fetchFromNascarApi = async () => {
+    if (!selectedRace) return;
+
+    setFetchingFromApi(true);
+    setError(null);
+    setApiResult(null);
+
+    try {
+      const response = await fetch('/api/nascar/fetch-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          race_id: selectedRace.id,
+          year: seasonYear,
+          race_name: selectedRace.name,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch results');
+      }
+
+      setApiResult(data);
+
+      // Reload the results to show imported data
+      await loadExistingResults(selectedRace.id);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch from NASCAR API');
+    } finally {
+      setFetchingFromApi(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-gray-400">Loading...</div>;
   }
@@ -273,6 +332,97 @@ export default function AdminResultsPage() {
           </div>
         )}
       </div>
+
+      {/* NASCAR API Import */}
+      {selectedRace && (
+        <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg p-6 border border-blue-500/30">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Import from NASCAR API
+              </h3>
+              <p className="text-gray-400 text-sm mt-1">
+                Automatically fetch official race results from Sportradar
+              </p>
+            </div>
+            <button
+              onClick={fetchFromNascarApi}
+              disabled={fetchingFromApi || selectedRace.status === 'final'}
+              className="px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              {fetchingFromApi ? (
+                <>
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Fetching...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                  Fetch Results
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* API Result Display */}
+          {apiResult && (
+            <div className={`mt-4 p-4 rounded-lg ${apiResult.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+              <p className={apiResult.success ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
+                {apiResult.message}
+              </p>
+              {apiResult.raceInfo && (
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Results:</span>{' '}
+                    <span className="text-white">{apiResult.raceInfo.resultsCount} drivers</span>
+                  </div>
+                  {apiResult.raceInfo.stage1Winner && (
+                    <div>
+                      <span className="text-gray-500">Stage 1:</span>{' '}
+                      <span className="text-white">#{apiResult.raceInfo.stage1Winner.carNumber} {apiResult.raceInfo.stage1Winner.name}</span>
+                    </div>
+                  )}
+                  {apiResult.raceInfo.stage2Winner && (
+                    <div>
+                      <span className="text-gray-500">Stage 2:</span>{' '}
+                      <span className="text-white">#{apiResult.raceInfo.stage2Winner.carNumber} {apiResult.raceInfo.stage2Winner.name}</span>
+                    </div>
+                  )}
+                  {apiResult.raceInfo.mostLapsLed && (
+                    <div>
+                      <span className="text-gray-500">Most Laps:</span>{' '}
+                      <span className="text-white">#{apiResult.raceInfo.mostLapsLed.carNumber} ({apiResult.raceInfo.mostLapsLed.lapsLed} laps)</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {apiResult.warnings && (
+                <div className="mt-3 p-3 bg-yellow-500/10 rounded border border-yellow-500/30">
+                  <p className="text-yellow-400 text-sm font-medium">{apiResult.warnings.message}</p>
+                  <p className="text-yellow-300/70 text-xs mt-1">
+                    {apiResult.warnings.unmatchedDrivers.join(', ')}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="text-gray-500 text-xs mt-4">
+            Requires SPORTRADAR_API_KEY in environment variables.{' '}
+            <a href="https://developer.sportradar.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              Get your free trial key
+            </a>
+          </p>
+        </div>
+      )}
 
       {selectedRace && (
         <>
