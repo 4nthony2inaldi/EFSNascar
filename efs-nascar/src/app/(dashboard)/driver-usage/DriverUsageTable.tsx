@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
-import type { TeamWithOwner, DriverWithStats } from './page';
+import type { TeamWithOwner, DriverWithStats, SeasonOption } from './page';
 
 interface Props {
   drivers: DriverWithStats[];
   teams: TeamWithOwner[];
   usageMap: Record<string, Record<string, number>>;
+  seasons: SeasonOption[];
+  selectedSeasonId: string;
 }
 
 type SortKey = 'weighted_fantasy_points' | 'driver_name' | 'tier';
@@ -64,7 +67,14 @@ function UsageCell({ count }: { count: number }) {
   );
 }
 
-export default function DriverUsageTable({ drivers, teams, usageMap }: Props) {
+export default function DriverUsageTable({
+  drivers,
+  teams,
+  usageMap,
+  seasons,
+  selectedSeasonId
+}: Props) {
+  const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>('weighted_fantasy_points');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -108,6 +118,10 @@ export default function DriverUsageTable({ drivers, teams, usageMap }: Props) {
     }
   };
 
+  const handleSeasonChange = (seasonId: string) => {
+    router.push(`/driver-usage?season=${seasonId}`);
+  };
+
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
     if (sortKey !== columnKey) {
       return <span className="ml-1 text-purple-600 opacity-50 text-xs">&#8645;</span>;
@@ -120,88 +134,107 @@ export default function DriverUsageTable({ drivers, teams, usageMap }: Props) {
   };
 
   return (
-    <div className="glass rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            {/* Header row 1: Owner names */}
-            <tr className="bg-purple-900/30 text-purple-300 text-xs">
-              <th className="px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20" colSpan={2}>
-                <span className="text-white font-bold">Standings</span>
-              </th>
-              {teams.map(team => (
-                <th key={team.id} className="px-2 py-2 text-center font-medium min-w-[60px]">
-                  <span className="text-white">{team.owner_name}</span>
-                </th>
-              ))}
-            </tr>
-            {/* Header row 2: Team names */}
-            <tr className="bg-purple-900/20 text-purple-400 text-xs border-b border-purple-700/30">
-              <th
-                className="px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 cursor-pointer hover:bg-purple-800/50"
-                onClick={() => handleSort('weighted_fantasy_points')}
-              >
-                <div className="flex items-center">
-                  <span className="text-amber-400">WFPts</span>
-                  <SortIcon columnKey="weighted_fantasy_points" />
-                </div>
-              </th>
-              <th
-                className="px-3 py-2 text-left cursor-pointer hover:bg-purple-800/50"
-                onClick={() => handleSort('driver_name')}
-              >
-                <div className="flex items-center">
-                  Driver
-                  <SortIcon columnKey="driver_name" />
-                </div>
-              </th>
-              {teams.map(team => (
-                <th key={team.id} className="px-2 py-2 text-center text-purple-500 text-[10px] min-w-[60px]">
-                  {team.name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sortedDrivers.map((driver, index) => {
-              const totalUsage = Object.values(usageMap[driver.driver_id] || {}).reduce((a, b) => a + b, 0);
+    <div className="space-y-4">
+      {/* Season Selector */}
+      <div className="flex items-center gap-4">
+        <label className="text-sm font-medium text-purple-200">
+          Season:
+        </label>
+        <select
+          value={selectedSeasonId}
+          onChange={(e) => handleSeasonChange(e.target.value)}
+          className="px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          {seasons.map((season) => (
+            <option key={season.id} value={season.id}>
+              {season.name} {season.is_active ? '(Current)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
 
-              return (
-                <tr
-                  key={driver.driver_id}
-                  className="border-b border-purple-800/20 hover:bg-purple-800/10 transition-colors"
+      {/* Table */}
+      <div className="glass rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              {/* Header row 1: Owner names */}
+              <tr className="bg-purple-900/30 text-purple-300 text-xs">
+                <th className="px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20" colSpan={2}>
+                  <span className="text-white font-bold">Standings</span>
+                </th>
+                {teams.map(team => (
+                  <th key={team.id} className="px-2 py-2 text-center font-medium min-w-[60px]">
+                    <span className="text-white">{team.owner_name}</span>
+                  </th>
+                ))}
+              </tr>
+              {/* Header row 2: Team names */}
+              <tr className="bg-purple-900/20 text-purple-400 text-xs border-b border-purple-700/30">
+                <th
+                  className="px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 cursor-pointer hover:bg-purple-800/50"
+                  onClick={() => handleSort('weighted_fantasy_points')}
                 >
-                  {/* WFPts column - sticky */}
-                  <td className="px-3 py-2 sticky left-0 bg-[#0f0a1a] z-10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold text-sm">
-                        {Math.round(driver.weighted_fantasy_points)}
-                      </span>
-                      <TierBadge tier={driver.tier} />
-                    </div>
-                  </td>
-                  {/* Driver name column */}
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-mono text-xs">#{driver.car_number}</span>
-                      <Link
-                        href={`/drivers/${encodeURIComponent(driver.driver_name)}`}
-                        className="text-white text-sm hover:text-amber-400 transition-colors whitespace-nowrap"
-                      >
-                        {driver.driver_name}
-                      </Link>
-                    </div>
-                  </td>
-                  {/* Usage cells for each team */}
-                  {teams.map(team => {
-                    const usage = usageMap[driver.driver_id]?.[team.id] || 0;
-                    return <UsageCell key={team.id} count={usage} />;
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  <div className="flex items-center">
+                    <span className="text-amber-400">WFPts</span>
+                    <SortIcon columnKey="weighted_fantasy_points" />
+                  </div>
+                </th>
+                <th
+                  className="px-3 py-2 text-left cursor-pointer hover:bg-purple-800/50"
+                  onClick={() => handleSort('driver_name')}
+                >
+                  <div className="flex items-center">
+                    Driver
+                    <SortIcon columnKey="driver_name" />
+                  </div>
+                </th>
+                {teams.map(team => (
+                  <th key={team.id} className="px-2 py-2 text-center text-purple-500 text-[10px] min-w-[60px]">
+                    {team.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedDrivers.map((driver) => {
+                return (
+                  <tr
+                    key={driver.driver_id}
+                    className="border-b border-purple-800/20 hover:bg-purple-800/10 transition-colors"
+                  >
+                    {/* WFPts column - sticky */}
+                    <td className="px-3 py-2 sticky left-0 bg-[#0f0a1a] z-10">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400 font-bold text-sm">
+                          {Math.round(driver.weighted_fantasy_points)}
+                        </span>
+                        <TierBadge tier={driver.tier} />
+                      </div>
+                    </td>
+                    {/* Driver name column */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400 font-mono text-xs">#{driver.car_number}</span>
+                        <Link
+                          href={`/drivers/${encodeURIComponent(driver.driver_name)}`}
+                          className="text-white text-sm hover:text-amber-400 transition-colors whitespace-nowrap"
+                        >
+                          {driver.driver_name}
+                        </Link>
+                      </div>
+                    </td>
+                    {/* Usage cells for each team */}
+                    {teams.map(team => {
+                      const usage = usageMap[driver.driver_id]?.[team.id] || 0;
+                      return <UsageCell key={team.id} count={usage} />;
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

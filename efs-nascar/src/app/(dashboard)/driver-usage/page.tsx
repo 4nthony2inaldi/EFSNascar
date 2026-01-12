@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import DriverUsageTable from './DriverUsageTable';
-import type { Team, TeamMembership, Profile } from '@/types';
+import type { Season } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,19 +50,42 @@ export interface DriverWithStats {
   tier: number;
 }
 
-export default async function DriverUsagePage() {
+export interface SeasonOption {
+  id: string;
+  name: string;
+  year: number;
+  is_active: boolean;
+}
+
+interface PageProps {
+  searchParams: Promise<{ season?: string }>;
+}
+
+export default async function DriverUsagePage({ searchParams }: PageProps) {
   const supabase = await createClient();
+  const params = await searchParams;
 
-  // Step 1: Get active season
-  const { data: season } = await supabase
+  // Step 1: Get all seasons
+  const { data: seasons } = await supabase
     .from('seasons')
-    .select('id')
-    .eq('is_active', true)
-    .single();
+    .select('id, name, year, is_active')
+    .order('year', { ascending: false });
 
-  if (!season) {
-    return <ErrorDisplay message="No active season found" />;
+  if (!seasons || seasons.length === 0) {
+    return <ErrorDisplay message="No seasons found" />;
   }
+
+  const seasonOptions: SeasonOption[] = seasons.map(s => ({
+    id: s.id,
+    name: s.name,
+    year: s.year,
+    is_active: s.is_active,
+  }));
+
+  // Determine selected season (from URL param or default to active)
+  const activeSeason = seasons.find(s => s.is_active);
+  const selectedSeasonId = params.season || activeSeason?.id || seasons[0].id;
+  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || seasons[0];
 
   // Step 2: Get all teams with their owners
   const { data: teams } = await supabase
@@ -91,21 +114,39 @@ export default async function DriverUsagePage() {
     };
   });
 
-  // Step 3: Get all picks for the active season to calculate usage
+  // Step 3: Get races for the selected season that have revealed picks
+  // Picks are revealed when: deadline has passed OR race status is 'in_progress' or 'final'
+  const now = new Date().toISOString();
+
+  const { data: revealedRaces } = await supabase
+    .from('races')
+    .select('id')
+    .eq('season_id', selectedSeasonId)
+    .or(`deadline_datetime.lt.${now},status.eq.in_progress,status.eq.final`);
+
+  const revealedRaceIds = new Set((revealedRaces || []).map(r => r.id));
+
+  // Step 4: Get all picks for the selected season, but only count those from revealed races
   const { data: allPicks } = await supabase
     .from('picks')
     .select(`
       team_id,
+      race_id,
       driver_1_id,
       driver_2_id,
       driver_3_id,
       race:races!inner(season_id)
     `)
-    .eq('races.season_id', season.id);
+    .eq('races.season_id', selectedSeasonId);
 
-  // Build usage map: driver_id -> team_id -> count
+  // Build usage map: driver_id -> team_id -> count (only from revealed races)
   const usageMap: Record<string, Record<string, number>> = {};
   allPicks?.forEach((pick: any) => {
+    // Only count picks from races where picks are revealed
+    if (!revealedRaceIds.has(pick.race_id)) {
+      return;
+    }
+
     const teamId = pick.team_id;
     [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
       if (!usageMap[driverId]) {
@@ -115,7 +156,7 @@ export default async function DriverUsagePage() {
     });
   });
 
-  // Step 4: Get driver rankings data (similar to driver-rankings page)
+  // Step 5: Get driver rankings data (similar to driver-rankings page)
   // Get the 90 most recent races with status = 'final'
   const { data: races } = await supabase
     .from('races')
@@ -125,7 +166,11 @@ export default async function DriverUsagePage() {
     .limit(90);
 
   if (!races || races.length === 0) {
-    return <EmptyState teamsWithOwners={teamsWithOwners} />;
+    return <EmptyState
+      teamsWithOwners={teamsWithOwners}
+      seasons={seasonOptions}
+      selectedSeasonId={selectedSeasonId}
+    />;
   }
 
   const raceIds = races.map(r => r.id);
@@ -286,12 +331,15 @@ export default async function DriverUsagePage() {
     })
     .sort((a, b) => b.weighted_fantasy_points - a.weighted_fantasy_points);
 
+  // Count revealed races for display
+  const revealedRaceCount = revealedRaceIds.size;
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white">Driver Usage</h1>
         <p className="text-purple-400 mt-1">
-          Driver usage across all teams for the current season
+          Driver usage across all teams ({revealedRaceCount} race{revealedRaceCount !== 1 ? 's' : ''} revealed)
         </p>
       </div>
 
@@ -299,6 +347,8 @@ export default async function DriverUsagePage() {
         drivers={driversWithStats}
         teams={teamsWithOwners}
         usageMap={usageMap}
+        seasons={seasonOptions}
+        selectedSeasonId={selectedSeasonId}
       />
 
       {/* Legend */}
@@ -320,18 +370,50 @@ export default async function DriverUsagePage() {
             <span>1-3 uses</span>
           </div>
         </div>
+        <div className="mt-4 pt-4 border-t border-purple-800/30 text-sm text-purple-400">
+          Note: Only picks from races where the deadline has passed are shown. Upcoming race picks remain hidden until their deadline.
+        </div>
       </div>
     </div>
   );
 }
 
-function EmptyState({ teamsWithOwners }: { teamsWithOwners: TeamWithOwner[] }) {
+function EmptyState({
+  teamsWithOwners,
+  seasons,
+  selectedSeasonId
+}: {
+  teamsWithOwners: TeamWithOwner[];
+  seasons: SeasonOption[];
+  selectedSeasonId: string;
+}) {
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white">Driver Usage</h1>
         <p className="text-purple-400 mt-1">Driver usage across all teams</p>
       </div>
+
+      {/* Season Selector */}
+      <div className="glass rounded-xl p-4">
+        <label className="block text-sm font-medium text-purple-200 mb-2">
+          Select Season
+        </label>
+        <select
+          defaultValue={selectedSeasonId}
+          onChange={(e) => {
+            window.location.href = `/driver-usage?season=${e.target.value}`;
+          }}
+          className="w-full max-w-xs px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          {seasons.map((season) => (
+            <option key={season.id} value={season.id}>
+              {season.name} {season.is_active ? '(Current)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="glass rounded-xl p-12 text-center">
         <p className="text-purple-300">No race results available yet.</p>
         <p className="text-purple-500 text-sm mt-2">
