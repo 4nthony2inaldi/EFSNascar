@@ -183,6 +183,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
         )}
       </div>
 
+      {/* Race Navigation */}
+      <RaceNavigation currentRace={race} basePath="results" />
+
       {/* Team Scores */}
       {scores && scores.length > 0 && (
         <div className="bg-gray-800 rounded-lg p-6">
@@ -427,8 +430,6 @@ export default async function RaceResultsPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Race Navigation */}
-      <RaceNavigation currentRace={race} basePath="results" />
     </div>
   );
 }

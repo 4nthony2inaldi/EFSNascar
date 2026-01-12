@@ -208,6 +208,9 @@ export default async function PicksRevealPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Race Navigation */}
+      <RaceNavigation currentRace={race} basePath="picks" />
+
       {/* Pick Strategy Legend */}
       <PickStrategyLegend />
 
@@ -538,8 +541,6 @@ export default async function PicksRevealPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Race Navigation */}
-      <RaceNavigation currentRace={race} basePath="picks" />
     </div>
   );
 }
