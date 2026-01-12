@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { Team, TeamMembership, Profile, DriverUsage, Driver } from '@/types';
+import { calculateTeamTitsStats } from '@/lib/titsCalculation';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -78,6 +79,11 @@ export default async function TeamProfilePage({ params }: PageProps) {
   const members = team.team_memberships?.filter((m: any) => m.role === 'member') || [];
   const bonusUses = bonus?.bonus_usages ?? 1;
   const favoriteDriver = team.favorite_driver as Driver | null;
+
+  // Calculate TITS stats
+  const titsStats = activeSeason
+    ? await calculateTeamTitsStats(supabase, id, activeSeason.id)
+    : null;
 
   return (
     <div className="space-y-8">
@@ -202,18 +208,48 @@ export default async function TeamProfilePage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Bonus Usage Info */}
+        {/* TITS Remaining */}
         <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Bonus Uses</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400">5th Uses Available</span>
-              <span className="text-2xl font-bold text-yellow-500">{bonusUses}</span>
+          <h2 className="text-xl font-bold text-white mb-4">TITS Remaining</h2>
+          {titsStats ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Tier 1 Remaining</span>
+                <span className="text-xl font-bold text-amber-400">{titsStats.t1Remaining}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Tier 2 Remaining</span>
+                <span className="text-xl font-bold text-emerald-400">{titsStats.t2Remaining}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Total TITS</span>
+                <span className="text-2xl font-bold text-amber-500">{titsStats.titsRemaining}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">TITS %</span>
+                <span className={`text-2xl font-bold ${
+                  titsStats.titsPercent >= 50 ? 'text-green-500' :
+                  titsStats.titsPercent >= 30 ? 'text-yellow-500' : 'text-red-500'
+                }`}>
+                  {titsStats.titsPercent.toFixed(1)}%
+                </span>
+              </div>
+              <div className="pt-2 border-t border-gray-700">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Picks Remaining</span>
+                  <span className="text-gray-400">{titsStats.totalPicksRemaining}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm mt-1">
+                  <span className="text-gray-500">5th Use Bonus</span>
+                  <span className={`font-medium ${titsStats.bonusUsed ? 'text-red-400' : 'text-green-400'}`}>
+                    {titsStats.bonusUsed ? 'Used' : 'Available'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-gray-500">
-              Each team can use {bonusUses} driver(s) for a 5th time this season.
-            </p>
-          </div>
+          ) : (
+            <p className="text-gray-400">No active season.</p>
+          )}
         </div>
 
         {/* Team Members */}
