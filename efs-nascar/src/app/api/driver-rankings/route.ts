@@ -70,18 +70,38 @@ export async function GET() {
 
     const raceIds = races.map(r => r.id);
 
-    // Get all results for these races (without join - more reliable)
-    // Note: Must set limit higher than default 1000 to get all results (90 races * ~40 drivers = ~3600)
-    const { data: results, error: resultsError } = await supabase
-      .from('race_results')
-      .select('*')
-      .in('race_id', raceIds)
-      .limit(5000);
+    // Get all results for these races using pagination
+    // Supabase has a default limit of 1000, so we need to paginate
+    let allResults: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
 
-    if (resultsError) {
-      console.error('Error fetching results:', resultsError);
-      return NextResponse.json({ error: 'Failed to fetch race results' }, { status: 500 });
+    while (true) {
+      const { data: pageResults, error: resultsError } = await supabase
+        .from('race_results')
+        .select('*')
+        .in('race_id', raceIds)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (resultsError) {
+        console.error('Error fetching results:', resultsError);
+        return NextResponse.json({ error: 'Failed to fetch race results' }, { status: 500 });
+      }
+
+      if (!pageResults || pageResults.length === 0) {
+        break;
+      }
+
+      allResults = allResults.concat(pageResults);
+
+      if (pageResults.length < pageSize) {
+        break;
+      }
+
+      page++;
     }
+
+    const results = allResults;
 
     // Get all drivers separately
     const { data: drivers, error: driversError } = await supabase
