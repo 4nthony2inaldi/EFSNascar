@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import type { Team, TeamMembership, Profile, DriverUsage, Driver, Season, Pick, Race } from '@/types';
+import type { Team, TeamMembership, Profile, Driver, Season, Race } from '@/types';
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
@@ -67,18 +67,6 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   const selectedSeasonId = seasonParam || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
-  // Get driver usages for this team in selected season
-  let driverUsages: (DriverUsage & { driver: Driver })[] = [];
-  if (selectedSeasonId) {
-    const { data: usages } = await supabase
-      .from('driver_usages')
-      .select('*, driver:drivers(*)')
-      .eq('team_id', id)
-      .eq('season_id', selectedSeasonId)
-      .order('times_used', { ascending: false });
-    driverUsages = usages || [];
-  }
-
   // Get team's standings
   const { data: standing } = await supabase
     .from('standings')
@@ -142,6 +130,102 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   const POSITION_POINTS: Record<number, number> = {
     1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
   };
+
+  // Calculate driver usage from picks (not driver_usages table)
+  // This calculates: times used, total points, avg points, and max potential
+  interface CalculatedDriverUsage {
+    driver: Driver;
+    driverId: string;
+    timesUsed: number;
+    totalPoints: number;
+    avgPoints: number;
+    maxPotential: number;
+    racesUsed: { raceId: string; points: number }[];
+  }
+
+  const driverUsageMap = new Map<string, CalculatedDriverUsage>();
+
+  // First, calculate all race results for each driver (for max potential calculation)
+  const driverAllRacePoints = new Map<string, number[]>();
+  for (const result of raceResultsData || []) {
+    const points = POSITION_POINTS[result.finish_position] || 0;
+    // Add stage and laps led bonuses for this driver
+    let bonusPoints = 0;
+    if (result.stage_1_winner) bonusPoints += 1;
+    if (result.stage_2_winner) bonusPoints += 1;
+    // Note: laps led bonus is team-level (only 1 per team), but for max potential we include it
+    if (result.most_laps_led) bonusPoints += 1;
+
+    const totalDriverPoints = points + bonusPoints;
+
+    if (!driverAllRacePoints.has(result.driver_id)) {
+      driverAllRacePoints.set(result.driver_id, []);
+    }
+    driverAllRacePoints.get(result.driver_id)!.push(totalDriverPoints);
+  }
+
+  // Now aggregate from picks
+  for (const pick of picksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const driversList = [
+      { driver: pick.driver_1 as Driver, id: pick.driver_1_id },
+      { driver: pick.driver_2 as Driver, id: pick.driver_2_id },
+      { driver: pick.driver_3 as Driver, id: pick.driver_3_id },
+    ];
+
+    for (const { driver, id } of driversList) {
+      if (!driver || !id) continue;
+
+      const resultKey = `${pick.race_id}-${id}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      let points = 0;
+      if (result) {
+        points = POSITION_POINTS[result.finish_position] || 0;
+        // Add stage wins
+        if (result.stage_1_winner) points += 1;
+        if (result.stage_2_winner) points += 1;
+        // Add laps led (individual driver contribution)
+        if (result.most_laps_led) points += 1;
+      }
+
+      if (!driverUsageMap.has(id)) {
+        driverUsageMap.set(id, {
+          driver,
+          driverId: id,
+          timesUsed: 0,
+          totalPoints: 0,
+          avgPoints: 0,
+          maxPotential: 0,
+          racesUsed: [],
+        });
+      }
+
+      const usage = driverUsageMap.get(id)!;
+      usage.timesUsed += 1;
+      usage.totalPoints += points;
+      usage.racesUsed.push({ raceId: pick.race_id, points });
+    }
+  }
+
+  // Calculate averages and max potential for each driver
+  for (const usage of driverUsageMap.values()) {
+    usage.avgPoints = usage.timesUsed > 0
+      ? Math.round((usage.totalPoints / usage.timesUsed) * 10) / 10
+      : 0;
+
+    // Max potential: their X best races (where X = times used)
+    const allPoints = driverAllRacePoints.get(usage.driverId) || [];
+    const sortedPoints = [...allPoints].sort((a, b) => b - a);
+    const bestRaces = sortedPoints.slice(0, usage.timesUsed);
+    usage.maxPotential = bestRaces.reduce((sum, pts) => sum + pts, 0);
+  }
+
+  // Convert to sorted array
+  const calculatedDriverUsages = Array.from(driverUsageMap.values())
+    .sort((a, b) => b.totalPoints - a.totalPoints);
 
   // Calculate points for each race
   interface RacePickData {
@@ -476,44 +560,76 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
       {/* Driver Usage */}
       <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">Driver Usage</h2>
-        {driverUsages.length > 0 ? (
+        <h2 className="text-xl font-bold text-white mb-4">Driver Usage & Performance</h2>
+        {calculatedDriverUsages.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">#</th>
                   <th className="pb-3 pr-4">Driver</th>
-                  <th className="pb-3 pr-4">Team</th>
                   <th className="pb-3 text-center">Uses</th>
-                  <th className="pb-3 text-center">Remaining</th>
+                  <th className="pb-3 text-center">Total Pts</th>
+                  <th className="pb-3 text-center">Avg Pts</th>
+                  <th className="pb-3 text-center">Max Potential</th>
+                  <th className="pb-3 text-center">Efficiency</th>
                 </tr>
               </thead>
               <tbody>
-                {driverUsages.map((usage) => {
-                  const maxUses = usage.times_used >= 4 ? 4 + bonusUses : 4;
-                  const remaining = maxUses - usage.times_used;
+                {calculatedDriverUsages.map((usage) => {
+                  const efficiency = usage.maxPotential > 0
+                    ? Math.round((usage.totalPoints / usage.maxPotential) * 100)
+                    : 0;
+                  const pointsLeft = usage.maxPotential - usage.totalPoints;
+
                   return (
-                    <tr key={usage.id} className="border-b border-gray-700/50">
+                    <tr key={usage.driverId} className="border-b border-gray-700/50">
                       <td className="py-3 pr-4 text-yellow-500 font-bold">
                         {usage.driver?.car_number}
                       </td>
-                      <td className="py-3 pr-4 text-white">{usage.driver?.name}</td>
-                      <td className="py-3 pr-4 text-gray-400">{usage.driver?.team_name}</td>
-                      <td className="py-3 text-center">
-                        <span className={`font-bold ${
-                          usage.times_used >= 4 ? 'text-red-500' :
-                          usage.times_used >= 3 ? 'text-yellow-500' : 'text-white'
-                        }`}>
-                          {usage.times_used}
-                        </span>
+                      <td className="py-3 pr-4">
+                        <div>
+                          <span className="text-white">{usage.driver?.name}</span>
+                          <span className="text-gray-500 text-xs ml-2">{usage.driver?.team_name}</span>
+                        </div>
                       </td>
                       <td className="py-3 text-center">
                         <span className={`font-bold ${
-                          remaining === 0 ? 'text-red-500' :
-                          remaining === 1 ? 'text-yellow-500' : 'text-green-500'
+                          usage.timesUsed >= 4 ? 'text-red-400' :
+                          usage.timesUsed >= 3 ? 'text-yellow-400' : 'text-white'
                         }`}>
-                          {remaining}
+                          {usage.timesUsed}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className="font-bold text-amber-400">{usage.totalPoints}</span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={`font-medium ${
+                          usage.avgPoints >= 8 ? 'text-emerald-400' :
+                          usage.avgPoints >= 5 ? 'text-amber-400' :
+                          usage.avgPoints >= 3 ? 'text-gray-300' : 'text-red-400'
+                        }`}>
+                          {usage.avgPoints.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="text-cyan-400 font-medium">{usage.maxPotential}</span>
+                          {pointsLeft > 0 && (
+                            <span className="text-xs text-gray-500">
+                              (-{pointsLeft})
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={`font-bold ${
+                          efficiency >= 90 ? 'text-emerald-400' :
+                          efficiency >= 70 ? 'text-amber-400' :
+                          efficiency >= 50 ? 'text-gray-300' : 'text-red-400'
+                        }`}>
+                          {efficiency}%
                         </span>
                       </td>
                     </tr>
@@ -521,6 +637,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                 })}
               </tbody>
             </table>
+            <div className="mt-4 pt-4 border-t border-gray-700 text-xs text-gray-500">
+              <p><strong>Max Potential:</strong> Points from their {calculatedDriverUsages[0]?.timesUsed || 'X'} best races that season</p>
+              <p><strong>Efficiency:</strong> Actual points vs max potential (did you pick them in their best races?)</p>
+            </div>
           </div>
         ) : (
           <p className="text-gray-400">No drivers have been used yet this season.</p>
