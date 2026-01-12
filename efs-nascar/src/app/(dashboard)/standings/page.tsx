@@ -47,8 +47,12 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
 
-  // If no pre-calculated standings exist, calculate from race_scores
-  if (!standings || standings.length === 0) {
+  // Check if standings have meaningful data (at least one team with points)
+  const hasStandingsData = standings && standings.length > 0 &&
+    standings.some((s: any) => s.total_points > 0);
+
+  // If no pre-calculated standings OR standings have no points, calculate from race_scores
+  if (!hasStandingsData) {
     // Get all race scores for the selected season
     const { data: raceScores } = await supabase
       .from('race_scores')

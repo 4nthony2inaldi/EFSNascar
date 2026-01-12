@@ -115,8 +115,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .select('*, team:teams(*), race:races!inner(season_id)')
     .eq('race.season_id', selectedSeasonId);
 
-  // If no pre-calculated standings exist, calculate from race_scores
-  if ((!standings || standings.length === 0) && raceScoresData && raceScoresData.length > 0) {
+  // Check if standings have meaningful data (at least one team with points)
+  const hasStandingsData = standings && standings.length > 0 &&
+    standings.some((s: any) => s.total_points > 0);
+
+  // If no pre-calculated standings OR standings have no points, calculate from race_scores
+  if (!hasStandingsData && raceScoresData && raceScoresData.length > 0) {
     // Aggregate scores by team
     const teamTotals: Record<string, {
       team_id: string;
