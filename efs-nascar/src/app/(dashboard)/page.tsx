@@ -345,12 +345,11 @@ export default async function DashboardPage() {
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 bg-gradient-to-br from-purple-600/30 to-purple-800/30 border border-purple-500/30 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {userTeam.logo_url ? (
-                  <Image
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
                     src={userTeam.logo_url}
                     alt={userTeam.name}
-                    width={56}
-                    height={56}
-                    className="object-cover rounded-full"
+                    className="w-14 h-14 object-cover rounded-full"
                   />
                 ) : (
                   <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">#{userTeam.car_number}</span>
