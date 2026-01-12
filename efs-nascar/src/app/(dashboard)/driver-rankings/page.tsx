@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -275,7 +276,12 @@ export default async function DriverRankingsPage() {
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
                           <span className="text-amber-400 font-mono text-sm">{carDisplay}</span>
-                          <span className="text-white font-medium">{driver.driver_name}</span>
+                          <Link
+                            href={`/drivers/${encodeURIComponent(driver.driver_name)}`}
+                            className="text-white font-medium hover:text-amber-400 transition-colors"
+                          >
+                            {driver.driver_name}
+                          </Link>
                         </div>
                         {driver.team_name && (
                           <span className="text-purple-500 text-xs">{driver.team_name}</span>
