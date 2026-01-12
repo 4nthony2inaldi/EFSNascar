@@ -16,7 +16,7 @@ interface DriverUsageTableProps {
   data: DriverUsageData[];
 }
 
-type SortKey = 'car_number' | 'name' | 'timesUsed' | 'totalPoints' | 'avgPoints' | 'maxPotential' | 'efficiency';
+type SortKey = 'name' | 'timesUsed' | 'totalPoints' | 'avgPoints' | 'maxPotential' | 'efficiency';
 type SortDirection = 'asc' | 'desc';
 
 export function DriverUsageTable({ data }: DriverUsageTableProps) {
@@ -37,10 +37,6 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
     let bVal: number | string;
 
     switch (sortKey) {
-      case 'car_number':
-        aVal = parseInt(String(a.driver?.car_number || '999'));
-        bVal = parseInt(String(b.driver?.car_number || '999'));
-        break;
       case 'name':
         aVal = a.driver?.name || '';
         bVal = b.driver?.name || '';
@@ -83,13 +79,13 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
 
   const SortHeader = ({ label, sortKeyName, className = '' }: { label: string; sortKeyName: SortKey; className?: string }) => (
     <th
-      className={`pb-3 cursor-pointer hover:text-white transition-colors select-none ${className}`}
+      className={`pb-2 px-1 cursor-pointer hover:text-white transition-colors select-none text-center ${className}`}
       onClick={() => handleSort(sortKeyName)}
     >
-      <div className="flex items-center justify-center gap-1">
-        <span>{label}</span>
+      <div className="flex items-center justify-center gap-0.5">
+        <span className="text-xs">{label}</span>
         {sortKey === sortKeyName && (
-          <span className="text-amber-400">
+          <span className="text-amber-400 text-xs">
             {sortDirection === 'asc' ? '↑' : '↓'}
           </span>
         )}
@@ -97,55 +93,41 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
     </th>
   );
 
-  // Format driver name: first initial + last name for mobile
+  // Format driver name: last name only for mobile
   const formatDriverName = (name: string | undefined): { full: string; short: string } => {
     if (!name) return { full: '', short: '' };
     const parts = name.split(' ');
     if (parts.length < 2) return { full: name, short: name };
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ');
+    const lastName = parts[parts.length - 1];
     return {
       full: name,
-      short: `${firstName[0]}. ${lastName}`,
+      short: lastName,
     };
   };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[600px]">
+    <div className="overflow-x-auto -mx-2 sm:mx-0">
+      <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
+          <tr className="text-left text-gray-400 text-xs border-b border-gray-700">
             <th
-              className="pb-3 pr-2 cursor-pointer hover:text-white transition-colors select-none sticky left-0 bg-gray-800 z-10"
-              onClick={() => handleSort('car_number')}
-            >
-              <div className="flex items-center gap-1">
-                <span>#</span>
-                {sortKey === 'car_number' && (
-                  <span className="text-amber-400">
-                    {sortDirection === 'asc' ? '↑' : '↓'}
-                  </span>
-                )}
-              </div>
-            </th>
-            <th
-              className="pb-3 pr-4 cursor-pointer hover:text-white transition-colors select-none sticky left-10 bg-gray-800 z-10"
+              className="pb-2 pr-1 cursor-pointer hover:text-white transition-colors select-none sticky left-0 bg-gray-800 z-10 min-w-[60px] sm:min-w-[100px]"
               onClick={() => handleSort('name')}
             >
-              <div className="flex items-center gap-1">
-                <span>Driver</span>
+              <div className="flex items-center gap-0.5">
+                <span className="text-xs">Driver</span>
                 {sortKey === 'name' && (
-                  <span className="text-amber-400">
+                  <span className="text-amber-400 text-xs">
                     {sortDirection === 'asc' ? '↑' : '↓'}
                   </span>
                 )}
               </div>
             </th>
-            <SortHeader label="Uses" sortKeyName="timesUsed" />
-            <SortHeader label="Total" sortKeyName="totalPoints" />
+            <SortHeader label="Use" sortKeyName="timesUsed" />
+            <SortHeader label="Pts" sortKeyName="totalPoints" />
             <SortHeader label="Avg" sortKeyName="avgPoints" />
             <SortHeader label="Max" sortKeyName="maxPotential" />
-            <SortHeader label="Eff%" sortKeyName="efficiency" />
+            <SortHeader label="Eff" sortKeyName="efficiency" />
           </tr>
         </thead>
         <tbody>
@@ -158,32 +140,25 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
 
             return (
               <tr key={usage.driverId} className="border-b border-gray-700/50">
-                <td className="py-3 pr-2 text-yellow-500 font-bold sticky left-0 bg-gray-800 z-10">
-                  {usage.driver?.car_number}
-                </td>
-                <td className="py-3 pr-4 sticky left-10 bg-gray-800 z-10">
-                  <div>
-                    {/* Full name on larger screens, short on mobile */}
-                    <span className="text-white hidden sm:inline">{driverName.full}</span>
-                    <span className="text-white sm:hidden">{driverName.short}</span>
-                    <span className="text-gray-500 text-xs ml-2 hidden md:inline">
-                      {usage.driver?.team_name}
-                    </span>
+                <td className="py-2 pr-1 sticky left-0 bg-gray-800 z-10">
+                  <div className="truncate max-w-[70px] sm:max-w-none">
+                    <span className="text-white hidden sm:inline text-sm">{driverName.full}</span>
+                    <span className="text-white sm:hidden text-xs">{driverName.short}</span>
                   </div>
                 </td>
-                <td className="py-3 text-center">
-                  <span className={`font-bold ${
+                <td className="py-2 px-1 text-center">
+                  <span className={`font-bold text-xs ${
                     usage.timesUsed >= 4 ? 'text-red-400' :
                     usage.timesUsed >= 3 ? 'text-yellow-400' : 'text-white'
                   }`}>
                     {usage.timesUsed}
                   </span>
                 </td>
-                <td className="py-3 text-center">
-                  <span className="font-bold text-amber-400">{usage.totalPoints}</span>
+                <td className="py-2 px-1 text-center">
+                  <span className="font-bold text-amber-400 text-xs">{usage.totalPoints}</span>
                 </td>
-                <td className="py-3 text-center">
-                  <span className={`font-medium ${
+                <td className="py-2 px-1 text-center">
+                  <span className={`font-medium text-xs ${
                     usage.avgPoints >= 8 ? 'text-emerald-400' :
                     usage.avgPoints >= 5 ? 'text-amber-400' :
                     usage.avgPoints >= 3 ? 'text-gray-300' : 'text-red-400'
@@ -191,18 +166,14 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
                     {usage.avgPoints.toFixed(1)}
                   </span>
                 </td>
-                <td className="py-3 text-center">
-                  <div className="flex flex-col items-center">
-                    <span className="text-cyan-400 font-medium">{usage.maxPotential}</span>
-                    {pointsLeft > 0 && (
-                      <span className="text-xs text-gray-500">
-                        (-{pointsLeft})
-                      </span>
-                    )}
-                  </div>
+                <td className="py-2 px-1 text-center">
+                  <span className="text-cyan-400 font-medium text-xs">{usage.maxPotential}</span>
+                  {pointsLeft > 0 && (
+                    <span className="text-gray-500 text-xs ml-0.5">-{pointsLeft}</span>
+                  )}
                 </td>
-                <td className="py-3 text-center">
-                  <span className={`font-bold ${
+                <td className="py-2 px-1 text-center">
+                  <span className={`font-bold text-xs ${
                     efficiency >= 90 ? 'text-emerald-400' :
                     efficiency >= 70 ? 'text-amber-400' :
                     efficiency >= 50 ? 'text-gray-300' : 'text-red-400'
@@ -215,10 +186,9 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
           })}
         </tbody>
       </table>
-      <div className="mt-4 pt-4 border-t border-gray-700 text-xs text-gray-500">
-        <p><strong>Max:</strong> Points from their best {sortedData[0]?.timesUsed || 'X'} races</p>
-        <p><strong>Eff%:</strong> Actual vs max (did you pick them in their best races?)</p>
-        <p className="mt-1 text-gray-600">Click column headers to sort</p>
+      <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-500">
+        <p><strong>Max:</strong> Best {sortedData[0]?.timesUsed || 'X'} races • <strong>Eff:</strong> Actual ÷ Max</p>
+        <p className="text-gray-600 mt-1">Tap headers to sort</p>
       </div>
     </div>
   );
