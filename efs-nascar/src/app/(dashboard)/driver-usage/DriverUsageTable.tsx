@@ -67,6 +67,33 @@ function UsageCell({ count }: { count: number }) {
   );
 }
 
+// Get shortened name for mobile: "F. LastName" or "Fi. LastName" if conflicts exist
+function getShortName(fullName: string, allNames: string[]): string {
+  const parts = fullName.trim().split(' ');
+  if (parts.length < 2) return fullName;
+
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+
+  // Check if single initial + last name would be unique
+  const singleInitialName = `${firstName[0]}. ${lastName}`;
+  const conflictsWith = allNames.filter(name => {
+    if (name === fullName) return false;
+    const otherParts = name.trim().split(' ');
+    if (otherParts.length < 2) return false;
+    const otherLastName = otherParts.slice(1).join(' ');
+    return otherLastName === lastName && otherParts[0][0] === firstName[0];
+  });
+
+  if (conflictsWith.length === 0) {
+    return singleInitialName;
+  }
+
+  // Use two initials if there's a conflict
+  const twoInitials = firstName.length >= 2 ? firstName.slice(0, 2) : firstName;
+  return `${twoInitials}. ${lastName}`;
+}
+
 export default function DriverUsageTable({
   drivers,
   teams,
@@ -77,6 +104,9 @@ export default function DriverUsageTable({
   const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>('weighted_fantasy_points');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Get all driver names for short name calculation
+  const allDriverNames = useMemo(() => drivers.map(d => d.driver_name), [drivers]);
 
   const sortedDrivers = useMemo(() => {
     return [...drivers].sort((a, b) => {
@@ -160,37 +190,37 @@ export default function DriverUsageTable({
             <thead>
               {/* Header row 1: Owner names */}
               <tr className="bg-purple-900/30 text-purple-300 text-xs">
-                <th className="px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20" colSpan={2}>
+                <th className="px-2 md:px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 min-w-[140px] md:min-w-[200px]" colSpan={2}>
                   <span className="text-white font-bold">Standings</span>
                 </th>
                 {teams.map(team => (
-                  <th key={team.id} className="px-2 py-2 text-center font-medium min-w-[60px]">
-                    <span className="text-white">{team.owner_name}</span>
+                  <th key={team.id} className="px-2 py-2 text-center font-medium min-w-[50px] md:min-w-[60px]">
+                    <span className="text-white text-[10px] md:text-xs">{team.owner_name}</span>
                   </th>
                 ))}
               </tr>
               {/* Header row 2: Team names */}
               <tr className="bg-purple-900/20 text-purple-400 text-xs border-b border-purple-700/30">
                 <th
-                  className="px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 cursor-pointer hover:bg-purple-800/50"
+                  className="px-2 md:px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 cursor-pointer hover:bg-purple-800/50"
                   onClick={() => handleSort('weighted_fantasy_points')}
                 >
                   <div className="flex items-center">
-                    <span className="text-amber-400">WFPts</span>
+                    <span className="text-amber-400 text-[10px] md:text-xs">WFPts</span>
                     <SortIcon columnKey="weighted_fantasy_points" />
                   </div>
                 </th>
                 <th
-                  className="px-3 py-2 text-left cursor-pointer hover:bg-purple-800/50"
+                  className="px-2 md:px-3 py-2 text-left sticky left-[52px] md:left-[70px] bg-purple-900/90 z-20 cursor-pointer hover:bg-purple-800/50"
                   onClick={() => handleSort('driver_name')}
                 >
                   <div className="flex items-center">
-                    Driver
+                    <span className="text-[10px] md:text-xs">Driver</span>
                     <SortIcon columnKey="driver_name" />
                   </div>
                 </th>
                 {teams.map(team => (
-                  <th key={team.id} className="px-2 py-2 text-center text-purple-500 text-[10px] min-w-[60px]">
+                  <th key={team.id} className="px-2 py-2 text-center text-purple-500 text-[8px] md:text-[10px] min-w-[50px] md:min-w-[60px]">
                     {team.name}
                   </th>
                 ))}
@@ -198,29 +228,34 @@ export default function DriverUsageTable({
             </thead>
             <tbody>
               {sortedDrivers.map((driver) => {
+                const shortName = getShortName(driver.driver_name, allDriverNames);
+
                 return (
                   <tr
                     key={driver.driver_id}
                     className="border-b border-purple-800/20 hover:bg-purple-800/10 transition-colors"
                   >
                     {/* WFPts column - sticky */}
-                    <td className="px-3 py-2 sticky left-0 bg-[#0f0a1a] z-10">
-                      <div className="flex items-center gap-2">
-                        <span className="text-amber-400 font-bold text-sm">
+                    <td className="px-2 md:px-3 py-2 sticky left-0 bg-[#0f0a1a] z-10">
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <span className="text-amber-400 font-bold text-xs md:text-sm">
                           {Math.round(driver.weighted_fantasy_points)}
                         </span>
                         <TierBadge tier={driver.tier} />
                       </div>
                     </td>
-                    {/* Driver name column */}
-                    <td className="px-3 py-2">
+                    {/* Driver name column - also sticky */}
+                    <td className="px-2 md:px-3 py-2 sticky left-[52px] md:left-[70px] bg-[#0f0a1a] z-10">
                       <div className="flex items-center gap-2">
-                        <span className="text-amber-400 font-mono text-xs">#{driver.car_number}</span>
+                        {/* Car number - hidden on mobile */}
+                        <span className="hidden md:inline text-amber-400 font-mono text-xs">#{driver.car_number}</span>
                         <Link
                           href={`/drivers/${encodeURIComponent(driver.driver_name)}`}
-                          className="text-white text-sm hover:text-amber-400 transition-colors whitespace-nowrap"
+                          className="text-white text-xs md:text-sm hover:text-amber-400 transition-colors whitespace-nowrap"
                         >
-                          {driver.driver_name}
+                          {/* Short name on mobile, full name on desktop */}
+                          <span className="md:hidden">{shortName}</span>
+                          <span className="hidden md:inline">{driver.driver_name}</span>
                         </Link>
                       </div>
                     </td>
