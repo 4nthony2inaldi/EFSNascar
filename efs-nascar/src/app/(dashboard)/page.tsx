@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Team, Standing, Pick, Track, TrackType, Season } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
-import { SeasonSelector } from '@/components/SeasonSelector';
+import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
 interface RaceWithTrack extends Race {
   track_info: Track | null;
@@ -16,6 +17,7 @@ interface DashboardPageProps {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const supabase = await createClient();
   const params = await searchParams;
+  const cookieStore = await cookies();
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -34,8 +36,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .eq('is_active', true)
     .single();
 
-  // Determine which season to display (from URL param or default to active)
-  const selectedSeasonId = params.season || activeSeason?.id;
+  // Determine which season to display (from URL param, then cookie, then default to active)
+  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
+  const selectedSeasonId = params.season || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
   const isViewingActiveSeason = selectedSeasonId === activeSeason?.id;
 

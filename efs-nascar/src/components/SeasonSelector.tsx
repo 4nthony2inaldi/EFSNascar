@@ -9,6 +9,9 @@ interface SeasonSelectorProps {
   basePath: string;
 }
 
+// Cookie name for persisting season selection
+export const SEASON_COOKIE_NAME = 'efs_selected_season';
+
 export function SeasonSelector({ seasons, currentSeasonId, basePath }: SeasonSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -19,11 +22,15 @@ export function SeasonSelector({ seasons, currentSeasonId, basePath }: SeasonSel
     // Find the active season
     const activeSeason = seasons.find(s => s.is_active);
 
-    // If selecting the active season, remove the param (use default)
+    // If selecting the active season, remove the param and cookie
     if (activeSeason && seasonId === activeSeason.id) {
       params.delete('season');
+      // Clear the cookie by setting it to expire
+      document.cookie = `${SEASON_COOKIE_NAME}=; path=/; max-age=0`;
     } else {
       params.set('season', seasonId);
+      // Set cookie to persist selection (expires in 30 days)
+      document.cookie = `${SEASON_COOKIE_NAME}=${seasonId}; path=/; max-age=${60 * 60 * 24 * 30}`;
     }
 
     const queryString = params.toString();

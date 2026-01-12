@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Team, TeamMembership, Profile, DriverUsage, Driver, Season, Pick, Race } from '@/types';
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
-import { SeasonSelector } from '@/components/SeasonSelector';
+import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy } from '@/lib/pickStrategy';
@@ -16,6 +17,7 @@ interface PageProps {
 export default async function TeamProfilePage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { season: seasonParam } = await searchParams;
+  const cookieStore = await cookies();
   const supabase = await createClient();
 
   // Get current user
@@ -60,8 +62,9 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     .eq('is_active', true)
     .single();
 
-  // Determine which season to display
-  const selectedSeasonId = seasonParam || activeSeason?.id;
+  // Determine which season to display (from URL param, then cookie, then default to active)
+  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
+  const selectedSeasonId = seasonParam || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
   // Get driver usages for this team in selected season

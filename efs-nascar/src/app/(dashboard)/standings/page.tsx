@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Standing, Team, Season } from '@/types';
-import { SeasonSelector } from '@/components/SeasonSelector';
+import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
 interface StandingsPageProps {
   searchParams: Promise<{ season?: string }>;
@@ -10,6 +11,7 @@ interface StandingsPageProps {
 export default async function StandingsPage({ searchParams }: StandingsPageProps) {
   const supabase = await createClient();
   const params = await searchParams;
+  const cookieStore = await cookies();
 
   // Get current user's team
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,8 +37,9 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     .eq('is_active', true)
     .single();
 
-  // Determine which season to display (from URL param or default to active)
-  const selectedSeasonId = params.season || activeSeason?.id;
+  // Determine which season to display (from URL param, then cookie, then default to active)
+  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
+  const selectedSeasonId = params.season || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
   // Get all standings for selected season
