@@ -253,6 +253,9 @@ export async function POST(request: NextRequest) {
         const maxLapsLed = Math.max(...raceData.results.map(r => r.laps_led || 0));
         const mostLapsLed = result.laps_led > 0 && result.laps_led === maxLapsLed;
 
+        // Parse car number from the 'car' field (e.g., "16" or "#16")
+        const carNumber = parseInt(result.car?.replace(/\D/g, '') || '0', 10) || null;
+
         const { error: insertError } = await supabase
           .from('race_results')
           .insert({
@@ -263,6 +266,8 @@ export async function POST(request: NextRequest) {
             stage_2_winner: stage2Winner,
             laps_led: result.laps_led || 0,
             most_laps_led: mostLapsLed,
+            api_driver_name: result.driver,
+            api_car_number: carNumber,
           });
 
         if (insertError) {
