@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Standing, Team, Season } from '@/types';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
+import { CumulativePointsChart } from '@/components/CumulativePointsChart';
 
 // Force dynamic rendering to ensure cookies are read fresh
 export const dynamic = 'force-dynamic';
@@ -263,6 +264,80 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     .eq('season_id', selectedSeasonId)
     .eq('status', 'final');
 
+  // Fetch race-by-race scores for cumulative points chart
+  const { data: raceScoresForChart } = await supabase
+    .from('race_scores')
+    .select('team_id, total_points, race:races!inner(id, race_number, name, season_id)')
+    .eq('race.season_id', selectedSeasonId)
+    .order('race(race_number)', { ascending: true });
+
+  // Get all teams for the chart
+  const { data: allTeams } = await supabase
+    .from('teams')
+    .select('id, name, abbreviation, car_number')
+    .order('car_number', { ascending: true });
+
+  // Build cumulative points data for chart
+  interface ChartRaceData {
+    raceNumber: number;
+    raceName: string;
+    [teamId: string]: number | string;
+  }
+
+  const chartData: ChartRaceData[] = [];
+  const cumulativeByTeam: Record<string, number> = {};
+
+  if (raceScoresForChart && raceScoresForChart.length > 0) {
+    // Group scores by race
+    const scoresByRace: Record<number, { raceName: string; scores: { teamId: string; points: number }[] }> = {};
+
+    for (const score of raceScoresForChart) {
+      const race = score.race as unknown as { id: string; race_number: number; name: string; season_id: string };
+      if (!race) continue;
+      const raceNum = race.race_number;
+
+      if (!scoresByRace[raceNum]) {
+        scoresByRace[raceNum] = { raceName: race.name, scores: [] };
+      }
+      scoresByRace[raceNum].scores.push({
+        teamId: score.team_id,
+        points: score.total_points || 0,
+      });
+    }
+
+    // Sort by race number and build cumulative data
+    const sortedRaceNums = Object.keys(scoresByRace).map(Number).sort((a, b) => a - b);
+
+    for (const raceNum of sortedRaceNums) {
+      const raceData = scoresByRace[raceNum];
+      const dataPoint: ChartRaceData = {
+        raceNumber: raceNum,
+        raceName: raceData.raceName,
+      };
+
+      // Update cumulative totals for each team
+      for (const { teamId, points } of raceData.scores) {
+        cumulativeByTeam[teamId] = (cumulativeByTeam[teamId] || 0) + points;
+      }
+
+      // Add all team cumulative totals to data point
+      for (const teamId in cumulativeByTeam) {
+        dataPoint[teamId] = cumulativeByTeam[teamId];
+      }
+
+      chartData.push(dataPoint);
+    }
+  }
+
+  // Build teams array for chart
+  const chartTeams = (allTeams || []).map(team => ({
+    teamId: team.id,
+    teamName: team.name,
+    abbreviation: team.abbreviation,
+    carNumber: team.car_number,
+    color: '', // Will use default colors
+  }));
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -304,6 +379,13 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           <span className="text-purple-300">Muddy Mile (16-17)</span>
         </div>
       </div>
+
+      {/* Cumulative Points Chart */}
+      <CumulativePointsChart
+        data={chartData}
+        teams={chartTeams}
+        userTeamId={userTeamId}
+      />
 
       {/* Standings Table */}
       <div className="glass rounded-xl overflow-hidden">
