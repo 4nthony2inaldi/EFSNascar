@@ -1,9 +1,15 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import type { Standing, Team } from '@/types';
+import type { Standing, Team, Season } from '@/types';
+import { SeasonSelector } from '@/components/SeasonSelector';
 
-export default async function StandingsPage() {
+interface StandingsPageProps {
+  searchParams: Promise<{ season?: string }>;
+}
+
+export default async function StandingsPage({ searchParams }: StandingsPageProps) {
   const supabase = await createClient();
+  const params = await searchParams;
 
   // Get current user's team
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,6 +20,14 @@ export default async function StandingsPage() {
     .single();
   const userTeamId = membership?.team_id;
 
+  // Get all seasons for the selector
+  const { data: allSeasons } = await supabase
+    .from('seasons')
+    .select('*')
+    .order('year', { ascending: false });
+
+  const seasons = (allSeasons || []) as Season[];
+
   // Get active season
   const { data: activeSeason } = await supabase
     .from('seasons')
@@ -21,30 +35,41 @@ export default async function StandingsPage() {
     .eq('is_active', true)
     .single();
 
-  // Get all standings for active season
+  // Determine which season to display (from URL param or default to active)
+  const selectedSeasonId = params.season || activeSeason?.id;
+  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
+
+  // Get all standings for selected season
   const { data: standings } = await supabase
     .from('standings')
     .select('*, team:teams(*)')
-    .eq('season_id', activeSeason?.id)
+    .eq('season_id', selectedSeasonId)
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
 
-  // Get completed races count
+  // Get completed races count for selected season
   const { count: completedRaces } = await supabase
     .from('races')
     .select('*', { count: 'exact', head: true })
-    .eq('season_id', activeSeason?.id)
+    .eq('season_id', selectedSeasonId)
     .eq('status', 'final');
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white">Standings</h1>
           <p className="text-purple-400 mt-1">
-            {activeSeason?.name || 'No active season'} • {completedRaces || 0} races completed
+            {selectedSeason?.name || 'No active season'} • {completedRaces || 0} races completed
           </p>
         </div>
+        {seasons.length > 0 && selectedSeasonId && (
+          <SeasonSelector
+            seasons={seasons}
+            currentSeasonId={selectedSeasonId}
+            basePath="/standings"
+          />
+        )}
       </div>
 
       {/* Standings Legend */}

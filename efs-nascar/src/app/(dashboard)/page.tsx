@@ -1,17 +1,31 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, Team, Standing, Pick, Track, TrackType } from '@/types';
+import type { Race, Team, Standing, Pick, Track, TrackType, Season } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
+import { SeasonSelector } from '@/components/SeasonSelector';
 
 interface RaceWithTrack extends Race {
   track_info: Track | null;
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<{ season?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const supabase = await createClient();
+  const params = await searchParams;
 
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Get all seasons for the selector
+  const { data: allSeasons } = await supabase
+    .from('seasons')
+    .select('*')
+    .order('year', { ascending: false });
+
+  const seasons = (allSeasons || []) as Season[];
 
   // Get active season
   const { data: activeSeason } = await supabase
@@ -19,6 +33,11 @@ export default async function DashboardPage() {
     .select('*')
     .eq('is_active', true)
     .single();
+
+  // Determine which season to display (from URL param or default to active)
+  const selectedSeasonId = params.season || activeSeason?.id;
+  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
+  const isViewingActiveSeason = selectedSeasonId === activeSeason?.id;
 
   // Get user's team
   const { data: membership } = await supabase
@@ -29,18 +48,22 @@ export default async function DashboardPage() {
 
   const userTeam = membership?.team as Team | null;
 
-  // Get next upcoming race for the active season with track info
-  const { data: nextRaceData } = await supabase
-    .from('races')
-    .select(`
-      *,
-      track_info:tracks(*)
-    `)
-    .eq('season_id', activeSeason?.id)
-    .eq('status', 'upcoming')
-    .order('scheduled_datetime', { ascending: true })
-    .limit(1)
-    .single();
+  // Get next upcoming race for the selected season with track info (only for active season)
+  let nextRaceData = null;
+  if (isViewingActiveSeason) {
+    const { data } = await supabase
+      .from('races')
+      .select(`
+        *,
+        track_info:tracks(*)
+      `)
+      .eq('season_id', selectedSeasonId)
+      .eq('status', 'upcoming')
+      .order('scheduled_datetime', { ascending: true })
+      .limit(1)
+      .single();
+    nextRaceData = data;
+  }
 
   const nextRace = nextRaceData as RaceWithTrack | null;
 
@@ -78,11 +101,11 @@ export default async function DashboardPage() {
     userPick = pick as Pick | null;
   }
 
-  // Get all standings
+  // Get all standings for the selected season
   const { data: standings } = await supabase
     .from('standings')
     .select('*, team:teams(*)')
-    .eq('season_id', activeSeason?.id)
+    .eq('season_id', selectedSeasonId)
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
 
@@ -90,7 +113,7 @@ export default async function DashboardPage() {
   const { data: raceScoresData } = await supabase
     .from('race_scores')
     .select('team_id, laps_led_bonus, race:races!inner(season_id)')
-    .eq('race.season_id', activeSeason?.id);
+    .eq('race.season_id', selectedSeasonId);
 
   // Aggregate laps_led_bonuses per team
   const lapsLedByTeam: Record<string, number> = {};
@@ -206,11 +229,20 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="text-purple-400 mt-1">
-          {activeSeason ? `${activeSeason.name} Season` : 'No active season'}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-purple-400 mt-1">
+            {selectedSeason ? `${selectedSeason.name} Season` : 'No active season'}
+          </p>
+        </div>
+        {seasons.length > 0 && selectedSeasonId && (
+          <SeasonSelector
+            seasons={seasons}
+            currentSeasonId={selectedSeasonId}
+            basePath="/"
+          />
+        )}
       </div>
 
       {/* Alert if no team */}
@@ -324,7 +356,16 @@ export default async function DashboardPage() {
               )}
             </div>
           ) : (
-            <p className="text-purple-400">No upcoming races scheduled.</p>
+            <div className="text-purple-400">
+              {!isViewingActiveSeason ? (
+                <div className="text-center py-4">
+                  <p className="text-lg mb-2">Viewing {selectedSeason?.name} Season</p>
+                  <p className="text-sm text-purple-500">This is a past season. Switch to the current season to see upcoming races.</p>
+                </div>
+              ) : (
+                <p>No upcoming races scheduled.</p>
+              )}
+            </div>
           )}
         </div>
 
