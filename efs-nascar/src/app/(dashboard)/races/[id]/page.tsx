@@ -7,6 +7,7 @@ import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import { LocalTime } from '@/components/LocalTime';
+import { RaceNavigation } from '@/components/RaceNavigation';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -425,6 +426,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
           <p className="text-gray-400">Results will be available after the race is finalized.</p>
         </div>
       )}
+
+      {/* Race Navigation */}
+      <RaceNavigation currentRace={race} basePath="results" />
     </div>
   );
 }

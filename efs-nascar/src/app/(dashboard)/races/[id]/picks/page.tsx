@@ -6,6 +6,7 @@ import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { PickStrategyBadge, PickStrategyLegend } from '@/components/PickStrategyBadge';
 import { LocalTime } from '@/components/LocalTime';
+import { RaceNavigation } from '@/components/RaceNavigation';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -536,6 +537,9 @@ export default async function PicksRevealPage({ params }: PageProps) {
           </table>
         </div>
       </div>
+
+      {/* Race Navigation */}
+      <RaceNavigation currentRace={race} basePath="picks" />
     </div>
   );
 }
