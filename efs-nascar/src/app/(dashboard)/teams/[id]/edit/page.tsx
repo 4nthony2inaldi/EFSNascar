@@ -24,6 +24,7 @@ export default function EditTeamProfilePage({ params }: PageProps) {
   const [success, setSuccess] = useState(false);
 
   // Form state
+  const [abbreviation, setAbbreviation] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [headshotUrl, setHeadshotUrl] = useState('');
   const [favoriteDriverId, setFavoriteDriverId] = useState('');
@@ -81,6 +82,7 @@ export default function EditTeamProfilePage({ params }: PageProps) {
 
       setIsOwner(true);
       setTeam(teamData);
+      setAbbreviation(teamData.abbreviation || '');
       setLogoUrl(teamData.logo_url || '');
       setHeadshotUrl(teamData.owner_headshot_url || '');
       setFavoriteDriverId(teamData.favorite_driver_id || '');
@@ -149,6 +151,7 @@ export default function EditTeamProfilePage({ params }: PageProps) {
       const { error: updateError } = await supabase
         .from('teams')
         .update({
+          abbreviation: abbreviation || null,
           logo_url: logoUrl || null,
           owner_headshot_url: headshotUrl || null,
           favorite_driver_id: favoriteDriverId || null,
@@ -286,6 +289,20 @@ export default function EditTeamProfilePage({ params }: PageProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Team Abbreviation */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Team Abbreviation</h2>
+          <input
+            type="text"
+            value={abbreviation}
+            onChange={(e) => setAbbreviation(e.target.value.toUpperCase())}
+            placeholder="e.g., ABBR"
+            maxLength={10}
+            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 uppercase"
+          />
+          <p className="mt-2 text-sm text-gray-500">Short abbreviation used in mobile views (max 10 characters)</p>
         </div>
 
         {/* Favorite Driver */}

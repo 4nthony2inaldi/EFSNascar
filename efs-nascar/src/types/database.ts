@@ -22,6 +22,7 @@ export interface Profile {
 export interface Team {
   id: string;
   name: string;
+  abbreviation: string | null;
   car_number: number;
   logo_url: string | null;
   owner_headshot_url: string | null;

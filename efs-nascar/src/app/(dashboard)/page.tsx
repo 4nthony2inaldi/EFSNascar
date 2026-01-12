@@ -753,7 +753,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           <span className="text-amber-400 font-bold mr-2">
                             #{standing.team?.car_number}
                           </span>
-                          <span className="text-white hover:text-amber-300">{standing.team?.name}</span>
+                          {/* Show abbreviation on mobile, full name on larger screens */}
+                          <span className="text-white hover:text-amber-300 hidden sm:inline">{standing.team?.name}</span>
+                          <span className="text-white hover:text-amber-300 sm:hidden">{standing.team?.abbreviation || standing.team?.name}</span>
                         </Link>
                       </td>
                       <td className="py-3 pr-4 text-right text-white font-medium">

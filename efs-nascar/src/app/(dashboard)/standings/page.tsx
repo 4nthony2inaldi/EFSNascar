@@ -368,7 +368,9 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                         <span className="text-amber-400 font-bold">
                           #{standing.team?.car_number}
                         </span>
-                        <span className="text-white font-medium">{standing.team?.name}</span>
+                        {/* Show abbreviation on mobile, full name on larger screens */}
+                        <span className="text-white font-medium hidden sm:inline">{standing.team?.name}</span>
+                        <span className="text-white font-medium sm:hidden">{standing.team?.abbreviation || standing.team?.name}</span>
                         {isUserTeam && (
                           <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
                             YOU
