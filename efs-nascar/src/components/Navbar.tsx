@@ -47,7 +47,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-3 group">
               <Image
-                src="/logo.svg"
+                src="/Logo.svg"
                 alt="EFS NASCAR"
                 width={44}
                 height={44}
