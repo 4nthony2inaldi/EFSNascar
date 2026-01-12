@@ -223,6 +223,11 @@ export async function GET() {
       rankings,
       races_analyzed: races.length,
       tier_weights: TIER_WEIGHTS,
+      debug: {
+        total_results_fetched: results?.length || 0,
+        total_drivers: Object.keys(driverMap).length,
+        drivers_with_stats: Object.keys(driverStats).length,
+      },
     });
   } catch (error: unknown) {
     console.error('Error calculating driver rankings:', error);
