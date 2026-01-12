@@ -19,6 +19,7 @@ export interface DriverStats {
   weighted_fantasy_points: number;
   fantasy_points_per_race: number;
   weighted_fantasy_points_per_race: number;
+  tier: number;
 }
 
 type SortKey = keyof DriverStats;
@@ -29,7 +30,28 @@ interface Props {
 }
 
 // Columns where lower is better (should sort ascending by default)
-const LOWER_IS_BETTER: SortKey[] = ['avg_finish'];
+const LOWER_IS_BETTER: SortKey[] = ['avg_finish', 'tier'];
+
+// Tier badge colors based on tier number
+function getTierColor(tier: number): string {
+  switch (tier) {
+    case 1: return 'bg-amber-500 text-black';
+    case 2: return 'bg-emerald-500 text-black';
+    case 3: return 'bg-cyan-500 text-black';
+    case 4: return 'bg-purple-500 text-white';
+    case 5: return 'bg-pink-500 text-white';
+    case 6: return 'bg-indigo-500 text-white';
+    default: return 'bg-gray-600 text-white';
+  }
+}
+
+function TierBadge({ tier }: { tier: number }) {
+  return (
+    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${getTierColor(tier)}`}>
+      {tier}
+    </span>
+  );
+}
 
 export default function DriverRankingsTable({ rankings }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('fantasy_points');
@@ -113,6 +135,9 @@ export default function DriverRankingsTable({ rankings }: Props) {
           <thead>
             <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
               <th className="px-4 py-3">#</th>
+              <SortableHeader columnKey="tier">
+                <span className="text-fuchsia-400">Tier</span>
+              </SortableHeader>
               <SortableHeader columnKey="driver_name" className="text-left">
                 Driver
               </SortableHeader>
@@ -180,6 +205,9 @@ export default function DriverRankingsTable({ rankings }: Props) {
                 >
                   <td className="px-4 py-3">
                     <span className={`text-lg ${rankClass}`}>{rank}</span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <TierBadge tier={driver.tier} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col">

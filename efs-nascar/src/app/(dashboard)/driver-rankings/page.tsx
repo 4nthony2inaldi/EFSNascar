@@ -210,7 +210,8 @@ export default async function DriverRankingsPage() {
   }
 
   // Step 5: Convert to array and calculate averages
-  const rankings: DriverStats[] = Object.values(statsByName)
+  // First, create driver stats without tier
+  const driverStatsWithoutTier = Object.values(statsByName)
     .map(stats => ({
       driver_name: stats.driver_name,
       car_numbers: Array.from(stats.car_numbers).sort((a, b) => a - b),
@@ -228,7 +229,26 @@ export default async function DriverRankingsPage() {
       fantasy_points_per_race: stats.races > 0 ? stats.fantasy_points / stats.races : 0,
       weighted_fantasy_points_per_race: stats.total_weight > 0 ? stats.weighted_fantasy_points / stats.total_weight : 0,
     }))
-    .filter(d => d.races > 0)
+    .filter(d => d.races > 0);
+
+  // Sort by weighted fantasy points to assign tiers (6 drivers per tier)
+  const sortedByWeighted = [...driverStatsWithoutTier].sort(
+    (a, b) => b.weighted_fantasy_points - a.weighted_fantasy_points
+  );
+
+  // Create a map of driver name to tier
+  const tierMap = new Map<string, number>();
+  sortedByWeighted.forEach((driver, index) => {
+    const tier = Math.floor(index / 6) + 1; // Tier 1 = ranks 1-6, Tier 2 = ranks 7-12, etc.
+    tierMap.set(driver.driver_name, tier);
+  });
+
+  // Add tier to each driver and sort by default (fantasy points)
+  const rankings: DriverStats[] = driverStatsWithoutTier
+    .map(driver => ({
+      ...driver,
+      tier: tierMap.get(driver.driver_name) || 99,
+    }))
     .sort((a, b) => {
       // Default sort by fantasy points desc
       return b.fantasy_points - a.fantasy_points;
@@ -272,6 +292,9 @@ export default async function DriverRankingsPage() {
       <div className="glass rounded-xl p-6">
         <h2 className="text-lg font-bold text-white mb-3">Column Definitions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-purple-300">
+          <div>
+            <span className="text-fuchsia-400 font-semibold">Tier:</span> Driver tier based on weighted fantasy points (6 drivers per tier, Tier 1 = best)
+          </div>
           <div>
             <span className="text-amber-400 font-semibold">FPts:</span> Total fantasy points (P1=10, P2=9, ... P10=1, +1 per stage win, +1 for most laps led)
           </div>

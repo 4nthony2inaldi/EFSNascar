@@ -4,6 +4,46 @@ import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+// Position points: 1st=10, 2nd=9, ..., 10th=1, 11th+=0
+const POSITION_POINTS: Record<number, number> = {
+  1: 10, 2: 9, 3: 8, 4: 7, 5: 6,
+  6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
+};
+
+// Weight multipliers for races
+function getWeightForRaceIndex(index: number): number {
+  if (index < 30) return 3;
+  if (index < 60) return 2;
+  return 1;
+}
+
+// Calculate fantasy points for a single race result
+function calculateFantasyPoints(
+  finishPosition: number,
+  stage1Winner: boolean,
+  stage2Winner: boolean,
+  mostLapsLed: boolean
+): number {
+  let points = POSITION_POINTS[finishPosition] || 0;
+  if (stage1Winner) points += 1;
+  if (stage2Winner) points += 1;
+  if (mostLapsLed) points += 1;
+  return points;
+}
+
+// Tier badge colors
+function getTierColor(tier: number): string {
+  switch (tier) {
+    case 1: return 'bg-amber-500 text-black';
+    case 2: return 'bg-emerald-500 text-black';
+    case 3: return 'bg-cyan-500 text-black';
+    case 4: return 'bg-purple-500 text-white';
+    case 5: return 'bg-pink-500 text-white';
+    case 6: return 'bg-indigo-500 text-white';
+    default: return 'bg-gray-600 text-white';
+  }
+}
+
 interface PageProps {
   params: Promise<{ name: string }>;
 }
@@ -99,6 +139,67 @@ export default async function DriverPage({ params }: PageProps) {
     year: seasonYearMap.get(r.season_id) || 0
   }]) || []);
 
+  // Calculate driver's tier based on weighted fantasy points among all drivers
+  // Step 1: Get the 90 most recent final races for tier calculation
+  const { data: recentRaces } = await supabase
+    .from('races')
+    .select('id, scheduled_datetime')
+    .eq('status', 'final')
+    .order('scheduled_datetime', { ascending: false })
+    .limit(90);
+
+  const recentRaceIds = recentRaces?.map(r => r.id) || [];
+  const raceIndexMap = new Map<string, number>();
+  recentRaces?.forEach((race, index) => {
+    raceIndexMap.set(race.id, index);
+  });
+
+  // Step 2: Get all race results for recent races to calculate all drivers' weighted points
+  let allRecentResults: any[] = [];
+  let tierPage = 0;
+  const tierPageSize = 1000;
+
+  while (true) {
+    const { data: pageResults } = await supabase
+      .from('race_results')
+      .select('race_id, finish_position, stage_1_winner, stage_2_winner, most_laps_led, api_driver_name')
+      .in('race_id', recentRaceIds)
+      .range(tierPage * tierPageSize, (tierPage + 1) * tierPageSize - 1);
+
+    if (!pageResults || pageResults.length === 0) break;
+    allRecentResults = allRecentResults.concat(pageResults);
+    if (pageResults.length < tierPageSize) break;
+    tierPage++;
+  }
+
+  // Step 3: Calculate weighted fantasy points per driver
+  const driverWeightedPoints: Record<string, number> = {};
+  for (const result of allRecentResults) {
+    const driverName = result.api_driver_name;
+    if (!driverName) continue;
+
+    const raceIndex = raceIndexMap.get(result.race_id) ?? 90;
+    const weight = getWeightForRaceIndex(raceIndex);
+    const racePoints = calculateFantasyPoints(
+      result.finish_position || 0,
+      result.stage_1_winner || false,
+      result.stage_2_winner || false,
+      result.most_laps_led || false
+    );
+
+    driverWeightedPoints[driverName] = (driverWeightedPoints[driverName] || 0) + (racePoints * weight);
+  }
+
+  // Step 4: Sort drivers by weighted points and assign tiers
+  const sortedDrivers = Object.entries(driverWeightedPoints)
+    .sort(([, a], [, b]) => b - a);
+
+  let driverTier = 99;
+  const driverIndex = sortedDrivers.findIndex(([name]) => name.toLowerCase() === decodedName.toLowerCase());
+  if (driverIndex !== -1) {
+    driverTier = Math.floor(driverIndex / 6) + 1;
+  }
+
   // Build results with race info, sorted by date descending
   const resultsWithRaces = allResults
     .map(result => {
@@ -162,6 +263,9 @@ export default async function DriverPage({ params }: PageProps) {
           <div className="flex items-center gap-3 mb-2">
             <span className="text-4xl font-bold text-amber-400">#{currentCarNumber}</span>
             <h1 className="text-3xl font-bold text-white">{driverName}</h1>
+            <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${getTierColor(driverTier)}`}>
+              T{driverTier}
+            </span>
           </div>
           {teamName && (
             <p className="text-purple-400">{teamName}</p>
@@ -181,7 +285,13 @@ export default async function DriverPage({ params }: PageProps) {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-5 gap-4">
+        <div className="glass rounded-xl p-4 flex flex-col items-center justify-center">
+          <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold ${getTierColor(driverTier)}`}>
+            {driverTier}
+          </span>
+          <div className="text-purple-400 text-sm mt-2">Tier</div>
+        </div>
         <StatCard label="Races" value={stats.races} />
         <StatCard label="Wins" value={stats.wins} color="amber" />
         <StatCard label="Stage Wins" value={stats.stage_wins} color="emerald" />
