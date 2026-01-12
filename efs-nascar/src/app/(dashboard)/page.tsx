@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Team, Standing, Pick, Track, TrackType } from '@/types';
+import { LocalTime } from '@/components/LocalTime';
 
 interface RaceWithTrack extends Race {
   track_info: Track | null;
@@ -182,13 +183,7 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between text-sm text-purple-400 mb-6">
                 <span>
                   Race #{nextRace.race_number} •{' '}
-                  {new Date(nextRace.scheduled_datetime).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
+                  <LocalTime dateStr={nextRace.scheduled_datetime} format="long" />
                 </span>
               </div>
 
@@ -359,7 +354,7 @@ export default async function DashboardPage() {
                 <p className="text-purple-300 text-sm mt-1">{announcement.body}</p>
                 <p className="text-purple-500 text-xs mt-2">
                   {announcement.author?.name} •{' '}
-                  {new Date(announcement.posted_at).toLocaleDateString()}
+                  <LocalTime dateStr={announcement.posted_at} format="dateOnly" />
                 </p>
               </div>
             ))}

@@ -5,6 +5,7 @@ import type { Driver, Team, Pick, Race } from '@/types';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { PickStrategyBadge, PickStrategyLegend } from '@/components/PickStrategyBadge';
+import { LocalTime } from '@/components/LocalTime';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -196,14 +197,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
             <h1 className="text-3xl font-bold text-white">{race.name}</h1>
             <p className="text-purple-300">{race.track}</p>
             <p className="text-sm text-purple-500 mt-2">
-              {new Date(race.scheduled_datetime).toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
+              <LocalTime dateStr={race.scheduled_datetime} format="full" />
             </p>
           </div>
           <div className="text-right">

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Pick, Track, TrackType, Season } from '@/types';
+import { LocalTime } from '@/components/LocalTime';
 // Schedule page with season selector and picks links
 
 interface RaceWithTrack extends Race {
@@ -72,23 +73,6 @@ export default async function SchedulePage({ searchParams }: PageProps) {
       }, {} as Record<string, Pick>);
     }
   }
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
 
   const getRaceTypeLabel = (type: string) => {
     switch (type) {
@@ -306,7 +290,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                           )}
                         </div>
                         <p className="text-sm text-purple-500">
-                          {formatDate(race.scheduled_datetime)} at {formatTime(race.scheduled_datetime)}
+                          <LocalTime dateStr={race.scheduled_datetime} format="date" /> at <LocalTime dateStr={race.scheduled_datetime} format="time" />
                         </p>
                       </div>
                     </div>
@@ -315,7 +299,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                         <div className="text-right">
                           <div className="text-xs text-purple-500">Deadline</div>
                           <div className="text-sm text-purple-200">
-                            {formatDate(race.deadline_datetime)} {formatTime(race.deadline_datetime)}
+                            <LocalTime dateStr={race.deadline_datetime} format="datetime" />
                           </div>
                         </div>
                       )}

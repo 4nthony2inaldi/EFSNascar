@@ -6,6 +6,7 @@ import { POSITION_POINTS } from '@/types';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
+import { LocalTime } from '@/components/LocalTime';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -122,12 +123,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
             <h1 className="text-3xl font-bold text-white">{race.name}</h1>
             <p className="text-gray-400">{race.track}</p>
             <p className="text-sm text-gray-500 mt-2">
-              {new Date(race.scheduled_datetime).toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              <LocalTime dateStr={race.scheduled_datetime} format="longDate" />
             </p>
           </div>
           <div className="flex flex-col items-end space-y-2">
