@@ -18,9 +18,11 @@ export async function GET() {
   const supabase = await createClient();
 
   // Get all unique driver_ids from race_results
+  // Note: Must set limit higher than default 1000 to get all results
   const { data: allResults } = await supabase
     .from('race_results')
-    .select('driver_id, race_id, finish_position');
+    .select('driver_id, race_id, finish_position')
+    .limit(5000);
 
   // Get all drivers
   const { data: drivers } = await supabase
@@ -150,9 +152,11 @@ export async function POST() {
   const driverByCarNumber = new Map(drivers?.map(d => [d.car_number, d]) || []);
 
   // Get all race_results
+  // Note: Must set limit higher than default 1000 to get all results
   const { data: allResults } = await supabase
     .from('race_results')
-    .select('id, driver_id');
+    .select('id, driver_id')
+    .limit(5000);
 
   // Find orphaned records and their fixes
   const fixes: Array<{
