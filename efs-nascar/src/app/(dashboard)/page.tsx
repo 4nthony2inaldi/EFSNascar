@@ -119,6 +119,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const hasStandingsData = standings && standings.length > 0 &&
     standings.some((s: any) => s.total_points > 0);
 
+  // Aggregate laps_led_bonuses per team (used later for lucky dog)
+  const lapsLedByTeam: Record<string, number> = {};
+
   // If no pre-calculated standings OR standings have no points, calculate from race_scores
   if (!hasStandingsData && raceScoresData && raceScoresData.length > 0) {
     // Aggregate scores by team
@@ -151,6 +154,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
         teamTotals[score.team_id].race_wins += 1;
       }
+
+      // Also aggregate laps led
+      if (!lapsLedByTeam[score.team_id]) {
+        lapsLedByTeam[score.team_id] = 0;
+      }
+      lapsLedByTeam[score.team_id] += score.laps_led_bonus || 0;
     }
 
     const calculatedStandings = Object.values(teamTotals)
@@ -170,15 +179,143 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       }));
 
     standings = calculatedStandings as any;
-  }
+  } else if (!hasStandingsData) {
+    // Third fallback: Calculate from picks + race_results directly
+    const { data: picks } = await supabase
+      .from('picks')
+      .select('*, team:teams(*), race:races!inner(season_id)')
+      .eq('race.season_id', selectedSeasonId);
 
-  // Aggregate laps_led_bonuses per team
-  const lapsLedByTeam: Record<string, number> = {};
-  for (const score of raceScoresData || []) {
-    if (!lapsLedByTeam[score.team_id]) {
-      lapsLedByTeam[score.team_id] = 0;
+    const { data: raceResults } = await supabase
+      .from('race_results')
+      .select('*, race:races!inner(season_id)')
+      .eq('race.season_id', selectedSeasonId);
+
+    if (picks && picks.length > 0 && raceResults && raceResults.length > 0) {
+      // Build a lookup of race results by race_id and driver_id
+      const resultsByRaceAndDriver: Record<string, {
+        finish_position: number;
+        stage_1_winner: boolean;
+        stage_2_winner: boolean;
+        most_laps_led: boolean;
+      }> = {};
+
+      for (const result of raceResults) {
+        const key = `${result.race_id}-${result.driver_id}`;
+        resultsByRaceAndDriver[key] = {
+          finish_position: result.finish_position,
+          stage_1_winner: result.stage_1_winner,
+          stage_2_winner: result.stage_2_winner,
+          most_laps_led: result.most_laps_led,
+        };
+      }
+
+      const POSITION_POINTS: Record<number, number> = {
+        1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
+      };
+
+      const teamTotals: Record<string, {
+        team_id: string;
+        team: any;
+        total_points: number;
+        race_wins: number;
+        stage_wins: number;
+        top_10_bonuses: number;
+        laps_led_bonuses: number;
+      }> = {};
+
+      for (const pick of picks) {
+        if (!teamTotals[pick.team_id]) {
+          teamTotals[pick.team_id] = {
+            team_id: pick.team_id,
+            team: pick.team,
+            total_points: 0,
+            race_wins: 0,
+            stage_wins: 0,
+            top_10_bonuses: 0,
+            laps_led_bonuses: 0,
+          };
+        }
+
+        const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+        let racePoints = 0;
+        let stageBonus = 0;
+        let lapsLedBonus = 0;
+        let allTop10 = true;
+
+        for (const driverId of driverIds) {
+          const key = `${pick.race_id}-${driverId}`;
+          const result = resultsByRaceAndDriver[key];
+
+          if (result) {
+            const posPoints = POSITION_POINTS[result.finish_position] || 0;
+            racePoints += posPoints;
+
+            if (result.finish_position === 1) {
+              teamTotals[pick.team_id].race_wins += 1;
+            }
+
+            if (result.stage_1_winner) {
+              stageBonus += 1;
+              teamTotals[pick.team_id].stage_wins += 1;
+            }
+            if (result.stage_2_winner) {
+              stageBonus += 1;
+              teamTotals[pick.team_id].stage_wins += 1;
+            }
+
+            if (result.most_laps_led && lapsLedBonus === 0) {
+              lapsLedBonus = 1;
+              teamTotals[pick.team_id].laps_led_bonuses += 1;
+            }
+
+            if (result.finish_position > 10) {
+              allTop10 = false;
+            }
+          } else {
+            allTop10 = false;
+          }
+        }
+
+        if (allTop10) {
+          racePoints += 1;
+          teamTotals[pick.team_id].top_10_bonuses += 1;
+        }
+
+        teamTotals[pick.team_id].total_points += racePoints + stageBonus + lapsLedBonus;
+      }
+
+      // Also populate lapsLedByTeam
+      for (const teamId in teamTotals) {
+        lapsLedByTeam[teamId] = teamTotals[teamId].laps_led_bonuses;
+      }
+
+      const calculatedStandings = Object.values(teamTotals)
+        .sort((a, b) => b.total_points - a.total_points)
+        .map((team, index) => ({
+          id: `calc-${team.team_id}`,
+          team_id: team.team_id,
+          season_id: selectedSeasonId,
+          race_id: null,
+          total_points: team.total_points,
+          race_wins: team.race_wins,
+          stage_wins: team.stage_wins,
+          top_10_bonuses: team.top_10_bonuses,
+          rank: index + 1,
+          team: team.team,
+          updated_at: new Date().toISOString(),
+        }));
+
+      standings = calculatedStandings as any;
     }
-    lapsLedByTeam[score.team_id] += score.laps_led_bonus || 0;
+  } else {
+    // Use pre-calculated standings, just aggregate laps_led from race_scores
+    for (const score of raceScoresData || []) {
+      if (!lapsLedByTeam[score.team_id]) {
+        lapsLedByTeam[score.team_id] = 0;
+      }
+      lapsLedByTeam[score.team_id] += score.laps_led_bonus || 0;
+    }
   }
 
   // Calculate user's standing info
