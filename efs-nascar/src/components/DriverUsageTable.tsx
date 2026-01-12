@@ -93,12 +93,24 @@ export function DriverUsageTable({ data }: DriverUsageTableProps) {
     </th>
   );
 
-  // Format driver name: last name only for mobile
+  // Format driver name: last name only for mobile (handle Jr/Sr suffixes)
   const formatDriverName = (name: string | undefined): { full: string; short: string } => {
     if (!name) return { full: '', short: '' };
     const parts = name.split(' ');
     if (parts.length < 2) return { full: name, short: name };
-    const lastName = parts[parts.length - 1];
+
+    // Check if last part is a suffix like Jr, Jr., Sr, Sr., II, III, IV
+    const lastPart = parts[parts.length - 1];
+    const suffixes = ['Jr', 'Jr.', 'Sr', 'Sr.', 'II', 'III', 'IV'];
+
+    let lastName: string;
+    if (suffixes.includes(lastPart) && parts.length > 2) {
+      // Use second-to-last part + suffix
+      lastName = `${parts[parts.length - 2]} ${lastPart}`;
+    } else {
+      lastName = lastPart;
+    }
+
     return {
       full: name,
       short: lastName,
