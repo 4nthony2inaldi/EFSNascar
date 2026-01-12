@@ -349,12 +349,12 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   const strategyStats: Record<string, { totalPoints: number; count: number }> = {};
   for (const raceData of racePicksData) {
     if (raceData.race.status === 'final' && raceData.strategy && raceData.pick) {
-      const strategyName = raceData.strategy.name;
-      if (!strategyStats[strategyName]) {
-        strategyStats[strategyName] = { totalPoints: 0, count: 0 };
+      const strategyLabel = raceData.strategy.label;
+      if (!strategyStats[strategyLabel]) {
+        strategyStats[strategyLabel] = { totalPoints: 0, count: 0 };
       }
-      strategyStats[strategyName].totalPoints += raceData.totalPoints;
-      strategyStats[strategyName].count += 1;
+      strategyStats[strategyLabel].totalPoints += raceData.totalPoints;
+      strategyStats[strategyLabel].count += 1;
     }
   }
 
