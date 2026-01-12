@@ -6,6 +6,7 @@ import type { Team, TeamMembership, Profile, Driver, Season, Race } from '@/type
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
+import { DriverUsageTable } from '@/components/DriverUsageTable';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy } from '@/lib/pickStrategy';
 
@@ -562,86 +563,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       <div className="bg-gray-800 rounded-lg p-6">
         <h2 className="text-xl font-bold text-white mb-4">Driver Usage & Performance</h2>
         {calculatedDriverUsages.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
-                  <th className="pb-3 pr-4">#</th>
-                  <th className="pb-3 pr-4">Driver</th>
-                  <th className="pb-3 text-center">Uses</th>
-                  <th className="pb-3 text-center">Total Pts</th>
-                  <th className="pb-3 text-center">Avg Pts</th>
-                  <th className="pb-3 text-center">Max Potential</th>
-                  <th className="pb-3 text-center">Efficiency</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calculatedDriverUsages.map((usage) => {
-                  const efficiency = usage.maxPotential > 0
-                    ? Math.round((usage.totalPoints / usage.maxPotential) * 100)
-                    : 0;
-                  const pointsLeft = usage.maxPotential - usage.totalPoints;
-
-                  return (
-                    <tr key={usage.driverId} className="border-b border-gray-700/50">
-                      <td className="py-3 pr-4 text-yellow-500 font-bold">
-                        {usage.driver?.car_number}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div>
-                          <span className="text-white">{usage.driver?.name}</span>
-                          <span className="text-gray-500 text-xs ml-2">{usage.driver?.team_name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-center">
-                        <span className={`font-bold ${
-                          usage.timesUsed >= 4 ? 'text-red-400' :
-                          usage.timesUsed >= 3 ? 'text-yellow-400' : 'text-white'
-                        }`}>
-                          {usage.timesUsed}
-                        </span>
-                      </td>
-                      <td className="py-3 text-center">
-                        <span className="font-bold text-amber-400">{usage.totalPoints}</span>
-                      </td>
-                      <td className="py-3 text-center">
-                        <span className={`font-medium ${
-                          usage.avgPoints >= 8 ? 'text-emerald-400' :
-                          usage.avgPoints >= 5 ? 'text-amber-400' :
-                          usage.avgPoints >= 3 ? 'text-gray-300' : 'text-red-400'
-                        }`}>
-                          {usage.avgPoints.toFixed(1)}
-                        </span>
-                      </td>
-                      <td className="py-3 text-center">
-                        <div className="flex flex-col items-center">
-                          <span className="text-cyan-400 font-medium">{usage.maxPotential}</span>
-                          {pointsLeft > 0 && (
-                            <span className="text-xs text-gray-500">
-                              (-{pointsLeft})
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 text-center">
-                        <span className={`font-bold ${
-                          efficiency >= 90 ? 'text-emerald-400' :
-                          efficiency >= 70 ? 'text-amber-400' :
-                          efficiency >= 50 ? 'text-gray-300' : 'text-red-400'
-                        }`}>
-                          {efficiency}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="mt-4 pt-4 border-t border-gray-700 text-xs text-gray-500">
-              <p><strong>Max Potential:</strong> Points from their {calculatedDriverUsages[0]?.timesUsed || 'X'} best races that season</p>
-              <p><strong>Efficiency:</strong> Actual points vs max potential (did you pick them in their best races?)</p>
-            </div>
-          </div>
+          <DriverUsageTable data={calculatedDriverUsages} />
         ) : (
           <p className="text-gray-400">No drivers have been used yet this season.</p>
         )}
