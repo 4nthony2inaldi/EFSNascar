@@ -269,7 +269,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
               <thead>
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">Team</th>
-                  <th className="pb-3 pr-4">Strategy</th>
+                  <th className="pb-3 pr-4 text-center">Points</th>
                   <th className="pb-3 pr-4">Driver 1</th>
                   <th className="pb-3 pr-4">Driver 2</th>
                   <th className="pb-3 pr-4">Driver 3</th>
@@ -278,6 +278,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
               <tbody>
                 {picks.map((pick: any) => {
                   const isUserTeam = pick.team_id === userTeamId;
+                  const teamScore = scores?.find((s: any) => s.team_id === pick.team_id);
 
                   const renderDriver = (driverId: string) => {
                     const result = resultsMap[driverId];
@@ -316,10 +317,10 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           <span className="text-white">{pick.team?.name}</span>
                         </Link>
                       </td>
-                      <td className="py-3 pr-4">
-                        {teamStrategies[pick.team_id] && (
-                          <PickStrategyBadge strategy={teamStrategies[pick.team_id]} size="sm" />
-                        )}
+                      <td className="py-3 pr-4 text-center">
+                        <span className="text-white font-bold text-lg">
+                          {teamScore?.total_points ?? '-'}
+                        </span>
                       </td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
