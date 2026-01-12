@@ -97,6 +97,18 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   const races = (racesData || []) as (Race & { track_info: { track_type: string } | null })[];
 
+  // Get all tracks for fallback lookup (for older seasons without track_id)
+  const { data: allTracksData } = await supabase
+    .from('tracks')
+    .select('name, track_type');
+
+  const trackTypeByName = new Map<string, string>();
+  for (const track of allTracksData || []) {
+    if (track.name && track.track_type) {
+      trackTypeByName.set(track.name, track.track_type);
+    }
+  }
+
   // Get all picks for this team in selected season
   const { data: picksData } = await supabase
     .from('picks')
@@ -265,7 +277,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           lapsLedBonus: 0,
           top10Bonus: 0,
           strategy: null,
-          trackType: race.track_info?.track_type || null,
+          trackType: race.track_info?.track_type || trackTypeByName.get(race.track) || null,
         };
       }
 
@@ -341,7 +353,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         lapsLedBonus,
         top10Bonus,
         strategy,
-        trackType: race.track_info?.track_type || null,
+        trackType: race.track_info?.track_type || trackTypeByName.get(race.track) || null,
       };
     });
 
