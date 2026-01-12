@@ -53,15 +53,9 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 height={44}
                 className="rounded-full"
               />
-              <div className="hidden sm:flex items-center space-x-1">
-                <span className="text-white font-black text-xl tracking-tight bg-red-600 px-2 py-0.5 rounded">EFS</span>
-                <span className="font-black text-xl tracking-tight">
-                  <span className="text-red-500">N</span>
-                  <span className="text-white">A</span>
-                  <span className="text-white">S</span>
-                  <span className="text-blue-500">C</span>
-                  <span className="text-blue-600">A</span>
-                  <span className="text-blue-700">R</span>
+              <div className="hidden sm:flex items-center">
+                <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                  EFS NASCAR
                 </span>
               </div>
             </Link>
