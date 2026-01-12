@@ -1,20 +1,36 @@
 import { createClient } from '@/lib/supabase/server';
-import Link from 'next/link';
+import DriverRankingsTable, { DriverStats } from './DriverRankingsTable';
 
 export const dynamic = 'force-dynamic';
 
-interface DriverStats {
-  driver_name: string;
-  car_numbers: number[];
-  current_car_number: number;
-  team_name: string | null;
-  races: number;
-  wins: number;
-  stage_wins: number;
-  laps_led_races: number;
-  avg_finish: number;
-  top_5s: number;
-  top_10s: number;
+// Position points: 1st=10, 2nd=9, ..., 10th=1, 11th+=0
+const POSITION_POINTS: Record<number, number> = {
+  1: 10, 2: 9, 3: 8, 4: 7, 5: 6,
+  6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
+};
+
+// Weight multipliers for races:
+// Most recent 30 races: 3x
+// Next 30 races: 2x
+// Oldest 30 races: 1x
+function getWeightForRaceIndex(index: number): number {
+  if (index < 30) return 3;
+  if (index < 60) return 2;
+  return 1;
+}
+
+// Calculate fantasy points for a single race result
+function calculateFantasyPoints(
+  finishPosition: number,
+  stage1Winner: boolean,
+  stage2Winner: boolean,
+  mostLapsLed: boolean
+): number {
+  let points = POSITION_POINTS[finishPosition] || 0;
+  if (stage1Winner) points += 1;
+  if (stage2Winner) points += 1;
+  if (mostLapsLed) points += 1;
+  return points;
 }
 
 export default async function DriverRankingsPage() {
@@ -39,6 +55,12 @@ export default async function DriverRankingsPage() {
 
   const raceIds = races.map(r => r.id);
   const racesAnalyzed = races.length;
+
+  // Create a map of race_id to its recency index (0 = most recent)
+  const raceIndexMap = new Map<string, number>();
+  races.forEach((race, index) => {
+    raceIndexMap.set(race.id, index);
+  });
 
   // Step 2: Get ALL race results for these races (paginate to avoid limits)
   let allResults: any[] = [];
@@ -108,6 +130,9 @@ export default async function DriverRankingsPage() {
     laps_led_races: number;
     top_5s: number;
     top_10s: number;
+    fantasy_points: number;
+    weighted_fantasy_points: number;
+    total_weight: number;
   }> = {};
 
   for (const result of allResults) {
@@ -142,6 +167,9 @@ export default async function DriverRankingsPage() {
         laps_led_races: 0,
         top_5s: 0,
         top_10s: 0,
+        fantasy_points: 0,
+        weighted_fantasy_points: 0,
+        total_weight: 0,
       };
     }
 
@@ -152,9 +180,24 @@ export default async function DriverRankingsPage() {
       stats.car_numbers.add(carNumber);
     }
 
+    // Calculate fantasy points for this race
+    const raceFantasyPoints = calculateFantasyPoints(
+      result.finish_position || 0,
+      result.stage_1_winner || false,
+      result.stage_2_winner || false,
+      result.most_laps_led || false
+    );
+
+    // Get weight for this race based on recency
+    const raceIndex = raceIndexMap.get(result.race_id) ?? 90;
+    const weight = getWeightForRaceIndex(raceIndex);
+
     // Count stats
     stats.races += 1;
     stats.total_finish += result.finish_position || 0;
+    stats.fantasy_points += raceFantasyPoints;
+    stats.weighted_fantasy_points += raceFantasyPoints * weight;
+    stats.total_weight += weight;
 
     if (result.finish_position === 1) stats.wins += 1;
     if (result.finish_position <= 5) stats.top_5s += 1;
@@ -180,12 +223,15 @@ export default async function DriverRankingsPage() {
       avg_finish: stats.races > 0 ? Math.round((stats.total_finish / stats.races) * 10) / 10 : 0,
       top_5s: stats.top_5s,
       top_10s: stats.top_10s,
+      fantasy_points: stats.fantasy_points,
+      weighted_fantasy_points: stats.weighted_fantasy_points,
+      fantasy_points_per_race: stats.races > 0 ? stats.fantasy_points / stats.races : 0,
+      weighted_fantasy_points_per_race: stats.total_weight > 0 ? stats.weighted_fantasy_points / stats.total_weight : 0,
     }))
     .filter(d => d.races > 0)
     .sort((a, b) => {
-      // Sort by wins desc, then by avg finish asc
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      return a.avg_finish - b.avg_finish;
+      // Default sort by fantasy points desc
+      return b.fantasy_points - a.fantasy_points;
     });
 
   return (
@@ -220,126 +266,24 @@ export default async function DriverRankingsPage() {
       </div>
 
       {/* Rankings Table */}
-      <div className="glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
-                <th className="px-4 py-3">#</th>
-                <th className="px-4 py-3">Driver</th>
-                <th className="px-4 py-3 text-center">Races</th>
-                <th className="px-4 py-3 text-center">
-                  <span className="text-amber-400">Wins</span>
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <span className="text-emerald-400">Stage Wins</span>
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <span className="text-cyan-400">Laps Led</span>
-                </th>
-                <th className="px-4 py-3 text-center">Avg Finish</th>
-                <th className="px-4 py-3 text-center">Top 5</th>
-                <th className="px-4 py-3 text-center">Top 10</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rankings.map((driver, index) => {
-                const rank = index + 1;
-
-                // Highlight styling based on rank
-                let rankClass = 'text-purple-400';
-                let rowClass = '';
-
-                if (rank === 1) {
-                  rankClass = 'text-amber-400 font-bold';
-                  rowClass = 'bg-amber-500/10';
-                } else if (rank <= 3) {
-                  rankClass = 'text-amber-400';
-                } else if (rank <= 10) {
-                  rankClass = 'text-emerald-400';
-                }
-
-                // Show multiple car numbers if driver used more than one
-                const carDisplay = driver.car_numbers.length > 1
-                  ? driver.car_numbers.map(n => `#${n}`).join(', ')
-                  : `#${driver.current_car_number}`;
-
-                return (
-                  <tr
-                    key={driver.driver_name}
-                    className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${rowClass}`}
-                  >
-                    <td className="px-4 py-3">
-                      <span className={`text-lg ${rankClass}`}>{rank}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="text-amber-400 font-mono text-sm">{carDisplay}</span>
-                          <Link
-                            href={`/drivers/${encodeURIComponent(driver.driver_name)}`}
-                            className="text-white font-medium hover:text-amber-400 transition-colors"
-                          >
-                            {driver.driver_name}
-                          </Link>
-                        </div>
-                        {driver.team_name && (
-                          <span className="text-purple-500 text-xs">{driver.team_name}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center text-purple-200">
-                      {driver.races}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {driver.wins > 0 ? (
-                        <span className="text-amber-400 font-bold text-lg">{driver.wins}</span>
-                      ) : (
-                        <span className="text-purple-600">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {driver.stage_wins > 0 ? (
-                        <span className="text-emerald-400 font-semibold">{driver.stage_wins}</span>
-                      ) : (
-                        <span className="text-purple-600">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {driver.laps_led_races > 0 ? (
-                        <span className="text-cyan-400 font-semibold">{driver.laps_led_races}</span>
-                      ) : (
-                        <span className="text-purple-600">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`font-medium ${
-                        driver.avg_finish <= 10 ? 'text-emerald-400' :
-                        driver.avg_finish <= 15 ? 'text-amber-400' :
-                        driver.avg_finish <= 20 ? 'text-purple-300' :
-                        'text-purple-500'
-                      }`}>
-                        {driver.avg_finish.toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-purple-200">
-                      {driver.top_5s}
-                    </td>
-                    <td className="px-4 py-3 text-center text-purple-200">
-                      {driver.top_10s}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DriverRankingsTable rankings={rankings} />
 
       {/* Legend */}
       <div className="glass rounded-xl p-6">
         <h2 className="text-lg font-bold text-white mb-3">Column Definitions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-purple-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-purple-300">
+          <div>
+            <span className="text-amber-400 font-semibold">FPts:</span> Total fantasy points (P1=10, P2=9, ... P10=1, +1 per stage win, +1 for most laps led)
+          </div>
+          <div>
+            <span className="text-amber-400 font-semibold">WFPts:</span> Weighted fantasy points (recent 30 races = 3×, next 30 = 2×, oldest 30 = 1×)
+          </div>
+          <div>
+            <span className="text-amber-400 font-semibold">FP/R:</span> Fantasy points per race (total ÷ races)
+          </div>
+          <div>
+            <span className="text-amber-400 font-semibold">WFP/R:</span> Weighted fantasy points per race (weighted total ÷ weighted races)
+          </div>
           <div>
             <span className="text-amber-400 font-semibold">Wins:</span> Race victories (P1 finishes)
           </div>
@@ -354,8 +298,7 @@ export default async function DriverRankingsPage() {
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-purple-800/30 text-sm text-purple-400">
-          Sorted by wins (descending), then by average finish (ascending).
-          Stats consolidated by driver name across car number changes.
+          Click any column header to sort. Stats consolidated by driver name across car number changes.
         </div>
       </div>
     </div>
