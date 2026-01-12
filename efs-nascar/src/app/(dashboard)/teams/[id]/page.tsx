@@ -10,6 +10,9 @@ import { DriverUsageTable } from '@/components/DriverUsageTable';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy } from '@/lib/pickStrategy';
 
+// Force dynamic rendering to ensure cookies are read fresh
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ season?: string }>;

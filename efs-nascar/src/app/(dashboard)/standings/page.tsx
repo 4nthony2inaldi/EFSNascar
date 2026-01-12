@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import type { Standing, Team, Season } from '@/types';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
+// Force dynamic rendering to ensure cookies are read fresh
+export const dynamic = 'force-dynamic';
+
 interface StandingsPageProps {
   searchParams: Promise<{ season?: string }>;
 }

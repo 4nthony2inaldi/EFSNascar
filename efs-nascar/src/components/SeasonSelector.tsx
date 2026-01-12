@@ -12,6 +12,17 @@ interface SeasonSelectorProps {
 // Cookie name for persisting season selection
 export const SEASON_COOKIE_NAME = 'efs_selected_season';
 
+// Helper to set cookie with proper attributes
+function setSeasonCookie(seasonId: string | null) {
+  if (seasonId === null) {
+    // Clear the cookie
+    document.cookie = `${SEASON_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+  } else {
+    // Set cookie (expires in 30 days)
+    document.cookie = `${SEASON_COOKIE_NAME}=${seasonId}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+  }
+}
+
 export function SeasonSelector({ seasons, currentSeasonId, basePath }: SeasonSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,16 +36,17 @@ export function SeasonSelector({ seasons, currentSeasonId, basePath }: SeasonSel
     // If selecting the active season, remove the param and cookie
     if (activeSeason && seasonId === activeSeason.id) {
       params.delete('season');
-      // Clear the cookie by setting it to expire
-      document.cookie = `${SEASON_COOKIE_NAME}=; path=/; max-age=0`;
+      setSeasonCookie(null);
     } else {
       params.set('season', seasonId);
-      // Set cookie to persist selection (expires in 30 days)
-      document.cookie = `${SEASON_COOKIE_NAME}=${seasonId}; path=/; max-age=${60 * 60 * 24 * 30}`;
+      setSeasonCookie(seasonId);
     }
 
     const queryString = params.toString();
-    router.push(`${basePath}${queryString ? `?${queryString}` : ''}`);
+    const url = `${basePath}${queryString ? `?${queryString}` : ''}`;
+
+    // Use window.location for full page navigation to ensure cookie is sent
+    window.location.href = url;
   };
 
   const currentSeason = seasons.find(s => s.id === currentSeasonId);

@@ -6,6 +6,9 @@ import type { Race, Team, Standing, Pick, Track, TrackType, Season } from '@/typ
 import { LocalTime } from '@/components/LocalTime';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
+// Force dynamic rendering to ensure cookies are read fresh
+export const dynamic = 'force-dynamic';
+
 interface RaceWithTrack extends Race {
   track_info: Track | null;
 }
