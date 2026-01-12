@@ -140,22 +140,6 @@ export async function GET() {
 export async function POST() {
   const supabase = await createClient();
 
-  // Verify user is commissioner
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_commissioner')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile?.is_commissioner) {
-    return NextResponse.json({ error: 'Forbidden - Commissioner access required' }, { status: 403 });
-  }
-
   // Get all drivers
   const { data: drivers } = await supabase
     .from('drivers')
