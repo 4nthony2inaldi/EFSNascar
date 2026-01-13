@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Race, Driver, Pick, Team } from '@/types';
 import { BASE_DRIVER_USES } from '@/types';
+import { LocalTime } from '@/components/LocalTime';
 
 export default function PicksPage() {
   const searchParams = useSearchParams();
@@ -377,11 +378,11 @@ export default function PicksPage() {
           <div className="mt-4 text-sm text-purple-300">
             <p>
               <span className="text-purple-500">Deadline:</span>{' '}
-              {new Date(selectedRace.deadline_datetime).toLocaleString()}
+              <LocalTime dateStr={selectedRace.deadline_datetime} format="datetime" />
             </p>
             <p>
               <span className="text-purple-500">Race Time:</span>{' '}
-              {new Date(selectedRace.scheduled_datetime).toLocaleString()}
+              <LocalTime dateStr={selectedRace.scheduled_datetime} format="datetime" />
             </p>
           </div>
         )}

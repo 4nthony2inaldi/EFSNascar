@@ -5,6 +5,9 @@ interface LocalTimeProps {
   format?: 'date' | 'time' | 'datetime' | 'dateTime' | 'long' | 'dateOnly' | 'longDate' | 'full';
 }
 
+// Always use Eastern Time
+const EST_TIMEZONE = 'America/New_York';
+
 export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
   const date = new Date(dateStr);
 
@@ -15,6 +18,7 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
+          timeZone: EST_TIMEZONE,
         })}
       </span>
     );
@@ -26,7 +30,8 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
         {date.toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
-        })}
+          timeZone: EST_TIMEZONE,
+        })} EST
       </span>
     );
   }
@@ -40,7 +45,8 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
           day: 'numeric',
           hour: 'numeric',
           minute: '2-digit',
-        })}
+          timeZone: EST_TIMEZONE,
+        })} EST
       </span>
     );
   }
@@ -48,7 +54,9 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
   if (format === 'dateOnly') {
     return (
       <span suppressHydrationWarning>
-        {date.toLocaleDateString()}
+        {date.toLocaleDateString('en-US', {
+          timeZone: EST_TIMEZONE,
+        })}
       </span>
     );
   }
@@ -61,6 +69,7 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
           month: 'long',
           day: 'numeric',
           year: 'numeric',
+          timeZone: EST_TIMEZONE,
         })}
       </span>
     );
@@ -76,7 +85,8 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
           year: 'numeric',
           hour: 'numeric',
           minute: '2-digit',
-        })}
+          timeZone: EST_TIMEZONE,
+        })} EST
       </span>
     );
   }
@@ -88,11 +98,13 @@ export function LocalTime({ dateStr, format = 'datetime' }: LocalTimeProps) {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
+        timeZone: EST_TIMEZONE,
       })}{' '}
       {date.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
-      })}
+        timeZone: EST_TIMEZONE,
+      })} EST
     </span>
   );
 }

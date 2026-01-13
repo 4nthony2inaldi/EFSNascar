@@ -132,7 +132,14 @@ export default function AdminRacesPage() {
   };
 
   const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
+    return new Date(dateStr).toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }) + ' EST';
   };
 
   // Convert ISO timestamp to datetime-local input format (local time)

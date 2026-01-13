@@ -322,7 +322,7 @@ export default function AdminResultsPage() {
         {selectedRace && (
           <div className="mt-4 text-sm text-gray-400">
             <p><span className="text-gray-500">Track:</span> {selectedRace.track}</p>
-            <p><span className="text-gray-500">Date:</span> {new Date(selectedRace.scheduled_datetime).toLocaleString()}</p>
+            <p><span className="text-gray-500">Date:</span> {new Date(selectedRace.scheduled_datetime).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })} EST</p>
             <p>
               <span className="text-gray-500">Status:</span>{' '}
               <span className={selectedRace.status === 'final' ? 'text-green-500' : 'text-yellow-500'}>

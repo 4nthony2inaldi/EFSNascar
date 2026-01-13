@@ -152,6 +152,7 @@ export default function AdminSchedulePage() {
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
+      timeZone: 'America/New_York',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
