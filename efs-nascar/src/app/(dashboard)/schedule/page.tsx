@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Pick, Track, TrackType, Season } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
-import { SeasonSelector } from '@/components/SeasonSelector';
+import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 // Schedule page with season selector and picks links
 
 interface RaceWithTrack extends Race {
@@ -17,6 +18,7 @@ interface PageProps {
 export default async function SchedulePage({ searchParams }: PageProps) {
   const { season: seasonParam } = await searchParams;
   const supabase = await createClient();
+  const cookieStore = await cookies();
 
   // Get current user's team
   const { data: { user } } = await supabase.auth.getUser();
@@ -40,13 +42,10 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     .eq('is_active', true)
     .single();
 
-  // Determine which season to display
-  let selectedSeason: Season | null = null;
-  if (seasonParam) {
-    selectedSeason = allSeasons?.find(s => s.id === seasonParam) || activeSeason;
-  } else {
-    selectedSeason = activeSeason;
-  }
+  // Determine which season to display (from URL param, then cookie, then default to active)
+  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
+  const selectedSeasonId = seasonParam || seasonCookie || activeSeason?.id;
+  const selectedSeason = allSeasons?.find(s => s.id === selectedSeasonId) || activeSeason;
 
   // Get all races for selected season with track info
   const { data: races } = await supabase

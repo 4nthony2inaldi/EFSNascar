@@ -1,6 +1,8 @@
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import DriverUsageTable from './DriverUsageTable';
 import type { Season } from '@/types';
+import { SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +68,7 @@ interface PageProps {
 export default async function DriverUsagePage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const params = await searchParams;
+  const cookieStore = await cookies();
 
   // Step 1: Get all seasons
   const { data: seasons } = await supabase
@@ -84,9 +87,10 @@ export default async function DriverUsagePage({ searchParams }: PageProps) {
     is_active: s.is_active,
   }));
 
-  // Determine selected season (from URL param or default to active)
+  // Determine selected season (from URL param, then cookie, then default to active)
   const activeSeason = seasons.find(s => s.is_active);
-  const selectedSeasonId = params.season || activeSeason?.id || seasons[0].id;
+  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
+  const selectedSeasonId = params.season || seasonCookie || activeSeason?.id || seasons[0].id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || seasons[0];
 
   // Step 2: Get all teams with their owners
