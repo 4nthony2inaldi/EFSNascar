@@ -1376,27 +1376,6 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           ) : (
             <p className="text-gray-400">No completed races with strategy data yet.</p>
           )}
-
-          {/* Strategy Distribution Bar Chart */}
-          <div className="mt-4 pt-4 border-t border-gray-700">
-            <div className="text-xs text-gray-400 mb-2 flex justify-between">
-              <span>Hail Melon</span>
-              <span>Strategy Distribution</span>
-              <span>4 Tires & Fuel</span>
-            </div>
-            <div className="flex items-end gap-1 h-32">
-              {strategyDistribution.map((d) => (
-                <div key={d.name} className="flex-1 flex flex-col items-center">
-                  <div
-                    className={`w-full ${d.color} rounded-t transition-all`}
-                    style={{ height: `${(d.count / maxStrategyCount) * 100}%`, minHeight: d.count > 0 ? '8px' : '0' }}
-                    title={`${d.name}: ${d.count} races`}
-                  />
-                  <span className="text-[10px] text-gray-500 mt-1">{d.count > 0 ? d.count : ''}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Average Points by Pick Popularity */}
@@ -1454,26 +1433,59 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             <p className="text-gray-400">No completed races with pick data yet.</p>
           )}
 
-          {/* Popularity Distribution Bar Chart */}
-          <div className="mt-4 pt-4 border-t border-gray-700">
-            <div className="text-xs text-gray-400 mb-2 flex justify-between">
-              <span>Chalk</span>
-              <span>Pick Distribution</span>
-              <span>Unique</span>
-            </div>
-            <div className="flex items-end gap-1 h-32">
-              {popularityDistribution.map((d) => (
-                <div key={d.level} className="flex-1 flex flex-col items-center">
-                  <div
-                    className={`w-full ${d.color} rounded-t transition-all`}
-                    style={{ height: `${(d.count / maxPopularityCount) * 100}%`, minHeight: d.count > 0 ? '8px' : '0' }}
-                    title={`${d.label}: ${d.count} picks`}
-                  />
-                  <span className="text-[10px] text-gray-500 mt-1">{d.count}</span>
+          {/* Zig Scale - Contrarian Meter */}
+          {totalPickCount > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-700">
+              <div className="relative">
+                {/* Scale line */}
+                <div className="relative h-1 bg-gray-600 rounded-full">
+                  {/* Endpoints */}
+                  <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-gray-500 rounded-full" />
+                  <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-3 h-3 bg-gray-500 rounded-full" />
                 </div>
-              ))}
+
+                {/* League Average marker */}
+                <div
+                  className="absolute top-0 -translate-x-1/2"
+                  style={{ left: `${leagueContrarianScore}%` }}
+                >
+                  <div className="h-6 w-0.5 bg-gray-500" />
+                  <div className="text-xs text-gray-400 mt-1 whitespace-nowrap -translate-x-1/2 absolute left-1/2">
+                    Lg.Avg.
+                  </div>
+                </div>
+
+                {/* Team marker */}
+                <div
+                  className="absolute top-0 -translate-x-1/2"
+                  style={{ left: `${contrarianScore}%` }}
+                >
+                  <div className={`h-8 w-1 rounded ${
+                    contrarianScore >= 60 ? 'bg-green-500' :
+                    contrarianScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`} />
+                  <div className={`text-lg font-bold mt-1 whitespace-nowrap -translate-x-1/2 absolute left-1/2 ${
+                    contrarianScore >= 60 ? 'text-green-400' :
+                    contrarianScore >= 40 ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    You
+                  </div>
+                </div>
+
+                {/* Labels */}
+                <div className="flex justify-between mt-10 text-sm">
+                  <div className="text-center">
+                    <div className="text-gray-300 font-medium">Chalk</div>
+                    <div className="text-gray-500 text-xs">0% Zig</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-gray-300 font-medium">Zig</div>
+                    <div className="text-gray-500 text-xs">100% Zig</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Average Points by Driver Tier */}
