@@ -87,11 +87,12 @@ export default async function RaceResultsPage({ params }: PageProps) {
     const totalTeams = picks?.length || 1;
     const percentage = (count / totalTeams) * 100;
 
-    if (percentage >= 80) return 'bg-red-500/30 text-red-300';
-    if (percentage >= 60) return 'bg-orange-500/30 text-orange-300';
-    if (percentage >= 40) return 'bg-yellow-500/30 text-yellow-300';
-    if (percentage >= 20) return 'bg-blue-500/30 text-blue-300';
-    return 'bg-green-500/30 text-green-300';
+    if (count === 1) return 'bg-green-800/40 text-green-300 border border-green-700/50'; // Unique
+    if (percentage <= 20) return 'bg-green-500/30 text-green-300 border border-green-400/50'; // Rare
+    if (percentage <= 35) return 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50'; // Uncommon
+    if (percentage <= 50) return 'bg-orange-500/30 text-orange-300 border border-orange-500/50'; // Common
+    if (percentage <= 70) return 'bg-red-400/30 text-red-300 border border-red-400/50'; // Popular
+    return 'bg-red-700/40 text-red-300 border border-red-700/50'; // Chalk
   };
 
   const formatPoints = (position: number) => {
@@ -264,6 +265,32 @@ export default async function RaceResultsPage({ params }: PageProps) {
       {picks && picks.length > 0 && (
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">Team Picks</h2>
+
+          {/* Pick Popularity Legend */}
+          <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+            <h3 className="text-sm font-bold text-white mb-2">Pick Popularity</h3>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className="px-2 py-1 rounded border bg-green-800/40 text-green-300 border-green-700/50">
+                <span className="font-medium">Unique</span> <span className="opacity-75">(1 team)</span>
+              </span>
+              <span className="px-2 py-1 rounded border bg-green-500/30 text-green-300 border-green-400/50">
+                <span className="font-medium">Rare</span> <span className="opacity-75">(≤20%)</span>
+              </span>
+              <span className="px-2 py-1 rounded border bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
+                <span className="font-medium">Uncommon</span> <span className="opacity-75">(≤35%)</span>
+              </span>
+              <span className="px-2 py-1 rounded border bg-orange-500/30 text-orange-300 border-orange-500/50">
+                <span className="font-medium">Common</span> <span className="opacity-75">(≤50%)</span>
+              </span>
+              <span className="px-2 py-1 rounded border bg-red-400/30 text-red-300 border-red-400/50">
+                <span className="font-medium">Popular</span> <span className="opacity-75">(≤70%)</span>
+              </span>
+              <span className="px-2 py-1 rounded border bg-red-700/40 text-red-300 border-red-700/50">
+                <span className="font-medium">Chalk</span> <span className="opacity-75">(&gt;70%)</span>
+              </span>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -353,15 +380,6 @@ export default async function RaceResultsPage({ params }: PageProps) {
             </table>
           </div>
 
-          {/* Legend */}
-          <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            <span className="text-gray-400">Pick Overlap:</span>
-            <span className="px-2 py-1 rounded bg-green-500/30 text-green-300">Unique</span>
-            <span className="px-2 py-1 rounded bg-blue-500/30 text-blue-300">Low</span>
-            <span className="px-2 py-1 rounded bg-yellow-500/30 text-yellow-300">Medium</span>
-            <span className="px-2 py-1 rounded bg-orange-500/30 text-orange-300">High</span>
-            <span className="px-2 py-1 rounded bg-red-500/30 text-red-300">Very High</span>
-          </div>
         </div>
       )}
 
