@@ -804,6 +804,47 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     ? Math.round(leagueWeightedSum / leagueTotalPickCount)
     : 0;
 
+  // Calculate Popularity x Tier matrix
+  const popularityTierMatrix: Record<string, Record<number, { totalPoints: number; count: number }>> = {
+    unique: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
+    rare: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
+    uncommon: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
+    common: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
+    popular: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
+    chalk: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
+  };
+
+  for (const pick of picksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const totalTeams = teamCountByRace[pick.race_id] || 1;
+    const driverCounts = driverPickCountsByRace[pick.race_id] || {};
+
+    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+
+    for (const driverId of driverIds) {
+      const resultKey = `${pick.race_id}-${driverId}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      let points = 0;
+      if (result) {
+        points = POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) points += 1;
+        if (result.stage_2_winner) points += 1;
+        if (result.most_laps_led) points += 1;
+      }
+
+      const pickCount = driverCounts[driverId] || 1;
+      const popularity = getPopularityLevel(pickCount, totalTeams);
+      const rawTier = driverTiers.get(driverId) || 3;
+      const tier = rawTier >= 3 ? 3 : rawTier;
+
+      popularityTierMatrix[popularity][tier].totalPoints += points;
+      popularityTierMatrix[popularity][tier].count += 1;
+    }
+  }
+
   // Calculate average points by track type
   const trackTypeStats: Record<string, { totalPoints: number; count: number }> = {};
   for (const raceData of racePicksData) {
@@ -1463,6 +1504,65 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             <p className="text-gray-400">No completed races with track data yet.</p>
           )}
         </div>
+      </div>
+
+      {/* Popularity x Tier Matrix */}
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h2 className="text-xl font-bold text-white mb-4">Avg Points: Popularity × Tier</h2>
+        {totalPickCount > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-gray-400 pb-2 pr-4"></th>
+                  <th className="text-center text-amber-400 pb-2 px-2 font-bold">Tier 1</th>
+                  <th className="text-center text-emerald-400 pb-2 px-2 font-bold">Tier 2</th>
+                  <th className="text-center text-blue-400 pb-2 px-2 font-bold">Tier 3</th>
+                </tr>
+              </thead>
+              <tbody>
+                {['unique', 'rare', 'uncommon', 'common', 'popular', 'chalk'].map((level) => {
+                  const rowData = popularityTierMatrix[level];
+                  const hasAnyData = rowData[1].count > 0 || rowData[2].count > 0 || rowData[3].count > 0;
+                  if (!hasAnyData) return null;
+                  return (
+                    <tr key={level} className="border-t border-gray-700/50">
+                      <td className="py-2 pr-4">
+                        <span className={`px-2 py-1 text-xs font-bold rounded border ${popularityColors[level]}`}>
+                          {popularityLabels[level]}
+                        </span>
+                      </td>
+                      {[1, 2, 3].map((tier) => {
+                        const cell = rowData[tier];
+                        const avg = cell.count > 0 ? Math.round((cell.totalPoints / cell.count) * 10) / 10 : null;
+                        return (
+                          <td key={tier} className="py-2 px-2 text-center">
+                            {avg !== null ? (
+                              <div>
+                                <span className={`font-bold ${
+                                  avg >= 8 ? 'text-green-400' :
+                                  avg >= 5 ? 'text-yellow-400' :
+                                  avg >= 3 ? 'text-orange-400' : 'text-red-400'
+                                }`}>
+                                  {avg}
+                                </span>
+                                <span className="text-gray-500 text-xs ml-1">({cell.count})</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-600">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-400">No completed races with pick data yet.</p>
+        )}
       </div>
 
       {/* Driver Usage */}
