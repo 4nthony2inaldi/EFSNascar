@@ -324,7 +324,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
                         </Link>
                       </td>
                       <td className="py-3 pr-4 text-center text-white font-bold">
-                        {results && results.length > 0 ? calculateTeamPoints() : '-'}
+                        {calculateTeamPoints()}
                       </td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
