@@ -81,28 +81,124 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
   // Get ALL teams' standings for this season (to calculate rankings)
-  const { data: allStandingsData } = await supabase
+  let { data: allStandingsData } = await supabase
     .from('standings')
     .select('*')
     .eq('season_id', selectedSeasonId)
     .is('race_id', null);
 
+  // Check if standings have meaningful data
+  const hasStandingsData = allStandingsData && allStandingsData.length > 0 &&
+    allStandingsData.some((s: any) => s.total_points > 0);
+
+  // If no pre-calculated standings, calculate from race_scores or picks
+  if (!hasStandingsData) {
+    // Try race_scores first
+    const { data: raceScores } = await supabase
+      .from('race_scores')
+      .select('*, race:races!inner(season_id)')
+      .eq('race.season_id', selectedSeasonId);
+
+    if (raceScores && raceScores.length > 0) {
+      // Aggregate scores by team
+      const teamTotals: Record<string, any> = {};
+      for (const score of raceScores) {
+        if (!teamTotals[score.team_id]) {
+          teamTotals[score.team_id] = {
+            team_id: score.team_id,
+            total_points: 0,
+            race_wins: 0,
+            stage_wins: 0,
+            top_10_bonuses: 0,
+            laps_led_bonuses: 0,
+          };
+        }
+        teamTotals[score.team_id].total_points += score.total_points || 0;
+        teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
+        teamTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
+        teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
+        if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
+          teamTotals[score.team_id].race_wins += 1;
+        }
+      }
+      allStandingsData = Object.values(teamTotals);
+    } else {
+      // Fallback: Calculate from picks + race_results
+      const { data: fallbackPicks } = await supabase
+        .from('picks')
+        .select('team_id, driver_1_id, driver_2_id, driver_3_id, race:races!inner(id, season_id)')
+        .eq('race.season_id', selectedSeasonId);
+
+      const { data: fallbackResults } = await supabase
+        .from('race_results')
+        .select('race_id, driver_id, finish_position, stage_1_winner, stage_2_winner, most_laps_led')
+        .in('race_id', fallbackPicks?.map(p => (p.race as any)?.id).filter(Boolean) || []);
+
+      if (fallbackPicks && fallbackPicks.length > 0 && fallbackResults && fallbackResults.length > 0) {
+        const resultsByKey: Record<string, any> = {};
+        for (const result of fallbackResults) {
+          resultsByKey[`${result.race_id}-${result.driver_id}`] = result;
+        }
+
+        const POS_POINTS: Record<number, number> = { 1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1 };
+        const teamTotals: Record<string, any> = {};
+
+        for (const pick of fallbackPicks) {
+          const raceId = (pick.race as any)?.id;
+          if (!raceId) continue;
+
+          if (!teamTotals[pick.team_id]) {
+            teamTotals[pick.team_id] = {
+              team_id: pick.team_id,
+              total_points: 0,
+              race_wins: 0,
+              stage_wins: 0,
+              top_10_bonuses: 0,
+              laps_led_bonuses: 0,
+            };
+          }
+
+          const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+          let racePoints = 0, stageBonus = 0, lapsLedBonus = 0, allTop10 = true;
+
+          for (const driverId of driverIds) {
+            const result = resultsByKey[`${raceId}-${driverId}`];
+            if (result) {
+              racePoints += POS_POINTS[result.finish_position] || 0;
+              if (result.finish_position === 1) teamTotals[pick.team_id].race_wins += 1;
+              if (result.stage_1_winner) { stageBonus++; teamTotals[pick.team_id].stage_wins++; }
+              if (result.stage_2_winner) { stageBonus++; teamTotals[pick.team_id].stage_wins++; }
+              if (result.most_laps_led && lapsLedBonus === 0) { lapsLedBonus = 1; teamTotals[pick.team_id].laps_led_bonuses++; }
+              if (result.finish_position > 10) allTop10 = false;
+            } else {
+              allTop10 = false;
+            }
+          }
+
+          if (allTop10) { racePoints += 1; teamTotals[pick.team_id].top_10_bonuses += 1; }
+          teamTotals[pick.team_id].total_points += racePoints + stageBonus + lapsLedBonus;
+        }
+        allStandingsData = Object.values(teamTotals);
+      }
+    }
+  }
+
   const allStandings = allStandingsData || [];
-  const standing = allStandings.find(s => s.team_id === id) || null;
+  const standing = allStandings.find((s: any) => s.team_id === id) || null;
 
   // Calculate rankings for each metric
-  const sortedByPoints = [...allStandings].sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
-  const sortedByWins = [...allStandings].sort((a, b) => (b.race_wins || 0) - (a.race_wins || 0));
-  const sortedByStageWins = [...allStandings].sort((a, b) => (b.stage_wins || 0) - (a.stage_wins || 0));
-  const sortedByLapsLed = [...allStandings].sort((a, b) => (b.laps_led_bonuses || 0) - (a.laps_led_bonuses || 0));
-  const sortedByTop10 = [...allStandings].sort((a, b) => (b.top_10_bonuses || 0) - (a.top_10_bonuses || 0));
+  const sortedByPoints = [...allStandings].sort((a: any, b: any) => (b.total_points || 0) - (a.total_points || 0));
+  const sortedByWins = [...allStandings].sort((a: any, b: any) => (b.race_wins || 0) - (a.race_wins || 0));
+  const sortedByStageWins = [...allStandings].sort((a: any, b: any) => (b.stage_wins || 0) - (a.stage_wins || 0));
+  const sortedByLapsLed = [...allStandings].sort((a: any, b: any) => (b.laps_led_bonuses || 0) - (a.laps_led_bonuses || 0));
+  const sortedByTop10 = [...allStandings].sort((a: any, b: any) => (b.top_10_bonuses || 0) - (a.top_10_bonuses || 0));
 
   const teamRankings = standing ? {
-    pointsRank: sortedByPoints.findIndex(s => s.team_id === id) + 1,
-    winsRank: sortedByWins.findIndex(s => s.team_id === id) + 1,
-    stageWinsRank: sortedByStageWins.findIndex(s => s.team_id === id) + 1,
-    lapsLedRank: sortedByLapsLed.findIndex(s => s.team_id === id) + 1,
-    top10Rank: sortedByTop10.findIndex(s => s.team_id === id) + 1,
+    pointsRank: sortedByPoints.findIndex((s: any) => s.team_id === id) + 1,
+    winsRank: sortedByWins.findIndex((s: any) => s.team_id === id) + 1,
+    stageWinsRank: sortedByStageWins.findIndex((s: any) => s.team_id === id) + 1,
+    lapsLedRank: sortedByLapsLed.findIndex((s: any) => s.team_id === id) + 1,
+    top10Rank: sortedByTop10.findIndex((s: any) => s.team_id === id) + 1,
   } : null;
 
   // Get team's bonus usages
