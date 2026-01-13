@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Race, Season } from '@/types';
+import type { Race, Season, RaceType } from '@/types';
+
+const RACE_TYPES: { value: RaceType; label: string }[] = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'playoff_round1', label: 'Playoff Round 1' },
+  { value: 'playoff_round2', label: 'Playoff Round 2' },
+  { value: 'playoff_finals', label: 'Playoff Finals' },
+  { value: 'exhibition', label: 'Exhibition' },
+];
 
 export default function AdminSchedulePage() {
   const supabase = createClient();
@@ -12,6 +20,7 @@ export default function AdminSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [selectedRaces, setSelectedRaces] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [updatingType, setUpdatingType] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -159,6 +168,66 @@ export default function AdminSchedulePage() {
     });
   };
 
+  const handleRaceTypeChange = async (raceId: string, newType: RaceType) => {
+    setUpdatingType(raceId);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase
+        .from('races')
+        .update({ race_type: newType })
+        .eq('id', raceId);
+
+      if (error) {
+        throw new Error(`Failed to update race type: ${error.message}`);
+      }
+
+      // Update local state
+      setRaces(races.map(race =>
+        race.id === raceId ? { ...race, race_type: newType } : race
+      ));
+
+      setMessage({ type: 'success', text: 'Race type updated successfully' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'An error occurred' });
+    } finally {
+      setUpdatingType(null);
+    }
+  };
+
+  const handleBulkTypeChange = async (newType: RaceType) => {
+    if (selectedRaces.size === 0) return;
+
+    const confirmMessage = `Are you sure you want to change ${selectedRaces.size} race(s) to "${RACE_TYPES.find(t => t.value === newType)?.label}"?`;
+    if (!confirm(confirmMessage)) return;
+
+    setDeleting(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase
+        .from('races')
+        .update({ race_type: newType })
+        .in('id', Array.from(selectedRaces));
+
+      if (error) {
+        throw new Error(`Failed to update race types: ${error.message}`);
+      }
+
+      // Update local state
+      setRaces(races.map(race =>
+        selectedRaces.has(race.id) ? { ...race, race_type: newType } : race
+      ));
+
+      setMessage({ type: 'success', text: `Successfully updated ${selectedRaces.size} race(s)` });
+      setSelectedRaces(new Set());
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'An error occurred' });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-purple-400">Loading...</div>;
   }
@@ -216,12 +285,28 @@ export default function AdminSchedulePage() {
         {selectedRaces.size > 0 && (
           <div className="flex items-center gap-3">
             <span className="text-purple-300 text-sm">{selectedRaces.size} race(s) selected</span>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkTypeChange(e.target.value as RaceType);
+                  e.target.value = '';
+                }
+              }}
+              disabled={deleting}
+              className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-0 cursor-pointer"
+              defaultValue=""
+            >
+              <option value="" disabled>Set Type...</option>
+              {RACE_TYPES.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
             <button
               onClick={handleDeleteSelected}
               disabled={deleting}
               className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              {deleting ? 'Deleting...' : 'Delete Selected'}
+              {deleting ? 'Processing...' : 'Delete Selected'}
             </button>
           </div>
         )}
@@ -329,17 +414,22 @@ export default function AdminSchedulePage() {
                     </td>
                     <td className="px-4 py-3 text-purple-300 text-sm">{formatDate(race.scheduled_datetime)}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 text-xs rounded border ${
+                      <select
+                        value={race.race_type || 'regular'}
+                        onChange={(e) => handleRaceTypeChange(race.id, e.target.value as RaceType)}
+                        disabled={updatingType === race.id}
+                        className={`px-2 py-1 text-xs rounded border cursor-pointer disabled:opacity-50 ${
                           race.race_type === 'exhibition'
                             ? 'bg-purple-700/30 text-purple-300 border-purple-600/30'
-                            : race.race_type.includes('playoff')
+                            : (race.race_type || '').includes('playoff')
                             ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
                             : 'bg-purple-900/30 text-purple-300 border-purple-700/30'
                         }`}
                       >
-                        {race.race_type.replace('_', ' ')}
-                      </span>
+                        {RACE_TYPES.map(type => (
+                          <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-3">
                       <span
