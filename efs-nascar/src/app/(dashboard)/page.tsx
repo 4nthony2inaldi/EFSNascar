@@ -5,6 +5,13 @@ import { createClient } from '@/lib/supabase/server';
 import type { Race, Team, Standing, Pick, Track, TrackType, Season } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
+import {
+  calculatePlayoffStandings,
+  isRegularSeasonComplete,
+  havePlayoffsStarted,
+  type PlayoffTeamStanding,
+  type RaceScore as PlayoffRaceScore,
+} from '@/lib/playoff-standings';
 
 // Force dynamic rendering to ensure cookies are read fresh
 export const dynamic = 'force-dynamic';
@@ -107,19 +114,49 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     userPick = pick as Pick | null;
   }
 
-  // Get all standings for the selected season
+  // Get all races for the selected season to determine regular vs playoff
+  const { data: allRaces } = await supabase
+    .from('races')
+    .select('id, race_type, status, race_number')
+    .eq('season_id', selectedSeasonId);
+
+  const regularRaceIds = (allRaces || [])
+    .filter(r => r.race_type === 'regular')
+    .map(r => r.id);
+  const playoffRaceIds = (allRaces || [])
+    .filter(r => r.race_type === 'playoff_round1' || r.race_type === 'playoff_round2' || r.race_type === 'playoff_finals')
+    .map(r => r.id);
+
+  const totalRegularRaces = regularRaceIds.length;
+  const completedRegularRaces = (allRaces || []).filter(r => r.race_type === 'regular' && r.status === 'final').length;
+  const completedPlayoffRaces = (allRaces || []).filter(r =>
+    (r.race_type === 'playoff_round1' || r.race_type === 'playoff_round2' || r.race_type === 'playoff_finals') &&
+    r.status === 'final'
+  ).length;
+
+  // Get all race scores for the selected season (used for laps_led calculation and fallback standings)
+  const { data: raceScoresData } = await supabase
+    .from('race_scores')
+    .select('*, team:teams(*), race:races!inner(season_id, race_type, race_number)')
+    .eq('race.season_id', selectedSeasonId);
+
+  // Separate regular season scores from playoff scores
+  const regularSeasonScores = (raceScoresData || []).filter(
+    (s: any) => s.race?.race_type === 'regular'
+  );
+  const playoffRaceScores = (raceScoresData || []).filter(
+    (s: any) => s.race?.race_type === 'playoff_round1' ||
+               s.race?.race_type === 'playoff_round2' ||
+               s.race?.race_type === 'playoff_finals'
+  ) as PlayoffRaceScore[];
+
+  // Get all standings for the selected season (legacy)
   let { data: standings } = await supabase
     .from('standings')
     .select('*, team:teams(*)')
     .eq('season_id', selectedSeasonId)
     .is('race_id', null) // Season totals
     .order('rank', { ascending: true });
-
-  // Get all race scores for the selected season (used for laps_led calculation and fallback standings)
-  const { data: raceScoresData } = await supabase
-    .from('race_scores')
-    .select('*, team:teams(*), race:races!inner(season_id)')
-    .eq('race.season_id', selectedSeasonId);
 
   // Check if standings have meaningful data (at least one team with points)
   const hasStandingsData = standings && standings.length > 0 &&
@@ -129,8 +166,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const lapsLedByTeam: Record<string, number> = {};
 
   // If no pre-calculated standings OR standings have no points, calculate from race_scores
-  if (!hasStandingsData && raceScoresData && raceScoresData.length > 0) {
-    // Aggregate scores by team
+  // IMPORTANT: Use only regular season scores for standings
+  if (!hasStandingsData && regularSeasonScores && regularSeasonScores.length > 0) {
+    // Aggregate scores by team (regular season only)
     const teamTotals: Record<string, {
       team_id: string;
       team: any;
@@ -141,7 +179,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       laps_led_bonuses: number;
     }> = {};
 
-    for (const score of raceScoresData) {
+    for (const score of regularSeasonScores) {
       if (!teamTotals[score.team_id]) {
         teamTotals[score.team_id] = {
           team_id: score.team_id,
@@ -186,16 +224,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     standings = calculatedStandings as any;
   } else if (!hasStandingsData) {
-    // Third fallback: Calculate from picks + race_results directly
+    // Third fallback: Calculate from picks + race_results directly (regular season only)
     const { data: picks } = await supabase
       .from('picks')
-      .select('*, team:teams(*), race:races!inner(season_id)')
-      .eq('race.season_id', selectedSeasonId);
+      .select('*, team:teams(*), race:races!inner(season_id, race_type)')
+      .eq('race.season_id', selectedSeasonId)
+      .eq('race.race_type', 'regular');
 
     const { data: raceResults } = await supabase
       .from('race_results')
-      .select('*, race:races!inner(season_id)')
-      .eq('race.season_id', selectedSeasonId);
+      .select('*, race:races!inner(season_id, race_type)')
+      .eq('race.season_id', selectedSeasonId)
+      .eq('race.race_type', 'regular');
 
     if (picks && picks.length > 0 && raceResults && raceResults.length > 0) {
       // Build a lookup of race results by race_id and driver_id
@@ -315,13 +355,33 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       standings = calculatedStandings as any;
     }
   } else {
-    // Use pre-calculated standings, just aggregate laps_led from race_scores
-    for (const score of raceScoresData || []) {
+    // Use pre-calculated standings, just aggregate laps_led from regular season race_scores
+    for (const score of regularSeasonScores || []) {
       if (!lapsLedByTeam[score.team_id]) {
         lapsLedByTeam[score.team_id] = 0;
       }
       lapsLedByTeam[score.team_id] += score.laps_led_bonus || 0;
     }
+  }
+
+  // Calculate playoff standings if applicable
+  const regularSeasonComplete = isRegularSeasonComplete(totalRegularRaces, completedRegularRaces);
+  const playoffsStarted = havePlayoffsStarted(playoffRaceScores);
+  const showPlayoffSection = (regularSeasonComplete || playoffsStarted) && playoffRaceIds.length > 0;
+
+  let playoffStandings = null;
+  if (showPlayoffSection && standings && standings.length > 0) {
+    const playoffTeamStandings: PlayoffTeamStanding[] = standings.map((s: any) => ({
+      team_id: s.team_id,
+      team: s.team,
+      total_points: s.total_points,
+      race_wins: s.race_wins || 0,
+      stage_wins: s.stage_wins || 0,
+      top_10_bonuses: s.top_10_bonuses || 0,
+      rank: s.rank,
+    }));
+
+    playoffStandings = calculatePlayoffStandings(playoffTeamStandings, playoffRaceScores);
   }
 
   // Calculate user's standing info
@@ -688,10 +748,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
       </div>
 
-      {/* Standings Preview */}
+      {/* Regular Season Standings Preview */}
       <div className="glass rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">Standings</h2>
+          <div>
+            <h2 className="text-xl font-bold text-white">Regular Season Standings</h2>
+            <p className="text-sm text-purple-400">
+              {completedRegularRaces === totalRegularRaces && totalRegularRaces > 0
+                ? 'Final'
+                : `${completedRegularRaces} of ${totalRegularRaces} races`}
+            </p>
+          </div>
           <Link
             href="/standings"
             className="text-amber-400 hover:text-amber-300 text-sm"
@@ -774,6 +841,108 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <p className="text-purple-400">No standings data available yet.</p>
         )}
       </div>
+
+      {/* Playoff Standings Preview */}
+      {showPlayoffSection && playoffStandings && (
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                Fantasy Playoffs
+              </h2>
+              <p className="text-sm text-purple-400">
+                {playoffStandings.playoffRound === 'not_started' ? 'Starting soon' :
+                 playoffStandings.playoffRound === 'round1' ? 'Round 1' :
+                 playoffStandings.playoffRound === 'round2' ? 'Round 2' :
+                 playoffStandings.playoffRound === 'finals' ? 'Finals' :
+                 'Complete'} • {completedPlayoffRaces} of {playoffRaceIds.length} races
+              </p>
+            </div>
+            <Link
+              href="/standings"
+              className="text-amber-400 hover:text-amber-300 text-sm"
+            >
+              View Full Standings →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Championship Bracket Summary */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+              <h3 className="text-amber-400 font-bold mb-2">Championship</h3>
+              <p className="text-xs text-purple-400 mb-2">Top 7 teams</p>
+              {playoffStandings.playoffRound === 'not_started' ? (
+                <div className="text-sm text-purple-300">
+                  {playoffStandings.championshipBracket.catbirdSeats.slice(0, 2).map(teamId => {
+                    const team = standings?.find((s: any) => s.team_id === teamId);
+                    return team ? (
+                      <div key={teamId} className="flex items-center gap-1 mb-1">
+                        <span className="text-xs">🐱</span>
+                        <span className="text-amber-400 font-medium">#{team.team?.car_number}</span>
+                        <span className="text-white text-xs">{team.team?.abbreviation || team.team?.name}</span>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              ) : (
+                <div className="text-sm text-purple-300">
+                  {(() => {
+                    const currentStandings = playoffStandings.playoffRound === 'finals' || playoffStandings.playoffRound === 'complete'
+                      ? playoffStandings.championshipBracket.finals
+                      : playoffStandings.playoffRound === 'round2'
+                        ? playoffStandings.championshipBracket.round2
+                        : playoffStandings.championshipBracket.round1;
+                    return currentStandings.slice(0, 4).map((s, i) => (
+                      <div key={s.team_id} className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <span className="text-amber-400 font-medium">#{s.team?.car_number}</span>
+                          <span className="text-white text-xs">{s.team?.abbreviation || s.team?.name}</span>
+                        </div>
+                        <span className="text-white font-bold text-xs">{s.total_points}pts</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Consolation Bracket Summary */}
+            <div className="bg-purple-600/20 border border-purple-500/30 rounded-lg p-4">
+              <h3 className="text-purple-300 font-bold mb-2">Consolation</h3>
+              <p className="text-xs text-purple-400 mb-2">Teams 8-15</p>
+              {playoffStandings.consolationBracket.slice(0, 4).map((s, i) => (
+                <div key={s.team_id} className="flex items-center justify-between mb-1 text-sm">
+                  <div className="flex items-center gap-1">
+                    <span className="text-amber-400 font-medium">#{s.team?.car_number}</span>
+                    <span className="text-white text-xs">{s.team?.abbreviation || s.team?.name}</span>
+                  </div>
+                  <span className="text-white font-bold text-xs">{s.total_points}pts</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Muddy Mile Summary */}
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+              <h3 className="text-red-400 font-bold mb-2">💩 Muddy Mile</h3>
+              <p className="text-xs text-purple-400 mb-2">Bottom 2 battle</p>
+              {playoffStandings.muddyMile.map((s, i) => (
+                <div key={s.team_id} className="flex items-center justify-between mb-1 text-sm">
+                  <div className="flex items-center gap-1">
+                    <span className="text-amber-400 font-medium">#{s.team?.car_number}</span>
+                    <span className="text-white text-xs">{s.team?.abbreviation || s.team?.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-white font-bold text-xs">{s.total_points}pts</span>
+                    <span className={`text-xs ml-1 ${i === 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {i === 0 ? '↑' : '↓'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Announcements */}
       {announcements && announcements.length > 0 && (
