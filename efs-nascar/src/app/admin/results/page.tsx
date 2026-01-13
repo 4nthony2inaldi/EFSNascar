@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Race, Driver, RaceResult } from '@/types';
+import type { Race, Driver, RaceResult, Season } from '@/types';
 
 interface ResultEntry {
   driver_id: string;
@@ -37,18 +37,20 @@ export default function AdminResultsPage() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedRace, setSelectedRace] = useState<Race | null>(null);
   const [results, setResults] = useState<ResultEntry[]>([]);
   const [existingResults, setExistingResults] = useState<RaceResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRaces, setLoadingRaces] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [fetchingFromApi, setFetchingFromApi] = useState(false);
   const [apiResult, setApiResult] = useState<ApiImportResult | null>(null);
-  const [seasonYear, setSeasonYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     loadData();
@@ -61,20 +63,45 @@ export default function AdminResultsPage() {
   }, [selectedRace]);
 
   const loadData = async () => {
-    // Get active season
-    const { data: season } = await supabase
+    // Get all seasons
+    const { data: seasonsData } = await supabase
       .from('seasons')
       .select('*')
-      .eq('is_active', true)
-      .single();
+      .order('year', { ascending: false });
 
-    if (!season) {
+    if (!seasonsData || seasonsData.length === 0) {
       setLoading(false);
       return;
     }
 
-    // Set season year for API calls
-    setSeasonYear(season.year);
+    setSeasons(seasonsData);
+
+    // Default to active season
+    const activeSeason = seasonsData.find((s) => s.is_active) || seasonsData[0];
+    setSelectedSeason(activeSeason);
+
+    // Get all drivers (drivers are shared across seasons)
+    const { data: driversData } = await supabase
+      .from('drivers')
+      .select('*')
+      .order('car_number', { ascending: true });
+
+    setDrivers(driversData || []);
+
+    // Load races for the selected season
+    await loadRacesForSeason(activeSeason);
+
+    setLoading(false);
+  };
+
+  const loadRacesForSeason = async (season: Season) => {
+    setLoadingRaces(true);
+    setSelectedRace(null);
+    setResults([]);
+    setExistingResults([]);
+    setSuccess(false);
+    setError(null);
+    setApiResult(null);
 
     // Get all races for the season
     const { data: racesData } = await supabase
@@ -84,15 +111,6 @@ export default function AdminResultsPage() {
       .order('race_number', { ascending: true });
 
     setRaces(racesData || []);
-
-    // Get all active drivers
-    const { data: driversData } = await supabase
-      .from('drivers')
-      .select('*')
-      .eq('is_active', true)
-      .order('car_number', { ascending: true });
-
-    setDrivers(driversData || []);
 
     // Select race from URL param or first race needing results
     const raceIdParam = searchParams.get('race');
@@ -108,7 +126,15 @@ export default function AdminResultsPage() {
       setSelectedRace(targetRace);
     }
 
-    setLoading(false);
+    setLoadingRaces(false);
+  };
+
+  const handleSeasonChange = async (seasonId: string) => {
+    const season = seasons.find((s) => s.id === seasonId);
+    if (season) {
+      setSelectedSeason(season);
+      await loadRacesForSeason(season);
+    }
   };
 
   const loadExistingResults = async (raceId: string) => {
@@ -244,8 +270,21 @@ export default function AdminResultsPage() {
 
       setSuccess(true);
 
-      // Reload data
-      loadData();
+      // Reload race list to show updated status
+      if (selectedSeason) {
+        const { data: racesData } = await supabase
+          .from('races')
+          .select('*')
+          .eq('season_id', selectedSeason.id)
+          .order('race_number', { ascending: true });
+        setRaces(racesData || []);
+
+        // Update selected race to show new status
+        const updatedRace = racesData?.find((r) => r.id === selectedRace.id);
+        if (updatedRace) {
+          setSelectedRace(updatedRace);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to save results');
     } finally {
@@ -273,7 +312,7 @@ export default function AdminResultsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           race_id: selectedRace.id,
-          year: seasonYear,
+          year: selectedSeason?.year || new Date().getFullYear(),
           race_name: selectedRace.name,
         }),
       });
@@ -288,7 +327,22 @@ export default function AdminResultsPage() {
 
       // Reload the results to show imported data
       await loadExistingResults(selectedRace.id);
-      await loadData();
+
+      // Reload race list to show updated status
+      if (selectedSeason) {
+        const { data: racesData } = await supabase
+          .from('races')
+          .select('*')
+          .eq('season_id', selectedSeason.id)
+          .order('race_number', { ascending: true });
+        setRaces(racesData || []);
+
+        // Update selected race to show new status
+        const updatedRace = racesData?.find((r) => r.id === selectedRace.id);
+        if (updatedRace) {
+          setSelectedRace(updatedRace);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch from NASCAR API');
     } finally {
@@ -306,23 +360,48 @@ export default function AdminResultsPage() {
         <h2 className="text-xl font-bold text-white">Enter Race Results</h2>
       </div>
 
-      {/* Race Selector */}
+      {/* Season and Race Selector */}
       <div className="bg-gray-800 rounded-lg p-6">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Select Race
-        </label>
-        <select
-          value={selectedRace?.id || ''}
-          onChange={(e) => handleRaceChange(e.target.value)}
-          className="w-full md:w-96 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
-        >
-          <option value="">Select a race...</option>
-          {races.map((race) => (
-            <option key={race.id} value={race.id}>
-              Race {race.race_number}: {race.name} {race.status === 'final' ? '(Final)' : ''}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Season Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Select Season
+            </label>
+            <select
+              value={selectedSeason?.id || ''}
+              onChange={(e) => handleSeasonChange(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              disabled={loadingRaces}
+            >
+              {seasons.map((season) => (
+                <option key={season.id} value={season.id}>
+                  {season.year} Season {season.is_active ? '(Active)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Race Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Select Race
+            </label>
+            <select
+              value={selectedRace?.id || ''}
+              onChange={(e) => handleRaceChange(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              disabled={loadingRaces}
+            >
+              <option value="">{loadingRaces ? 'Loading races...' : 'Select a race...'}</option>
+              {races.map((race) => (
+                <option key={race.id} value={race.id}>
+                  Race {race.race_number}: {race.name} {race.status === 'final' ? '(Final)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {selectedRace && (
           <div className="mt-4 text-sm text-gray-400">
