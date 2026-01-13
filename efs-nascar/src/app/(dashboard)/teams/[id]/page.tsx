@@ -1288,6 +1288,110 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
       {/* Performance Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Average Points by Track Type */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Track Type</h2>
+          {trackTypeAverages.length > 0 ? (
+            <div className="space-y-3">
+              {trackTypeAverages.map((track) => {
+                const diff = Math.round((track.avgPoints - track.leagueAvg) * 10) / 10;
+                return (
+                  <div key={track.type} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded ${
+                        track.type === 'superspeedway' ? 'bg-red-500/20 text-red-400' :
+                        track.type === 'intermediate' ? 'bg-blue-500/20 text-blue-400' :
+                        track.type === 'short_track' ? 'bg-amber-500/20 text-amber-400' :
+                        track.type === 'road_course' ? 'bg-emerald-500/20 text-emerald-400' :
+                        track.type === 'street_course' ? 'bg-purple-500/20 text-purple-400' :
+                        'bg-orange-500/20 text-orange-400'
+                      }`}>
+                        {track.label}
+                      </span>
+                      <span className="text-gray-400 text-sm">({track.raceCount})</span>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <span className="text-xl font-bold text-white">{track.avgPoints}</span>
+                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ({diff >= 0 ? '+' : ''}{diff})
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
+                        <div className="text-gray-400">Lg</div>
+                        <div>{track.leagueAvg}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-400">No completed races with track data yet.</p>
+          )}
+        </div>
+
+        {/* Average Points by Pick Strategy */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Strategy</h2>
+          {strategyAverages.length > 0 ? (
+            <div className="space-y-3">
+              {strategyAverages.map((strategy) => {
+                const diff = Math.round((strategy.avgPoints - strategy.leagueAvg) * 10) / 10;
+                return (
+                  <div key={strategy.name} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded ${
+                        strategy.name === 'Chalk' ? 'bg-amber-500/20 text-amber-400' :
+                        strategy.name === 'Contrarian' ? 'bg-purple-500/20 text-purple-400' :
+                        'bg-emerald-500/20 text-emerald-400'
+                      }`}>
+                        {strategy.name}
+                      </span>
+                      <span className="text-gray-400 text-sm">({strategy.raceCount})</span>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <span className="text-xl font-bold text-white">{strategy.avgPoints}</span>
+                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ({diff >= 0 ? '+' : ''}{diff})
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
+                        <div className="text-gray-400">Lg</div>
+                        <div>{strategy.leagueAvg}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-400">No completed races with strategy data yet.</p>
+          )}
+
+          {/* Strategy Distribution Bar Chart */}
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="text-xs text-gray-400 mb-2 flex justify-between">
+              <span>Hail Melon</span>
+              <span>Strategy Distribution</span>
+              <span>4 Tires & Fuel</span>
+            </div>
+            <div className="flex items-end gap-1 h-32">
+              {strategyDistribution.map((d) => (
+                <div key={d.name} className="flex-1 flex flex-col items-center">
+                  <div
+                    className={`w-full ${d.color} rounded-t transition-all`}
+                    style={{ height: `${(d.count / maxStrategyCount) * 100}%`, minHeight: d.count > 0 ? '8px' : '0' }}
+                    title={`${d.name}: ${d.count} races`}
+                  />
+                  <span className="text-[10px] text-gray-500 mt-1">{d.count > 0 ? d.count : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Average Points by Pick Popularity */}
         <div className="bg-gray-800 rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
@@ -1398,110 +1502,6 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             </div>
           ) : (
             <p className="text-gray-400">No completed races with tier data yet.</p>
-          )}
-        </div>
-
-        {/* Average Points by Pick Strategy */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Strategy</h2>
-          {strategyAverages.length > 0 ? (
-            <div className="space-y-3">
-              {strategyAverages.map((strategy) => {
-                const diff = Math.round((strategy.avgPoints - strategy.leagueAvg) * 10) / 10;
-                return (
-                  <div key={strategy.name} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 text-xs font-bold rounded ${
-                        strategy.name === 'Chalk' ? 'bg-amber-500/20 text-amber-400' :
-                        strategy.name === 'Contrarian' ? 'bg-purple-500/20 text-purple-400' :
-                        'bg-emerald-500/20 text-emerald-400'
-                      }`}>
-                        {strategy.name}
-                      </span>
-                      <span className="text-gray-400 text-sm">({strategy.raceCount})</span>
-                    </div>
-                    <div className="text-right flex items-center gap-2">
-                      <div>
-                        <span className="text-xl font-bold text-white">{strategy.avgPoints}</span>
-                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          ({diff >= 0 ? '+' : ''}{diff})
-                        </span>
-                      </div>
-                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
-                        <div className="text-gray-400">Lg</div>
-                        <div>{strategy.leagueAvg}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-400">No completed races with strategy data yet.</p>
-          )}
-
-          {/* Strategy Distribution Bar Chart */}
-          <div className="mt-4 pt-4 border-t border-gray-700">
-            <div className="text-xs text-gray-400 mb-2 flex justify-between">
-              <span>Hail Melon</span>
-              <span>Strategy Distribution</span>
-              <span>4 Tires & Fuel</span>
-            </div>
-            <div className="flex items-end gap-1 h-32">
-              {strategyDistribution.map((d, idx) => (
-                <div key={d.name} className="flex-1 flex flex-col items-center">
-                  <div
-                    className={`w-full ${d.color} rounded-t transition-all`}
-                    style={{ height: `${(d.count / maxStrategyCount) * 100}%`, minHeight: d.count > 0 ? '8px' : '0' }}
-                    title={`${d.name}: ${d.count} races`}
-                  />
-                  <span className="text-[10px] text-gray-500 mt-1">{d.count > 0 ? d.count : ''}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Average Points by Track Type */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Track Type</h2>
-          {trackTypeAverages.length > 0 ? (
-            <div className="space-y-3">
-              {trackTypeAverages.map((track) => {
-                const diff = Math.round((track.avgPoints - track.leagueAvg) * 10) / 10;
-                return (
-                  <div key={track.type} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 text-xs font-bold rounded ${
-                        track.type === 'superspeedway' ? 'bg-red-500/20 text-red-400' :
-                        track.type === 'intermediate' ? 'bg-blue-500/20 text-blue-400' :
-                        track.type === 'short_track' ? 'bg-amber-500/20 text-amber-400' :
-                        track.type === 'road_course' ? 'bg-emerald-500/20 text-emerald-400' :
-                        track.type === 'street_course' ? 'bg-purple-500/20 text-purple-400' :
-                        'bg-orange-500/20 text-orange-400'
-                      }`}>
-                        {track.label}
-                      </span>
-                      <span className="text-gray-400 text-sm">({track.raceCount})</span>
-                    </div>
-                    <div className="text-right flex items-center gap-2">
-                      <div>
-                        <span className="text-xl font-bold text-white">{track.avgPoints}</span>
-                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          ({diff >= 0 ? '+' : ''}{diff})
-                        </span>
-                      </div>
-                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
-                        <div className="text-gray-400">Lg</div>
-                        <div>{track.leagueAvg}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-400">No completed races with track data yet.</p>
           )}
         </div>
       </div>
