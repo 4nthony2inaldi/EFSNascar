@@ -121,6 +121,12 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     .eq('team_id', id)
     .in('race_id', races.map(r => r.id));
 
+  // Get ALL picks for ALL teams in selected season (for popularity calculation)
+  const { data: allPicksData } = await supabase
+    .from('picks')
+    .select('race_id, driver_1_id, driver_2_id, driver_3_id, team_id')
+    .in('race_id', races.map(r => r.id));
+
   // Get all race results for the selected season
   const { data: raceResultsData } = await supabase
     .from('race_results')
@@ -379,6 +385,110 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     }))
     .sort((a, b) => b.avgPoints - a.avgPoints);
 
+  // Calculate pick popularity stats for this team
+  // Helper to get popularity level
+  const getPopularityLevel = (count: number, totalTeams: number): string => {
+    const percentage = (count / totalTeams) * 100;
+    if (count === 1) return 'unique';
+    if (percentage <= 20) return 'rare';
+    if (percentage <= 35) return 'uncommon';
+    if (percentage <= 50) return 'common';
+    if (percentage <= 70) return 'popular';
+    return 'chalk';
+  };
+
+  // Build driver pick counts per race
+  const driverPickCountsByRace: Record<string, Record<string, number>> = {};
+  const teamCountByRace: Record<string, number> = {};
+
+  for (const pick of allPicksData || []) {
+    if (!driverPickCountsByRace[pick.race_id]) {
+      driverPickCountsByRace[pick.race_id] = {};
+      teamCountByRace[pick.race_id] = 0;
+    }
+    teamCountByRace[pick.race_id]++;
+
+    [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach(driverId => {
+      if (!driverPickCountsByRace[pick.race_id][driverId]) {
+        driverPickCountsByRace[pick.race_id][driverId] = 0;
+      }
+      driverPickCountsByRace[pick.race_id][driverId]++;
+    });
+  }
+
+  // Calculate points by popularity level for this team
+  const popularityStats: Record<string, { totalPoints: number; count: number }> = {
+    unique: { totalPoints: 0, count: 0 },
+    rare: { totalPoints: 0, count: 0 },
+    uncommon: { totalPoints: 0, count: 0 },
+    common: { totalPoints: 0, count: 0 },
+    popular: { totalPoints: 0, count: 0 },
+    chalk: { totalPoints: 0, count: 0 },
+  };
+
+  for (const pick of picksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const totalTeams = teamCountByRace[pick.race_id] || 1;
+    const driverCounts = driverPickCountsByRace[pick.race_id] || {};
+
+    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+
+    for (const driverId of driverIds) {
+      const resultKey = `${pick.race_id}-${driverId}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      let points = 0;
+      if (result) {
+        points = POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) points += 1;
+        if (result.stage_2_winner) points += 1;
+        if (result.most_laps_led) points += 1;
+      }
+
+      const pickCount = driverCounts[driverId] || 1;
+      const popularity = getPopularityLevel(pickCount, totalTeams);
+
+      popularityStats[popularity].totalPoints += points;
+      popularityStats[popularity].count += 1;
+    }
+  }
+
+  const popularityLabels: Record<string, string> = {
+    unique: 'Unique',
+    rare: 'Rare',
+    uncommon: 'Uncommon',
+    common: 'Common',
+    popular: 'Popular',
+    chalk: 'Chalk',
+  };
+
+  const popularityColors: Record<string, string> = {
+    unique: 'bg-green-800/40 text-green-300 border-green-700/50',
+    rare: 'bg-green-500/30 text-green-300 border-green-400/50',
+    uncommon: 'bg-yellow-500/30 text-yellow-300 border-yellow-500/50',
+    common: 'bg-orange-500/30 text-orange-300 border-orange-500/50',
+    popular: 'bg-red-400/30 text-red-300 border-red-400/50',
+    chalk: 'bg-red-700/40 text-red-300 border-red-700/50',
+  };
+
+  const popularityAverages = Object.entries(popularityStats)
+    .filter(([_, stats]) => stats.count > 0)
+    .map(([level, stats]) => ({
+      level,
+      label: popularityLabels[level],
+      color: popularityColors[level],
+      avgPoints: Math.round((stats.totalPoints / stats.count) * 10) / 10,
+      totalPoints: stats.totalPoints,
+      pickCount: stats.count,
+    }))
+    .sort((a, b) => {
+      // Sort by popularity order: unique -> chalk
+      const order = ['unique', 'rare', 'uncommon', 'common', 'popular', 'chalk'];
+      return order.indexOf(a.level) - order.indexOf(b.level);
+    });
+
   // Calculate average points by track type
   const trackTypeStats: Record<string, { totalPoints: number; count: number }> = {};
   for (const raceData of racePicksData) {
@@ -631,7 +741,32 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       </div>
 
       {/* Performance Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Average Points by Pick Popularity */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Popularity</h2>
+          {popularityAverages.length > 0 ? (
+            <div className="space-y-3">
+              {popularityAverages.map((pop) => (
+                <div key={pop.level} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-1 text-xs font-bold rounded border ${pop.color}`}>
+                      {pop.label}
+                    </span>
+                    <span className="text-gray-400 text-sm">({pop.pickCount} picks)</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xl font-bold text-white">{pop.avgPoints}</span>
+                    <span className="text-gray-500 text-sm ml-1">avg</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400">No completed races with pick data yet.</p>
+          )}
+        </div>
+
         {/* Average Points by Pick Strategy */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">Avg Points by Strategy</h2>
