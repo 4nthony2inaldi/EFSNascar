@@ -80,14 +80,30 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   const selectedSeasonId = seasonParam || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
-  // Get team's standings
-  const { data: standing } = await supabase
+  // Get ALL teams' standings for this season (to calculate rankings)
+  const { data: allStandingsData } = await supabase
     .from('standings')
     .select('*')
-    .eq('team_id', id)
     .eq('season_id', selectedSeasonId)
-    .is('race_id', null)
-    .single();
+    .is('race_id', null);
+
+  const allStandings = allStandingsData || [];
+  const standing = allStandings.find(s => s.team_id === id) || null;
+
+  // Calculate rankings for each metric
+  const sortedByPoints = [...allStandings].sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+  const sortedByWins = [...allStandings].sort((a, b) => (b.race_wins || 0) - (a.race_wins || 0));
+  const sortedByStageWins = [...allStandings].sort((a, b) => (b.stage_wins || 0) - (a.stage_wins || 0));
+  const sortedByLapsLed = [...allStandings].sort((a, b) => (b.laps_led_bonuses || 0) - (a.laps_led_bonuses || 0));
+  const sortedByTop10 = [...allStandings].sort((a, b) => (b.top_10_bonuses || 0) - (a.top_10_bonuses || 0));
+
+  const teamRankings = standing ? {
+    pointsRank: sortedByPoints.findIndex(s => s.team_id === id) + 1,
+    winsRank: sortedByWins.findIndex(s => s.team_id === id) + 1,
+    stageWinsRank: sortedByStageWins.findIndex(s => s.team_id === id) + 1,
+    lapsLedRank: sortedByLapsLed.findIndex(s => s.team_id === id) + 1,
+    top10Rank: sortedByTop10.findIndex(s => s.team_id === id) + 1,
+  } : null;
 
   // Get team's bonus usages
   const { data: bonus } = await supabase
@@ -992,32 +1008,67 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         {/* Season Stats */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">Season Stats</h2>
-          {standing ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Rank</span>
-                <span className={`text-2xl font-bold ${
-                  (standing.rank || 0) <= 6 ? 'text-green-500' :
-                  standing.rank === 7 ? 'text-yellow-500' : 'text-white'
-                }`}>
-                  #{standing.rank || '-'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
+          {standing && teamRankings ? (
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
                 <span className="text-gray-400">Total Points</span>
-                <span className="text-2xl font-bold text-white">{standing.total_points}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold text-white">{standing.total_points || 0}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    teamRankings.pointsRank <= 3 ? 'bg-amber-500/20 text-amber-400' :
+                    teamRankings.pointsRank <= 6 ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/50 text-gray-400'
+                  }`}>
+                    #{teamRankings.pointsRank}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
                 <span className="text-gray-400">Race Wins Picked</span>
-                <span className="text-lg text-white">{standing.race_wins}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg text-white">{standing.race_wins || 0}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    teamRankings.winsRank <= 3 ? 'bg-amber-500/20 text-amber-400' :
+                    teamRankings.winsRank <= 6 ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/50 text-gray-400'
+                  }`}>
+                    #{teamRankings.winsRank}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
                 <span className="text-gray-400">Stage Wins Picked</span>
-                <span className="text-lg text-white">{standing.stage_wins}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg text-white">{standing.stage_wins || 0}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    teamRankings.stageWinsRank <= 3 ? 'bg-amber-500/20 text-amber-400' :
+                    teamRankings.stageWinsRank <= 6 ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/50 text-gray-400'
+                  }`}>
+                    #{teamRankings.stageWinsRank}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
+                <span className="text-gray-400">Laps Led Bonuses</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg text-white">{standing.laps_led_bonuses || 0}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    teamRankings.lapsLedRank <= 3 ? 'bg-amber-500/20 text-amber-400' :
+                    teamRankings.lapsLedRank <= 6 ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/50 text-gray-400'
+                  }`}>
+                    #{teamRankings.lapsLedRank}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-gray-900/50 rounded">
                 <span className="text-gray-400">Top 10 Bonuses</span>
-                <span className="text-lg text-white">{standing.top_10_bonuses}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg text-white">{standing.top_10_bonuses || 0}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    teamRankings.top10Rank <= 3 ? 'bg-amber-500/20 text-amber-400' :
+                    teamRankings.top10Rank <= 6 ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/50 text-gray-400'
+                  }`}>
+                    #{teamRankings.top10Rank}
+                  </span>
+                </div>
               </div>
             </div>
           ) : (
