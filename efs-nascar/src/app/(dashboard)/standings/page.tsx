@@ -142,6 +142,14 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   }
 
   // Fallback: Calculate from picks + race_results if no race_scores data
+  let debugInfo = {
+    regularSeasonScoresCount: regularSeasonScores.length,
+    allPicksCount: 0,
+    allRaceResultsCount: 0,
+    regularPicksCount: 0,
+    regularResultsCount: 0,
+  };
+
   if (regularSeasonStandings.length === 0) {
     // Fetch all picks and filter to regular season races
     const { data: allPicks } = await supabase
@@ -154,9 +162,15 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       .select('*, race:races!inner(id, season_id, race_type)')
       .eq('race.season_id', selectedSeasonId);
 
+    debugInfo.allPicksCount = allPicks?.length || 0;
+    debugInfo.allRaceResultsCount = allRaceResults?.length || 0;
+
     // Filter to regular season races (null/undefined = regular)
     const regularPicks = (allPicks || []).filter((p: any) => !p.race?.race_type || p.race?.race_type === 'regular');
     const regularResults = (allRaceResults || []).filter((r: any) => !r.race?.race_type || r.race?.race_type === 'regular');
+
+    debugInfo.regularPicksCount = regularPicks.length;
+    debugInfo.regularResultsCount = regularResults.length;
 
     if (regularPicks.length > 0 && regularResults.length > 0) {
       // Build results lookup
@@ -630,6 +644,15 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           <p className="text-purple-500 text-sm mt-2">
             Standings will appear after the first race results are entered.
           </p>
+          <div className="mt-4 p-3 bg-purple-900/50 rounded text-left text-xs text-purple-400">
+            <p className="font-bold mb-2">Debug Info:</p>
+            <p>Race Scores: {debugInfo.regularSeasonScoresCount}</p>
+            <p>All Picks: {debugInfo.allPicksCount}</p>
+            <p>All Race Results: {debugInfo.allRaceResultsCount}</p>
+            <p>Regular Picks: {debugInfo.regularPicksCount}</p>
+            <p>Regular Results: {debugInfo.regularResultsCount}</p>
+            <p>Selected Season ID: {selectedSeasonId}</p>
+          </div>
         </div>
       )}
 
