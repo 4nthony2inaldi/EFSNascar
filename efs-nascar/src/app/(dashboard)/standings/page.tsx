@@ -89,52 +89,189 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   ) as RaceScore[];
 
   // Calculate regular season standings
-  const regularSeasonTotals: Record<string, {
-    team_id: string;
-    team: any;
-    total_points: number;
-    race_wins: number;
-    stage_wins: number;
-    top_10_bonuses: number;
-    laps_led_bonuses: number;
-  }> = {};
+  let regularSeasonStandings: any[] = [];
 
-  for (const score of regularSeasonScores) {
-    if (!regularSeasonTotals[score.team_id]) {
-      regularSeasonTotals[score.team_id] = {
-        team_id: score.team_id,
-        team: score.team,
-        total_points: 0,
-        race_wins: 0,
-        stage_wins: 0,
-        top_10_bonuses: 0,
-        laps_led_bonuses: 0,
-      };
+  // First try: Calculate from race_scores
+  if (regularSeasonScores && regularSeasonScores.length > 0) {
+    const regularSeasonTotals: Record<string, {
+      team_id: string;
+      team: any;
+      total_points: number;
+      race_wins: number;
+      stage_wins: number;
+      top_10_bonuses: number;
+      laps_led_bonuses: number;
+    }> = {};
+
+    for (const score of regularSeasonScores) {
+      if (!regularSeasonTotals[score.team_id]) {
+        regularSeasonTotals[score.team_id] = {
+          team_id: score.team_id,
+          team: score.team,
+          total_points: 0,
+          race_wins: 0,
+          stage_wins: 0,
+          top_10_bonuses: 0,
+          laps_led_bonuses: 0,
+        };
+      }
+      regularSeasonTotals[score.team_id].total_points += score.total_points || 0;
+      regularSeasonTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
+      regularSeasonTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
+      regularSeasonTotals[score.team_id].stage_wins += score.stage_bonus || 0;
+      if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
+        regularSeasonTotals[score.team_id].race_wins += 1;
+      }
     }
-    regularSeasonTotals[score.team_id].total_points += score.total_points || 0;
-    regularSeasonTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
-    regularSeasonTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
-    regularSeasonTotals[score.team_id].stage_wins += score.stage_bonus || 0;
-    if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
-      regularSeasonTotals[score.team_id].race_wins += 1;
-    }
+
+    regularSeasonStandings = Object.values(regularSeasonTotals)
+      .sort((a, b) => b.total_points - a.total_points)
+      .map((team, index) => ({
+        id: `reg-${team.team_id}`,
+        team_id: team.team_id,
+        season_id: selectedSeasonId,
+        race_id: null,
+        total_points: team.total_points,
+        race_wins: team.race_wins,
+        stage_wins: team.stage_wins,
+        top_10_bonuses: team.top_10_bonuses,
+        rank: index + 1,
+        team: team.team,
+        updated_at: new Date().toISOString(),
+      }));
   }
 
-  const regularSeasonStandings = Object.values(regularSeasonTotals)
-    .sort((a, b) => b.total_points - a.total_points)
-    .map((team, index) => ({
-      id: `reg-${team.team_id}`,
-      team_id: team.team_id,
-      season_id: selectedSeasonId,
-      race_id: null,
-      total_points: team.total_points,
-      race_wins: team.race_wins,
-      stage_wins: team.stage_wins,
-      top_10_bonuses: team.top_10_bonuses,
-      rank: index + 1,
-      team: team.team,
-      updated_at: new Date().toISOString(),
-    }));
+  // Fallback: Calculate from picks + race_results if no race_scores data
+  if (regularSeasonStandings.length === 0) {
+    // Fetch all picks and filter to regular season races
+    const { data: allPicks } = await supabase
+      .from('picks')
+      .select('*, team:teams(id, name, abbreviation, car_number), race:races!inner(id, season_id, race_type)')
+      .eq('race.season_id', selectedSeasonId);
+
+    const { data: allRaceResults } = await supabase
+      .from('race_results')
+      .select('*, race:races!inner(id, season_id, race_type)')
+      .eq('race.season_id', selectedSeasonId);
+
+    // Filter to regular season races (null/undefined = regular)
+    const regularPicks = (allPicks || []).filter((p: any) => !p.race?.race_type || p.race?.race_type === 'regular');
+    const regularResults = (allRaceResults || []).filter((r: any) => !r.race?.race_type || r.race?.race_type === 'regular');
+
+    if (regularPicks.length > 0 && regularResults.length > 0) {
+      // Build results lookup
+      const resultsByRaceAndDriver: Record<string, {
+        finish_position: number;
+        stage_1_winner: boolean;
+        stage_2_winner: boolean;
+        stage_3_winner: boolean;
+        most_laps_led: boolean;
+      }> = {};
+
+      for (const result of regularResults) {
+        const key = `${result.race_id}-${result.driver_id}`;
+        resultsByRaceAndDriver[key] = {
+          finish_position: result.finish_position,
+          stage_1_winner: result.stage_1_winner || false,
+          stage_2_winner: result.stage_2_winner || false,
+          stage_3_winner: result.stage_3_winner || false,
+          most_laps_led: result.most_laps_led || false,
+        };
+      }
+
+      const POSITION_POINTS: Record<number, number> = {
+        1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
+      };
+
+      const teamTotals: Record<string, {
+        team_id: string;
+        team: any;
+        total_points: number;
+        race_wins: number;
+        stage_wins: number;
+        top_10_bonuses: number;
+      }> = {};
+
+      for (const pick of regularPicks) {
+        if (!teamTotals[pick.team_id]) {
+          teamTotals[pick.team_id] = {
+            team_id: pick.team_id,
+            team: pick.team,
+            total_points: 0,
+            race_wins: 0,
+            stage_wins: 0,
+            top_10_bonuses: 0,
+          };
+        }
+
+        const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+        let racePoints = 0;
+        let stageBonus = 0;
+        let lapsLedBonus = 0;
+        let allTop10 = true;
+
+        for (const driverId of driverIds) {
+          const key = `${pick.race_id}-${driverId}`;
+          const result = resultsByRaceAndDriver[key];
+
+          if (result) {
+            const posPoints = POSITION_POINTS[result.finish_position] || 0;
+            racePoints += posPoints;
+
+            if (result.finish_position === 1) {
+              teamTotals[pick.team_id].race_wins += 1;
+            }
+
+            if (result.stage_1_winner) {
+              stageBonus += 1;
+              teamTotals[pick.team_id].stage_wins += 1;
+            }
+            if (result.stage_2_winner) {
+              stageBonus += 1;
+              teamTotals[pick.team_id].stage_wins += 1;
+            }
+            if (result.stage_3_winner) {
+              stageBonus += 1;
+              teamTotals[pick.team_id].stage_wins += 1;
+            }
+
+            if (result.most_laps_led && lapsLedBonus === 0) {
+              lapsLedBonus = 1;
+            }
+
+            if (result.finish_position > 10) {
+              allTop10 = false;
+            }
+          } else {
+            allTop10 = false;
+          }
+        }
+
+        if (allTop10 && driverIds.every(id => id)) {
+          racePoints += 1;
+          teamTotals[pick.team_id].top_10_bonuses += 1;
+        }
+
+        teamTotals[pick.team_id].total_points += racePoints + stageBonus + lapsLedBonus;
+      }
+
+      regularSeasonStandings = Object.values(teamTotals)
+        .sort((a, b) => b.total_points - a.total_points)
+        .map((team, index) => ({
+          id: `calc-${team.team_id}`,
+          team_id: team.team_id,
+          season_id: selectedSeasonId,
+          race_id: null,
+          total_points: team.total_points,
+          race_wins: team.race_wins,
+          stage_wins: team.stage_wins,
+          top_10_bonuses: team.top_10_bonuses,
+          rank: index + 1,
+          team: team.team,
+          updated_at: new Date().toISOString(),
+        }));
+    }
+  }
 
   // Check if we should show playoff standings
   const regularSeasonComplete = isRegularSeasonComplete(totalRegularRaces, completedRegularRaces);
