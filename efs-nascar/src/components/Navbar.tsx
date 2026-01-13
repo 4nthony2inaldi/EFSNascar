@@ -50,8 +50,8 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
     router.refresh();
   };
 
-  // Pages that support season filtering
-  const seasonAwarePages = ['/', '/standings', '/picks', '/schedule', '/driver-rankings', '/driver-usage', '/teams'];
+  // Pages that support season filtering (check if path starts with these)
+  const seasonAwarePrefixes = ['/', '/standings', '/picks', '/schedule', '/driver-rankings', '/driver-usage', '/teams', '/races'];
 
   const navLinks = [
     { href: '/', label: 'Dashboard' },
@@ -66,7 +66,12 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
 
   // Build href with season param for season-aware pages
   const getNavHref = (href: string) => {
-    if (seasonAwarePages.includes(href)) {
+    // Check if the path matches a season-aware prefix
+    const isSeasonAware = seasonAwarePrefixes.some(prefix => {
+      if (prefix === '/') return href === '/';
+      return href === prefix || href.startsWith(prefix + '/');
+    });
+    if (isSeasonAware) {
       return buildHref(href);
     }
     return href;
@@ -138,7 +143,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
               <div className="flex items-center space-x-4">
                 {team && (
                   <Link
-                    href={`/teams/${team.id}`}
+                    href={buildHref(`/teams/${team.id}`)}
                     className="text-sm text-purple-200 hover:text-white flex items-center space-x-1 group"
                   >
                     <span className="text-amber-400 font-bold group-hover:text-amber-300">#{team.car_number}</span>
@@ -218,7 +223,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 <div className="border-t border-purple-800/30 mt-3 pt-3">
                   {team && (
                     <Link
-                      href={`/teams/${team.id}`}
+                      href={buildHref(`/teams/${team.id}`)}
                       onClick={() => setMobileMenuOpen(false)}
                       className="block px-4 py-2 text-sm text-purple-300"
                     >
