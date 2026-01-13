@@ -121,10 +121,21 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     .eq('team_id', id)
     .in('race_id', races.map(r => r.id));
 
-  // Get ALL picks for ALL teams in selected season (for popularity calculation)
+  // Get ALL picks for ALL teams in selected season (for popularity and league average calculations)
   const { data: allPicksData } = await supabase
     .from('picks')
     .select('race_id, driver_1_id, driver_2_id, driver_3_id, team_id')
+    .in('race_id', races.map(r => r.id));
+
+  // Get expanded picks for all teams (for league-wide strategy calculation)
+  const { data: allPicksExpandedData } = await supabase
+    .from('picks')
+    .select(`
+      *,
+      driver_1:drivers!picks_driver_1_id_fkey(*),
+      driver_2:drivers!picks_driver_2_id_fkey(*),
+      driver_3:drivers!picks_driver_3_id_fkey(*)
+    `)
     .in('race_id', races.map(r => r.id));
 
   // Get all race results for the selected season
@@ -376,12 +387,70 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     }
   }
 
+  // Calculate LEAGUE-WIDE strategy stats (all teams)
+  const leagueStrategyStats: Record<string, { totalPoints: number; count: number }> = {};
+
+  for (const pick of allPicksExpandedData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const driversList = [
+      { driver: pick.driver_1, id: pick.driver_1_id },
+      { driver: pick.driver_2, id: pick.driver_2_id },
+      { driver: pick.driver_3, id: pick.driver_3_id },
+    ];
+
+    // Calculate total points for this pick
+    let totalPoints = 0;
+    let stageBonus = 0;
+    let lapsLedBonus = 0;
+    let allTop10 = true;
+
+    for (const { id } of driversList) {
+      const resultKey = `${race.id}-${id}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      if (result) {
+        totalPoints += POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) stageBonus++;
+        if (result.stage_2_winner) stageBonus++;
+        if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = 1;
+        if (result.finish_position > 10) allTop10 = false;
+      } else {
+        allTop10 = false;
+      }
+    }
+
+    const top10Bonus = allTop10 ? 1 : 0;
+    totalPoints += stageBonus + lapsLedBonus + top10Bonus;
+
+    // Calculate strategy
+    const tierValues = driversList.map(({ id }) => driverTiers.get(id) || 3);
+    const strategy = getPickStrategy(tierValues);
+
+    if (strategy) {
+      if (!leagueStrategyStats[strategy.label]) {
+        leagueStrategyStats[strategy.label] = { totalPoints: 0, count: 0 };
+      }
+      leagueStrategyStats[strategy.label].totalPoints += totalPoints;
+      leagueStrategyStats[strategy.label].count += 1;
+    }
+  }
+
+  const leagueStrategyAverages: Record<string, number> = {};
+  for (const [name, stats] of Object.entries(leagueStrategyStats)) {
+    leagueStrategyAverages[name] = stats.count > 0
+      ? Math.round((stats.totalPoints / stats.count) * 10) / 10
+      : 0;
+  }
+
   const strategyAverages = Object.entries(strategyStats)
     .map(([name, stats]) => ({
       name,
       avgPoints: stats.count > 0 ? Math.round((stats.totalPoints / stats.count) * 10) / 10 : 0,
       totalPoints: stats.totalPoints,
       raceCount: stats.count,
+      leagueAvg: leagueStrategyAverages[name] || 0,
     }))
     .sort((a, b) => b.avgPoints - a.avgPoints);
 
@@ -473,6 +542,52 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     chalk: 'bg-red-700/40 text-red-300 border-red-700/50',
   };
 
+  // Calculate LEAGUE-WIDE popularity stats (all teams)
+  const leaguePopularityStats: Record<string, { totalPoints: number; count: number }> = {
+    unique: { totalPoints: 0, count: 0 },
+    rare: { totalPoints: 0, count: 0 },
+    uncommon: { totalPoints: 0, count: 0 },
+    common: { totalPoints: 0, count: 0 },
+    popular: { totalPoints: 0, count: 0 },
+    chalk: { totalPoints: 0, count: 0 },
+  };
+
+  for (const pick of allPicksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const totalTeams = teamCountByRace[pick.race_id] || 1;
+    const driverCounts = driverPickCountsByRace[pick.race_id] || {};
+
+    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+
+    for (const driverId of driverIds) {
+      const resultKey = `${pick.race_id}-${driverId}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      let points = 0;
+      if (result) {
+        points = POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) points += 1;
+        if (result.stage_2_winner) points += 1;
+        if (result.most_laps_led) points += 1;
+      }
+
+      const pickCount = driverCounts[driverId] || 1;
+      const popularity = getPopularityLevel(pickCount, totalTeams);
+
+      leaguePopularityStats[popularity].totalPoints += points;
+      leaguePopularityStats[popularity].count += 1;
+    }
+  }
+
+  const leaguePopularityAverages: Record<string, number> = {};
+  for (const [level, stats] of Object.entries(leaguePopularityStats)) {
+    leaguePopularityAverages[level] = stats.count > 0
+      ? Math.round((stats.totalPoints / stats.count) * 10) / 10
+      : 0;
+  }
+
   const popularityAverages = Object.entries(popularityStats)
     .filter(([_, stats]) => stats.count > 0)
     .map(([level, stats]) => ({
@@ -482,6 +597,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       avgPoints: Math.round((stats.totalPoints / stats.count) * 10) / 10,
       totalPoints: stats.totalPoints,
       pickCount: stats.count,
+      leagueAvg: leaguePopularityAverages[level] || 0,
     }))
     .sort((a, b) => {
       // Sort by popularity order: unique -> chalk
@@ -510,6 +626,60 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     dirt: 'Dirt',
   };
 
+  // Calculate LEAGUE-WIDE track type stats (all teams)
+  const leagueTrackTypeStats: Record<string, { totalPoints: number; count: number }> = {};
+
+  for (const pick of allPicksExpandedData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const trackType = race.track_info?.track_type || trackTypeByName.get(race.track) || null;
+    if (!trackType) continue;
+
+    const driversList = [
+      { id: pick.driver_1_id },
+      { id: pick.driver_2_id },
+      { id: pick.driver_3_id },
+    ];
+
+    // Calculate total points for this pick
+    let totalPoints = 0;
+    let stageBonus = 0;
+    let lapsLedBonus = 0;
+    let allTop10 = true;
+
+    for (const { id } of driversList) {
+      const resultKey = `${race.id}-${id}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      if (result) {
+        totalPoints += POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) stageBonus++;
+        if (result.stage_2_winner) stageBonus++;
+        if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = 1;
+        if (result.finish_position > 10) allTop10 = false;
+      } else {
+        allTop10 = false;
+      }
+    }
+
+    const top10Bonus = allTop10 ? 1 : 0;
+    totalPoints += stageBonus + lapsLedBonus + top10Bonus;
+
+    if (!leagueTrackTypeStats[trackType]) {
+      leagueTrackTypeStats[trackType] = { totalPoints: 0, count: 0 };
+    }
+    leagueTrackTypeStats[trackType].totalPoints += totalPoints;
+    leagueTrackTypeStats[trackType].count += 1;
+  }
+
+  const leagueTrackTypeAverages: Record<string, number> = {};
+  for (const [type, stats] of Object.entries(leagueTrackTypeStats)) {
+    leagueTrackTypeAverages[type] = stats.count > 0
+      ? Math.round((stats.totalPoints / stats.count) * 10) / 10
+      : 0;
+  }
+
   const trackTypeAverages = Object.entries(trackTypeStats)
     .map(([type, stats]) => ({
       type,
@@ -517,6 +687,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       avgPoints: stats.count > 0 ? Math.round((stats.totalPoints / stats.count) * 10) / 10 : 0,
       totalPoints: stats.totalPoints,
       raceCount: stats.count,
+      leagueAvg: leagueTrackTypeAverages[type] || 0,
     }))
     .sort((a, b) => b.avgPoints - a.avgPoints);
 
@@ -747,20 +918,31 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           <h2 className="text-xl font-bold text-white mb-4">Avg Points by Popularity</h2>
           {popularityAverages.length > 0 ? (
             <div className="space-y-3">
-              {popularityAverages.map((pop) => (
-                <div key={pop.level} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-1 text-xs font-bold rounded border ${pop.color}`}>
-                      {pop.label}
-                    </span>
-                    <span className="text-gray-400 text-sm">({pop.pickCount} picks)</span>
+              {popularityAverages.map((pop) => {
+                const diff = Math.round((pop.avgPoints - pop.leagueAvg) * 10) / 10;
+                return (
+                  <div key={pop.level} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded border ${pop.color}`}>
+                        {pop.label}
+                      </span>
+                      <span className="text-gray-400 text-sm">({pop.pickCount})</span>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <span className="text-xl font-bold text-white">{pop.avgPoints}</span>
+                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ({diff >= 0 ? '+' : ''}{diff})
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
+                        <div className="text-gray-400">Lg</div>
+                        <div>{pop.leagueAvg}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xl font-bold text-white">{pop.avgPoints}</span>
-                    <span className="text-gray-500 text-sm ml-1">avg</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-400">No completed races with pick data yet.</p>
@@ -772,24 +954,35 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           <h2 className="text-xl font-bold text-white mb-4">Avg Points by Strategy</h2>
           {strategyAverages.length > 0 ? (
             <div className="space-y-3">
-              {strategyAverages.map((strategy) => (
-                <div key={strategy.name} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-1 text-xs font-bold rounded ${
-                      strategy.name === 'Chalk' ? 'bg-amber-500/20 text-amber-400' :
-                      strategy.name === 'Contrarian' ? 'bg-purple-500/20 text-purple-400' :
-                      'bg-emerald-500/20 text-emerald-400'
-                    }`}>
-                      {strategy.name}
-                    </span>
-                    <span className="text-gray-400 text-sm">({strategy.raceCount} races)</span>
+              {strategyAverages.map((strategy) => {
+                const diff = Math.round((strategy.avgPoints - strategy.leagueAvg) * 10) / 10;
+                return (
+                  <div key={strategy.name} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded ${
+                        strategy.name === 'Chalk' ? 'bg-amber-500/20 text-amber-400' :
+                        strategy.name === 'Contrarian' ? 'bg-purple-500/20 text-purple-400' :
+                        'bg-emerald-500/20 text-emerald-400'
+                      }`}>
+                        {strategy.name}
+                      </span>
+                      <span className="text-gray-400 text-sm">({strategy.raceCount})</span>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <span className="text-xl font-bold text-white">{strategy.avgPoints}</span>
+                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ({diff >= 0 ? '+' : ''}{diff})
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
+                        <div className="text-gray-400">Lg</div>
+                        <div>{strategy.leagueAvg}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xl font-bold text-white">{strategy.avgPoints}</span>
-                    <span className="text-gray-500 text-sm ml-1">avg</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-400">No completed races with strategy data yet.</p>
@@ -801,27 +994,38 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           <h2 className="text-xl font-bold text-white mb-4">Avg Points by Track Type</h2>
           {trackTypeAverages.length > 0 ? (
             <div className="space-y-3">
-              {trackTypeAverages.map((track) => (
-                <div key={track.type} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-1 text-xs font-bold rounded ${
-                      track.type === 'superspeedway' ? 'bg-red-500/20 text-red-400' :
-                      track.type === 'intermediate' ? 'bg-blue-500/20 text-blue-400' :
-                      track.type === 'short_track' ? 'bg-amber-500/20 text-amber-400' :
-                      track.type === 'road_course' ? 'bg-emerald-500/20 text-emerald-400' :
-                      track.type === 'street_course' ? 'bg-purple-500/20 text-purple-400' :
-                      'bg-orange-500/20 text-orange-400'
-                    }`}>
-                      {track.label}
-                    </span>
-                    <span className="text-gray-400 text-sm">({track.raceCount} races)</span>
+              {trackTypeAverages.map((track) => {
+                const diff = Math.round((track.avgPoints - track.leagueAvg) * 10) / 10;
+                return (
+                  <div key={track.type} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded ${
+                        track.type === 'superspeedway' ? 'bg-red-500/20 text-red-400' :
+                        track.type === 'intermediate' ? 'bg-blue-500/20 text-blue-400' :
+                        track.type === 'short_track' ? 'bg-amber-500/20 text-amber-400' :
+                        track.type === 'road_course' ? 'bg-emerald-500/20 text-emerald-400' :
+                        track.type === 'street_course' ? 'bg-purple-500/20 text-purple-400' :
+                        'bg-orange-500/20 text-orange-400'
+                      }`}>
+                        {track.label}
+                      </span>
+                      <span className="text-gray-400 text-sm">({track.raceCount})</span>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <span className="text-xl font-bold text-white">{track.avgPoints}</span>
+                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ({diff >= 0 ? '+' : ''}{diff})
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
+                        <div className="text-gray-400">Lg</div>
+                        <div>{track.leagueAvg}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xl font-bold text-white">{track.avgPoints}</span>
-                    <span className="text-gray-500 text-sm ml-1">avg</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-gray-400">No completed races with track data yet.</p>
