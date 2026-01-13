@@ -276,7 +276,20 @@ export default async function RaceResultsPage({ params }: PageProps) {
                 </tr>
               </thead>
               <tbody>
-                {picks.map((pick: any) => {
+                {[...picks]
+                  .map((pick: any) => {
+                    // Calculate total points from driver results
+                    const d1Result = resultsMap[pick.driver_1_id];
+                    const d2Result = resultsMap[pick.driver_2_id];
+                    const d3Result = resultsMap[pick.driver_3_id];
+                    const d1Points = d1Result ? calculateDriverTotalPoints(d1Result) : 0;
+                    const d2Points = d2Result ? calculateDriverTotalPoints(d2Result) : 0;
+                    const d3Points = d3Result ? calculateDriverTotalPoints(d3Result) : 0;
+                    const calculatedTotal = d1Points + d2Points + d3Points;
+                    return { ...pick, calculatedTotal };
+                  })
+                  .sort((a, b) => b.calculatedTotal - a.calculatedTotal)
+                  .map((pick: any) => {
                   const isUserTeam = pick.team_id === userTeamId;
                   const teamScore = scores?.find((s: any) => s.team_id === pick.team_id);
 
@@ -319,7 +332,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
                       </td>
                       <td className="py-3 pr-4 text-center">
                         <span className="text-white font-bold text-lg">
-                          {teamScore?.total_points ?? '-'}
+                          {teamScore?.total_points ?? pick.calculatedTotal}
                         </span>
                       </td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
