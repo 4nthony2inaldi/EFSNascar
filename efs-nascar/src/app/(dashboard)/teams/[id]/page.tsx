@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { Team, TeamMembership, Profile, Driver, Season, Race } from '@/types';
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
+import { TeamSelector } from '@/components/TeamSelector';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import { DriverUsageTable } from '@/components/DriverUsageTable';
 import { calculateDriverTiers } from '@/lib/driverTiers';
@@ -44,6 +45,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   if (error || !team) {
     notFound();
   }
+
+  // Get all teams for the team selector dropdown
+  const { data: allTeamsData } = await supabase
+    .from('teams')
+    .select('id, name, car_number')
+    .order('car_number', { ascending: true });
+
+  const allTeams = (allTeamsData || []) as { id: string; name: string; car_number: number }[];
 
   // Check if current user is an owner of this team
   const isOwner = team.team_memberships?.some(
@@ -877,21 +886,23 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   return (
     <div className="space-y-8">
-      {/* Season Selector */}
-      {seasons.length > 0 && selectedSeasonId && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white">
-              {selectedSeason?.name} Season
-            </h2>
-          </div>
-          <SeasonSelector
-            seasons={seasons}
-            currentSeasonId={selectedSeasonId}
-            basePath={`/teams/${id}`}
-          />
+      {/* Navigation Selectors */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-gray-400 text-sm">Team:</span>
+          <TeamSelector teams={allTeams} currentTeamId={id} />
         </div>
-      )}
+        {seasons.length > 0 && selectedSeasonId && (
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400 text-sm">Season:</span>
+            <SeasonSelector
+              seasons={seasons}
+              currentSeasonId={selectedSeasonId}
+              basePath={`/teams/${id}`}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Team Header */}
       <div className="bg-gray-800 rounded-lg p-6">
