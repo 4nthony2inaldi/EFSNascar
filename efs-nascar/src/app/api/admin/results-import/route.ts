@@ -17,6 +17,7 @@ interface RaceResult {
   laps_led: number;
   s1: number | null;
   s2: number | null;
+  s3: number | null;
   points: number;
   status: string;
 }

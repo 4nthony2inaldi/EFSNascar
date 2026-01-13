@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       finish_position: number;
       stage_1_winner: boolean;
       stage_2_winner: boolean;
+      stage_3_winner: boolean;
       most_laps_led: boolean;
     }> = {};
 
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
         finish_position: r.finish_position,
         stage_1_winner: r.stage_1_winner,
         stage_2_winner: r.stage_2_winner,
+        stage_3_winner: r.stage_3_winner,
         most_laps_led: r.most_laps_led,
       };
     });

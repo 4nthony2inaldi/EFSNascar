@@ -154,6 +154,7 @@ export async function POST(request: Request) {
       finish_position: number;
       stage_1_winner: boolean;
       stage_2_winner: boolean;
+      stage_3_winner: boolean;
       laps_led: number;
       most_laps_led: boolean;
       api_driver_name: string;
