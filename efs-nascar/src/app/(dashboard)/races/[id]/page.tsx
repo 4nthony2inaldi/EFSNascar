@@ -8,6 +8,7 @@ import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import { LocalTime } from '@/components/LocalTime';
 import { RaceNavigation } from '@/components/RaceNavigation';
+import { TeamPicksTable } from '@/components/TeamPicksTable';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -263,124 +264,13 @@ export default async function RaceResultsPage({ params }: PageProps) {
 
       {/* All Teams' Picks */}
       {picks && picks.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Team Picks</h2>
-
-          {/* Pick Popularity Legend */}
-          <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
-            <h3 className="text-sm font-bold text-white mb-2">Pick Popularity</h3>
-            <div className="flex flex-wrap gap-2 text-sm">
-              <span className="px-2 py-1 rounded border bg-green-800/40 text-green-300 border-green-700/50">
-                <span className="font-medium">Unique</span> <span className="opacity-75">(1 team)</span>
-              </span>
-              <span className="px-2 py-1 rounded border bg-green-500/30 text-green-300 border-green-400/50">
-                <span className="font-medium">Rare</span> <span className="opacity-75">(≤20%)</span>
-              </span>
-              <span className="px-2 py-1 rounded border bg-yellow-500/30 text-yellow-300 border-yellow-500/50">
-                <span className="font-medium">Uncommon</span> <span className="opacity-75">(≤35%)</span>
-              </span>
-              <span className="px-2 py-1 rounded border bg-orange-500/30 text-orange-300 border-orange-500/50">
-                <span className="font-medium">Common</span> <span className="opacity-75">(≤50%)</span>
-              </span>
-              <span className="px-2 py-1 rounded border bg-red-400/30 text-red-300 border-red-400/50">
-                <span className="font-medium">Popular</span> <span className="opacity-75">(≤70%)</span>
-              </span>
-              <span className="px-2 py-1 rounded border bg-red-700/40 text-red-300 border-red-700/50">
-                <span className="font-medium">Chalk</span> <span className="opacity-75">(&gt;70%)</span>
-              </span>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
-                  <th className="pb-3 pr-4">Team</th>
-                  <th className="pb-3 pr-4 text-center">Points</th>
-                  <th className="pb-3 pr-4">Driver 1</th>
-                  <th className="pb-3 pr-4">Driver 2</th>
-                  <th className="pb-3 pr-4">Driver 3</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...picks]
-                  .map((pick: any) => {
-                    // Calculate total points from driver results
-                    const d1Result = resultsMap[pick.driver_1_id];
-                    const d2Result = resultsMap[pick.driver_2_id];
-                    const d3Result = resultsMap[pick.driver_3_id];
-                    const d1Points = d1Result ? calculateDriverTotalPoints(d1Result) : 0;
-                    const d2Points = d2Result ? calculateDriverTotalPoints(d2Result) : 0;
-                    const d3Points = d3Result ? calculateDriverTotalPoints(d3Result) : 0;
-
-                    // Check for top 10 bonus (all 3 drivers in top 10)
-                    const allTop10 = d1Result && d2Result && d3Result &&
-                      d1Result.finish_position <= 10 &&
-                      d2Result.finish_position <= 10 &&
-                      d3Result.finish_position <= 10;
-                    const top10Bonus = allTop10 ? 1 : 0;
-
-                    const calculatedTotal = d1Points + d2Points + d3Points + top10Bonus;
-                    return { ...pick, calculatedTotal };
-                  })
-                  .sort((a, b) => b.calculatedTotal - a.calculatedTotal)
-                  .map((pick: any) => {
-                  const isUserTeam = pick.team_id === userTeamId;
-                  const teamScore = scores?.find((s: any) => s.team_id === pick.team_id);
-
-                  const renderDriver = (driverId: string) => {
-                    const result = resultsMap[driverId];
-                    const pickCount = driverPickCounts[driverId] || 0;
-
-                    if (!result) return <span className="text-gray-500">Unknown</span>;
-
-                    const totalPoints = calculateDriverTotalPoints(result);
-                    const posPoints = formatPoints(result.finish_position);
-                    const hasBonus = totalPoints > posPoints;
-
-                    return (
-                      <div className={`inline-flex items-center space-x-2 px-2 py-1 rounded ${getOverlapColor(pickCount)}`}>
-                        <span className="font-bold">#{result.driver?.car_number}</span>
-                        <span>{result.driver?.name}</span>
-                        <span className="text-xs opacity-75">
-                          P{result.finish_position} ({totalPoints}pts{hasBonus && <span className="text-green-300"> +{totalPoints - posPoints}</span>})
-                        </span>
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <tr
-                      key={pick.id}
-                      className={`border-b border-gray-700/50 ${isUserTeam ? 'bg-yellow-500/10' : ''}`}
-                    >
-                      <td className="py-3 pr-4">
-                        <Link
-                          href={`/teams/${pick.team_id}`}
-                          className="flex items-center space-x-2 hover:text-yellow-500"
-                        >
-                          <span className="text-yellow-500 font-bold">
-                            #{pick.team?.car_number}
-                          </span>
-                          <span className="text-white">{pick.team?.name}</span>
-                        </Link>
-                      </td>
-                      <td className="py-3 pr-4 text-center">
-                        <span className="text-white font-bold text-lg">
-                          {teamScore?.total_points ?? pick.calculatedTotal}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
-                      <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
-                      <td className="py-3 pr-4">{renderDriver(pick.driver_3_id)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-        </div>
+        <TeamPicksTable
+          picks={picks}
+          resultsMap={resultsMap}
+          driverPickCounts={driverPickCounts}
+          userTeamId={userTeamId}
+          scores={scores}
+        />
       )}
 
       {/* Race Results */}
