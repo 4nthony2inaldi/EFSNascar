@@ -691,6 +691,100 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     }))
     .sort((a, b) => b.avgPoints - a.avgPoints);
 
+  // Calculate average points by driver tier for this team
+  const tierStats: Record<number, { totalPoints: number; count: number }> = {
+    1: { totalPoints: 0, count: 0 },
+    2: { totalPoints: 0, count: 0 },
+    3: { totalPoints: 0, count: 0 },
+  };
+
+  for (const pick of picksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+
+    for (const driverId of driverIds) {
+      const resultKey = `${pick.race_id}-${driverId}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      let points = 0;
+      if (result) {
+        points = POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) points += 1;
+        if (result.stage_2_winner) points += 1;
+        if (result.most_laps_led) points += 1;
+      }
+
+      const tier = driverTiers.get(driverId) || 3;
+      tierStats[tier].totalPoints += points;
+      tierStats[tier].count += 1;
+    }
+  }
+
+  // Calculate LEAGUE-WIDE driver tier stats (all teams)
+  const leagueTierStats: Record<number, { totalPoints: number; count: number }> = {
+    1: { totalPoints: 0, count: 0 },
+    2: { totalPoints: 0, count: 0 },
+    3: { totalPoints: 0, count: 0 },
+  };
+
+  for (const pick of allPicksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+
+    for (const driverId of driverIds) {
+      const resultKey = `${pick.race_id}-${driverId}`;
+      const result = resultsByRaceAndDriver.get(resultKey);
+
+      let points = 0;
+      if (result) {
+        points = POSITION_POINTS[result.finish_position] || 0;
+        if (result.stage_1_winner) points += 1;
+        if (result.stage_2_winner) points += 1;
+        if (result.most_laps_led) points += 1;
+      }
+
+      const tier = driverTiers.get(driverId) || 3;
+      leagueTierStats[tier].totalPoints += points;
+      leagueTierStats[tier].count += 1;
+    }
+  }
+
+  const leagueTierAverages: Record<number, number> = {};
+  for (const [tier, stats] of Object.entries(leagueTierStats)) {
+    leagueTierAverages[Number(tier)] = stats.count > 0
+      ? Math.round((stats.totalPoints / stats.count) * 10) / 10
+      : 0;
+  }
+
+  const tierLabels: Record<number, string> = {
+    1: 'Tier 1',
+    2: 'Tier 2',
+    3: 'Tier 3',
+  };
+
+  const tierColors: Record<number, string> = {
+    1: 'bg-amber-500/20 text-amber-400',
+    2: 'bg-emerald-500/20 text-emerald-400',
+    3: 'bg-blue-500/20 text-blue-400',
+  };
+
+  const tierAverages = Object.entries(tierStats)
+    .filter(([_, stats]) => stats.count > 0)
+    .map(([tier, stats]) => ({
+      tier: Number(tier),
+      label: tierLabels[Number(tier)],
+      color: tierColors[Number(tier)],
+      avgPoints: Math.round((stats.totalPoints / stats.count) * 10) / 10,
+      totalPoints: stats.totalPoints,
+      pickCount: stats.count,
+      leagueAvg: leagueTierAverages[Number(tier)] || 0,
+    }))
+    .sort((a, b) => a.tier - b.tier);
+
   const owners = team.team_memberships?.filter((m: any) => m.role === 'owner') || [];
   const members = team.team_memberships?.filter((m: any) => m.role === 'member') || [];
   const bonusUses = bonus?.bonus_usages ?? 1;
@@ -912,7 +1006,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       </div>
 
       {/* Performance Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Average Points by Pick Popularity */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">Avg Points by Popularity</h2>
@@ -946,6 +1040,42 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             </div>
           ) : (
             <p className="text-gray-400">No completed races with pick data yet.</p>
+          )}
+        </div>
+
+        {/* Average Points by Driver Tier */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Driver Tier</h2>
+          {tierAverages.length > 0 ? (
+            <div className="space-y-3">
+              {tierAverages.map((tier) => {
+                const diff = Math.round((tier.avgPoints - tier.leagueAvg) * 10) / 10;
+                return (
+                  <div key={tier.tier} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded ${tier.color}`}>
+                        {tier.label}
+                      </span>
+                      <span className="text-gray-400 text-sm">({tier.pickCount})</span>
+                    </div>
+                    <div className="text-right flex items-center gap-2">
+                      <div>
+                        <span className="text-xl font-bold text-white">{tier.avgPoints}</span>
+                        <span className={`text-xs ml-1 ${diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          ({diff >= 0 ? '+' : ''}{diff})
+                        </span>
+                      </div>
+                      <div className="text-gray-500 text-xs border-l border-gray-600 pl-2">
+                        <div className="text-gray-400">Lg</div>
+                        <div>{tier.leagueAvg}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-400">No completed races with tier data yet.</p>
           )}
         </div>
 
