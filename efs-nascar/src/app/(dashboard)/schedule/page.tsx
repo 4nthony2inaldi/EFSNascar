@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Pick, Track, TrackType, Season } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
+import { SeasonSelector } from '@/components/SeasonSelector';
 // Schedule page with season selector and picks links
 
 interface RaceWithTrack extends Race {
@@ -141,28 +142,12 @@ export default async function SchedulePage({ searchParams }: PageProps) {
         </div>
 
         {/* Season Selector */}
-        {allSeasons && allSeasons.length > 1 && (
-          <div className="flex items-center space-x-2">
-            <span className="text-purple-400 text-sm">Season:</span>
-            <div className="flex flex-wrap gap-2">
-              {allSeasons.map((season) => (
-                <Link
-                  key={season.id}
-                  href={`/schedule?season=${season.id}`}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    selectedSeason?.id === season.id
-                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900'
-                      : 'bg-purple-800/30 text-purple-300 hover:bg-purple-700/50 border border-purple-700/30'
-                  }`}
-                >
-                  {season.year}
-                  {season.is_active && (
-                    <span className="ml-1 text-xs opacity-75">(current)</span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </div>
+        {allSeasons && allSeasons.length > 1 && selectedSeason && (
+          <SeasonSelector
+            seasons={allSeasons as Season[]}
+            currentSeasonId={selectedSeason.id}
+            basePath="/schedule"
+          />
         )}
       </div>
 
