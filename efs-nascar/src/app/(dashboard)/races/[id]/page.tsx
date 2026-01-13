@@ -285,7 +285,15 @@ export default async function RaceResultsPage({ params }: PageProps) {
                     const d1Points = d1Result ? calculateDriverTotalPoints(d1Result) : 0;
                     const d2Points = d2Result ? calculateDriverTotalPoints(d2Result) : 0;
                     const d3Points = d3Result ? calculateDriverTotalPoints(d3Result) : 0;
-                    const calculatedTotal = d1Points + d2Points + d3Points;
+
+                    // Check for top 10 bonus (all 3 drivers in top 10)
+                    const allTop10 = d1Result && d2Result && d3Result &&
+                      d1Result.finish_position <= 10 &&
+                      d2Result.finish_position <= 10 &&
+                      d3Result.finish_position <= 10;
+                    const top10Bonus = allTop10 ? 1 : 0;
+
+                    const calculatedTotal = d1Points + d2Points + d3Points + top10Bonus;
                     return { ...pick, calculatedTotal };
                   })
                   .sort((a, b) => b.calculatedTotal - a.calculatedTotal)
