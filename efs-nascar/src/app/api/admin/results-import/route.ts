@@ -199,6 +199,13 @@ export async function POST(request: NextRequest) {
       driverMap.set(normalizeDriverName(driver.name), driver.id);
     }
 
+    // Debug: Log how many drivers we have
+    console.log(`Found ${driverMap.size} drivers in database for matching`);
+    if (driverMap.size > 0) {
+      const sampleDrivers = Array.from(driverMap.keys()).slice(0, 5);
+      console.log('Sample normalized driver names:', sampleDrivers);
+    }
+
     // Filter to specific race if provided
     const racesToImport = raceNumber
       ? resultsData.filter(r => r.race_number === raceNumber)
@@ -304,6 +311,9 @@ export async function POST(request: NextRequest) {
       raceResults: raceResults.slice(0, 10), // Show first 10
       driversNotFound: driversNotFound.slice(0, 20), // Show first 20
       racesNotFound,
+      // Debug info
+      driversInDatabase: driverMap.size,
+      sampleDbDrivers: Array.from(driverMap.keys()).slice(0, 10),
     });
   } catch (error: any) {
     console.error('Import error:', error);

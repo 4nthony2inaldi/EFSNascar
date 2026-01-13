@@ -20,6 +20,9 @@ interface ImportResponse {
   racesNotFound: string[];
   availableYears?: number[];
   error?: string;
+  // Debug info
+  driversInDatabase?: number;
+  sampleDbDrivers?: string[];
 }
 
 interface Season {
@@ -350,6 +353,21 @@ export default function ResultsImportPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* Debug Info */}
+          {result.driversInDatabase !== undefined && (
+            <div className="glass rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-blue-400 mb-4">Debug Info</h2>
+              <p className="text-purple-300">
+                <strong>Drivers in database:</strong> {result.driversInDatabase}
+              </p>
+              {result.sampleDbDrivers && result.sampleDbDrivers.length > 0 && (
+                <p className="text-purple-400 text-sm mt-2">
+                  <strong>Sample normalized names:</strong> {result.sampleDbDrivers.join(', ')}
+                </p>
+              )}
             </div>
           )}
 
