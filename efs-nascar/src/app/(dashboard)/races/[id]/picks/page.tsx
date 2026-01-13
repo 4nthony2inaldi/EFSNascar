@@ -39,6 +39,29 @@ function getPopularityLabel(count: number, totalTeams: number): string {
   return 'Chalk';
 }
 
+// Calculate Zig % (contrarian score) for a pick based on driver popularity
+function getZigPercent(driverIds: string[], driverPickCounts: Record<string, number>, totalTeams: number): number {
+  if (totalTeams === 0) return 0;
+
+  const zigWeights: Record<string, number> = {
+    unique: 100,
+    rare: 80,
+    uncommon: 60,
+    common: 40,
+    popular: 20,
+    chalk: 0,
+  };
+
+  let totalWeight = 0;
+  for (const driverId of driverIds) {
+    const count = driverPickCounts[driverId] || 0;
+    const label = getPopularityLabel(count, totalTeams).toLowerCase();
+    totalWeight += zigWeights[label] || 0;
+  }
+
+  return Math.round(totalWeight / driverIds.length);
+}
+
 export default async function PicksRevealPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -253,6 +276,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
             <thead>
               <tr className="text-left text-purple-400 text-xs sm:text-sm border-b border-purple-700/30">
                 <th className="pb-2 sm:pb-3 pr-2 sm:pr-4 whitespace-nowrap">Team</th>
+                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Zig %</th>
                 <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Strategy</th>
                 <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 1</th>
                 <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 2</th>
@@ -297,6 +321,23 @@ export default async function PicksRevealPage({ params }: PageProps) {
                     {pick ? (
                       <>
                         <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
+                          {(() => {
+                            const zigPct = getZigPercent(
+                              [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id],
+                              driverPickCounts,
+                              totalTeamsWithPicks
+                            );
+                            return (
+                              <span className={`text-xs sm:text-sm font-bold ${
+                                zigPct >= 60 ? 'text-green-400' :
+                                zigPct >= 40 ? 'text-yellow-400' : 'text-red-400'
+                              }`}>
+                                {zigPct}%
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
                           {teamStrategies[team.id] && (
                             <PickStrategyBadge strategy={teamStrategies[team.id]} size="sm" />
                           )}
@@ -306,7 +347,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
                         <td className="py-1 sm:py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
                       </>
                     ) : (
-                      <td colSpan={4} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
+                      <td colSpan={5} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
                         No picks submitted
                       </td>
                     )}

@@ -1266,7 +1266,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                     ({contrarianScore - leagueContrarianScore >= 0 ? '+' : ''}{contrarianScore - leagueContrarianScore})
                   </span>
                 </div>
-                <div className="text-xs text-gray-400">Contrarian Score</div>
+                <div className="text-xs text-gray-400">Zig %</div>
               </div>
             )}
           </div>
