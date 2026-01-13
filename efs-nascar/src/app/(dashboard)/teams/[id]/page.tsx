@@ -656,6 +656,33 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   const maxPopularityCount = Math.max(...popularityDistribution.map(d => d.count), 1);
 
+  // Calculate Contrarian Score (weighted average: unique=100%, chalk=0%)
+  const contrarianWeights: Record<string, number> = {
+    unique: 100,
+    rare: 80,
+    uncommon: 60,
+    common: 40,
+    popular: 20,
+    chalk: 0,
+  };
+
+  const totalPickCount = Object.values(popularityStats).reduce((sum, s) => sum + s.count, 0);
+  const weightedContrarianSum = Object.entries(popularityStats).reduce((sum, [level, stats]) => {
+    return sum + (stats.count * (contrarianWeights[level] || 0));
+  }, 0);
+  const contrarianScore = totalPickCount > 0
+    ? Math.round(weightedContrarianSum / totalPickCount)
+    : 0;
+
+  // Calculate league-wide contrarian score for comparison
+  const leagueTotalPickCount = Object.values(leaguePopularityStats).reduce((sum, s) => sum + s.count, 0);
+  const leagueWeightedSum = Object.entries(leaguePopularityStats).reduce((sum, [level, stats]) => {
+    return sum + (stats.count * (contrarianWeights[level] || 0));
+  }, 0);
+  const leagueContrarianScore = leagueTotalPickCount > 0
+    ? Math.round(leagueWeightedSum / leagueTotalPickCount)
+    : 0;
+
   // Calculate average points by track type
   const trackTypeStats: Record<string, { totalPoints: number; count: number }> = {};
   for (const raceData of racePicksData) {
@@ -1062,7 +1089,27 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Average Points by Pick Popularity */}
         <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Avg Points by Popularity</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">Avg Points by Popularity</h2>
+            {totalPickCount > 0 && (
+              <div className="text-right">
+                <div className="flex items-center gap-2">
+                  <span className={`text-2xl font-bold ${
+                    contrarianScore >= 60 ? 'text-green-400' :
+                    contrarianScore >= 40 ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {contrarianScore}%
+                  </span>
+                  <span className={`text-xs ${
+                    contrarianScore - leagueContrarianScore >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    ({contrarianScore - leagueContrarianScore >= 0 ? '+' : ''}{contrarianScore - leagueContrarianScore})
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400">Contrarian Score</div>
+              </div>
+            )}
+          </div>
           {popularityAverages.length > 0 ? (
             <div className="space-y-3">
               {popularityAverages.map((pop) => {
