@@ -75,22 +75,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: racesError.message }, { status: 500 });
     }
 
-    // Get all picks for this season's races with team and driver info
+    // Get all picks for this season's races
     const raceIds = (races || []).map(r => r.id);
     const { data: allPicks, error: picksError } = await supabase
       .from('picks')
       .select(`
         id,
         race_id,
-        team:teams!picks_team_id_fkey(id, name),
-        driver_1:drivers!picks_driver_1_id_fkey(id, name),
-        driver_2:drivers!picks_driver_2_id_fkey(id, name),
-        driver_3:drivers!picks_driver_3_id_fkey(id, name)
+        team_id,
+        driver_1_id,
+        driver_2_id,
+        driver_3_id
       `)
       .in('race_id', raceIds);
 
     if (picksError) {
       return NextResponse.json({ error: picksError.message }, { status: 500 });
+    }
+
+    // Get teams and drivers for lookup
+    const { data: teams } = await supabase.from('teams').select('id, name');
+    const { data: drivers } = await supabase.from('drivers').select('id, name');
+
+    const teamMap = new Map<string, { id: string; name: string }>();
+    for (const team of teams || []) {
+      teamMap.set(team.id, { id: team.id, name: team.name });
+    }
+
+    const driverMap = new Map<string, { id: string; name: string }>();
+    for (const driver of drivers || []) {
+      driverMap.set(driver.id, { id: driver.id, name: driver.name });
     }
 
     // Group picks by race
@@ -102,10 +116,10 @@ export async function GET(request: NextRequest) {
       }
       picksByRace.get(raceId)!.push({
         id: pick.id,
-        team: pick.team as { id: string; name: string },
-        driver_1: pick.driver_1 as { id: string; name: string },
-        driver_2: pick.driver_2 as { id: string; name: string },
-        driver_3: pick.driver_3 as { id: string; name: string },
+        team: teamMap.get(pick.team_id) || { id: pick.team_id, name: 'Unknown' },
+        driver_1: driverMap.get(pick.driver_1_id) || { id: pick.driver_1_id, name: 'Unknown' },
+        driver_2: driverMap.get(pick.driver_2_id) || { id: pick.driver_2_id, name: 'Unknown' },
+        driver_3: driverMap.get(pick.driver_3_id) || { id: pick.driver_3_id, name: 'Unknown' },
       });
     }
 
@@ -238,12 +252,18 @@ export async function POST(request: NextRequest) {
 
     const { data: existingTargetPicks } = await supabase
       .from('picks')
-      .select('id, team_id, team:teams!picks_team_id_fkey(name)')
+      .select('id, team_id')
       .eq('race_id', target_race_id)
       .in('team_id', Array.from(teamIdsToMove));
 
     if (existingTargetPicks && existingTargetPicks.length > 0) {
-      const conflictTeams = existingTargetPicks.map(p => (p.team as any)?.name || 'Unknown');
+      // Get team names for error message
+      const { data: conflictTeamData } = await supabase
+        .from('teams')
+        .select('id, name')
+        .in('id', existingTargetPicks.map(p => p.team_id));
+
+      const conflictTeams = (conflictTeamData || []).map(t => t.name);
       return NextResponse.json({
         error: `Cannot move picks: Teams already have picks for target race: ${conflictTeams.join(', ')}`
       }, { status: 400 });
