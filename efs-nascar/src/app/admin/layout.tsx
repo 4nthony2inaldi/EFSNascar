@@ -49,6 +49,7 @@ export default async function AdminLayout({
     { href: '/admin/import', label: 'API Import' },
     { href: '/admin/picks-import', label: 'Picks Import' },
     { href: '/admin/results-import', label: 'Results Import' },
+    { href: '/admin/fix-race-links', label: 'Fix Race Links' },
     { href: '/admin/teams', label: 'Teams' },
   ];
 
