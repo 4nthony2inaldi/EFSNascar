@@ -767,7 +767,8 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         if (result.most_laps_led) points += 1;
       }
 
-      const tier = driverTiers.get(driverId) || 3;
+      const rawTier = driverTiers.get(driverId) || 3;
+      const tier = rawTier >= 3 ? 3 : rawTier;  // Group tiers 3+ as "Tier 3"
       tierStats[tier].totalPoints += points;
       tierStats[tier].count += 1;
     }
@@ -798,7 +799,8 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         if (result.most_laps_led) points += 1;
       }
 
-      const tier = driverTiers.get(driverId) || 3;
+      const rawTier = driverTiers.get(driverId) || 3;
+      const tier = rawTier >= 3 ? 3 : rawTier;  // Group tiers 3+ as "Tier 3"
       leagueTierStats[tier].totalPoints += points;
       leagueTierStats[tier].count += 1;
     }
