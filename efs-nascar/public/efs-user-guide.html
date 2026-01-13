@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EFS NASCAR - New Manager Quick Start Guide</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .page {
+      max-width: 850px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 16px;
+      padding: 24px;
+      border: 2px solid #fbbf24;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #fbbf24;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fbbf24;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      color: #9ca3af;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .section-icon {
+      font-size: 20px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fbbf24;
+    }
+
+    .points-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .point-box {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-radius: 6px;
+      padding: 6px 4px;
+      text-align: center;
+    }
+
+    .point-box.low {
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    }
+
+    .point-pos {
+      font-size: 9px;
+      opacity: 0.8;
+    }
+
+    .point-val {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .bonus-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .bonus-item {
+      flex: 1;
+      background: rgba(139, 92, 246, 0.2);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .bonus-icon {
+      font-size: 16px;
+    }
+
+    .bonus-label {
+      font-size: 9px;
+      color: #c4b5fd;
+      margin-top: 2px;
+    }
+
+    .bonus-value {
+      font-size: 12px;
+      font-weight: 700;
+      color: #a78bfa;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .step-num {
+      width: 24px;
+      height: 24px;
+      background: #fbbf24;
+      color: #1a1a2e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 {
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .step-content p {
+      font-size: 10px;
+      color: #9ca3af;
+    }
+
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .nav-item {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 6px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .nav-item.primary {
+      background: rgba(251, 191, 36, 0.2);
+      border-color: rgba(251, 191, 36, 0.4);
+    }
+
+    .nav-icon {
+      font-size: 16px;
+      display: block;
+    }
+
+    .nav-label {
+      font-size: 9px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .usage-visual {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      margin: 10px 0;
+    }
+
+    .usage-box {
+      width: 36px;
+      height: 36px;
+      background: #10b981;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .usage-box.bonus {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border: 2px dashed #fbbf24;
+    }
+
+    .usage-box.empty {
+      background: rgba(255,255,255,0.1);
+      border: 2px dashed rgba(255,255,255,0.2);
+    }
+
+    .standings-visual {
+      margin-top: 8px;
+    }
+
+    .standings-row {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 3px;
+      font-size: 10px;
+    }
+
+    .standings-row.catbird { background: rgba(251, 191, 36, 0.3); }
+    .standings-row.playoff { background: rgba(16, 185, 129, 0.3); }
+    .standings-row.lucky { background: rgba(245, 158, 11, 0.3); }
+    .standings-row.consolation { background: rgba(139, 92, 246, 0.2); }
+    .standings-row.muddy { background: rgba(239, 68, 68, 0.3); }
+
+    .standings-pos {
+      width: 30px;
+      font-weight: 700;
+    }
+
+    .standings-label {
+      flex: 1;
+    }
+
+    .standings-icon {
+      font-size: 12px;
+    }
+
+    .tip-box {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+
+    .tip-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .tip-header span {
+      font-weight: 700;
+      color: #10b981;
+      font-size: 11px;
+    }
+
+    .tip-list {
+      list-style: none;
+      font-size: 10px;
+      color: #9ca3af;
+    }
+
+    .tip-list li {
+      padding-left: 14px;
+      position: relative;
+      margin-bottom: 3px;
+    }
+
+    .tip-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #10b981;
+    }
+
+    .full-width {
+      grid-column: span 3;
+    }
+
+    .two-col {
+      grid-column: span 2;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: #6b7280;
+      font-size: 10px;
+    }
+
+    .zig-scale {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+
+    .zig-bar {
+      height: 8px;
+      background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #10b981 100%);
+      border-radius: 4px;
+      position: relative;
+      margin: 8px 0;
+    }
+
+    .zig-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #9ca3af;
+    }
+
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .tier-box {
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .tier-box.t1 { background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); }
+    .tier-box.t2 { background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); }
+    .tier-box.t3 { background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); }
+
+    .tier-label {
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .tier-desc {
+      font-size: 8px;
+      color: #9ca3af;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #1a1a2e;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .page {
+        box-shadow: none;
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>🏁 EFS NASCAR Quick Start Guide</h1>
+      <p>Everything new managers need to know in one page</p>
+    </div>
+
+    <div class="grid">
+      <!-- SCORING -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-icon">🏆</span>
+          <span class="section-title">Scoring</span>
+        </div>
+
+        <div class="points-grid">
+          <div class="point-box"><div class="point-pos">1st</div><div class="point-val">10</div></div>
+          <div class="point-box"><div class="point-pos">2nd</div><div class="point-val">9</div></div>
+          <div class="point-box"><div class="point-pos">3rd</div><div class="point-val">8</div></div>
+          <div class="point-box"><div class="point-pos">4th</div><div class="point-val">7</div></div>
+          <div class="point-box"><div class="point-pos">5th</div><div class="point-val">6</div></div>
+        </div>
+        <div class="points-grid">
+          <div class="point-box low"><div class="point-pos">6th</div><div class="point-val">5</div></div>
+          <div class="point-box low"><div class="point-pos">7th</div><div class="point-val">4</div></div>
+          <div class="point-box low"><div class="point-pos">8th</div><div class="point-val">3</div></div>
+          <div class="point-box low"><div class="point-pos">9th</div><div class="point-val">2</div></div>
+          <div class="point-box low"><div class="point-pos">10th</div><div class="point-val">1</div></div>
+        </div>
+        <div style="text-align: center; color: #6b7280; font-size: 9px; margin-top: 4px;">11th or worse = 0 points</div>
+
+        <div class="bonus-row">
+          <div class="bonus-item">
+            <div class="bonus-icon">🚩</div>
+            <div class="bonus-value">+1</div>
+            <div class="bonus-label">Stage Win</div>
+          </div>
+          <div class="bonus-item">
+            <div class="bonus-icon">🏎️</div>
+            <div class="bonus-value">+1</div>
+            <div class="bonus-label">Most Laps Led</div>
+          </div>
+          <div class="bonus-item">
+            <div class="bonus-icon">🔥</div>
+            <div class="bonus-value">+1</div>
+            <div class="bonus-label">All 3 Top 10</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HOW TO MAKE PICKS -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-icon">✅</span>
+          <span class="section-title">Making Picks</span>
+        </div>
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Go to Picks Page</h4>
+            <p>Click "Picks" in the sidebar menu</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Select 3 Drivers</h4>
+            <p>Search by name/number, watch usage limits!</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Submit Before Deadline</h4>
+            <p>Usually race start time - check countdown!</p>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <div class="tip-header">
+            <span>💡 Tips</span>
+          </div>
+          <ul class="tip-list">
+            <li>Edit picks anytime before deadline</li>
+            <li>Picks hidden until deadline passes</li>
+            <li>Check Driver Rankings for hot drivers</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- DRIVER USAGE -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-icon">👤</span>
+          <span class="section-title">Driver Usage Limits</span>
+        </div>
+
+        <p style="font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-align: center;">
+          Each driver can be used <strong style="color: #fff;">4 times</strong> per season + <strong style="color: #fbbf24;">1 bonus use</strong>
+        </p>
+
+        <div class="usage-visual">
+          <div class="usage-box">1</div>
+          <div class="usage-box">2</div>
+          <div class="usage-box">3</div>
+          <div class="usage-box">4</div>
+          <div class="usage-box bonus">★</div>
+        </div>
+
+        <div style="text-align: center; font-size: 10px; margin-top: 8px;">
+          <div style="color: #10b981;">✓ 4 base uses per driver</div>
+          <div style="color: #fbbf24;">★ 1 bonus 5th use (any driver)</div>
+          <div style="color: #ef4444; margin-top: 4px;">⚠️ Maxed driver = 0 points!</div>
+        </div>
+
+        <div class="tier-grid">
+          <div class="tier-box t1">
+            <div class="tier-label" style="color: #fbbf24;">Tier 1</div>
+            <div class="tier-desc">Top 6 drivers</div>
+          </div>
+          <div class="tier-box t2">
+            <div class="tier-label" style="color: #10b981;">Tier 2</div>
+            <div class="tier-desc">Next 6 drivers</div>
+          </div>
+          <div class="tier-box t3">
+            <div class="tier-label" style="color: #3b82f6;">Tier 3</div>
+            <div class="tier-desc">Everyone else</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NAVIGATION -->
+      <div class="section two-col">
+        <div class="section-header">
+          <span class="section-icon">🧭</span>
+          <span class="section-title">Site Navigation</span>
+        </div>
+
+        <div class="nav-grid">
+          <div class="nav-item primary">
+            <span class="nav-icon">📊</span>
+            <div class="nav-label">Standings</div>
+          </div>
+          <div class="nav-item primary">
+            <span class="nav-icon">✅</span>
+            <div class="nav-label">Picks</div>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📅</span>
+            <div class="nav-label">Schedule</div>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">🏎️</span>
+            <div class="nav-label">Driver Rankings</div>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📈</span>
+            <div class="nav-label">Driver Usage</div>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">🏁</span>
+            <div class="nav-label">Teams</div>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📖</span>
+            <div class="nav-label">Rules</div>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">👤</span>
+            <div class="nav-label">Your Team</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div style="background: rgba(251, 191, 36, 0.1); border-radius: 6px; padding: 8px;">
+            <div style="font-weight: 600; font-size: 10px; color: #fbbf24; margin-bottom: 4px;">📊 Standings</div>
+            <div style="font-size: 9px; color: #9ca3af;">See league rankings, points chart, playoff picture</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.1); border-radius: 6px; padding: 8px;">
+            <div style="font-weight: 600; font-size: 10px; color: #10b981; margin-bottom: 4px;">🏁 Your Team</div>
+            <div style="font-size: 9px; color: #9ca3af;">Analytics, driver usage, TITS remaining, history</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLAYOFF STRUCTURE -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-icon">🏅</span>
+          <span class="section-title">Playoff Positions</span>
+        </div>
+
+        <div class="standings-visual">
+          <div class="standings-row catbird">
+            <span class="standings-pos">1-2</span>
+            <span class="standings-label">Catbird Seats</span>
+            <span class="standings-icon">🐱</span>
+          </div>
+          <div class="standings-row playoff">
+            <span class="standings-pos">3-6</span>
+            <span class="standings-label">Playoff Bound</span>
+            <span class="standings-icon">✅</span>
+          </div>
+          <div class="standings-row lucky">
+            <span class="standings-pos">7th*</span>
+            <span class="standings-label">Lucky Dog</span>
+            <span class="standings-icon">🐶</span>
+          </div>
+          <div class="standings-row consolation">
+            <span class="standings-pos">8-15</span>
+            <span class="standings-label">Consolation</span>
+            <span class="standings-icon">🎯</span>
+          </div>
+          <div class="standings-row muddy">
+            <span class="standings-pos">16-17</span>
+            <span class="standings-label">Muddy Mile</span>
+            <span class="standings-icon">💩</span>
+          </div>
+        </div>
+
+        <div style="font-size: 9px; color: #9ca3af; margin-top: 8px; padding: 6px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+          <strong style="color: #f59e0b;">🐶 Lucky Dog:</strong> Team outside top 6 with most race winners gets 7th playoff spot!
+        </div>
+      </div>
+
+      <!-- ZIG SCALE & STRATEGIES -->
+      <div class="section full-width">
+        <div class="section-header">
+          <span class="section-icon">📈</span>
+          <span class="section-title">Understanding Your Team Analytics</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <div class="zig-scale">
+            <div style="font-weight: 600; font-size: 10px; margin-bottom: 6px;">Zig Score (Contrarian Meter)</div>
+            <div class="zig-bar"></div>
+            <div class="zig-labels">
+              <span>🧊 Chalk (same as everyone)</span>
+              <span>🔥 Zig (unique picks)</span>
+            </div>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
+            <div style="font-weight: 600; font-size: 10px; margin-bottom: 6px;">Pick Popularity</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px; font-size: 9px;">
+              <span style="background: rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px;">Unique</span>
+              <span style="background: rgba(16, 185, 129, 0.2); padding: 2px 6px; border-radius: 4px;">Rare</span>
+              <span style="background: rgba(245, 158, 11, 0.2); padding: 2px 6px; border-radius: 4px;">Uncommon</span>
+              <span style="background: rgba(249, 115, 22, 0.2); padding: 2px 6px; border-radius: 4px;">Common</span>
+              <span style="background: rgba(239, 68, 68, 0.2); padding: 2px 6px; border-radius: 4px;">Popular</span>
+              <span style="background: rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px;">Chalk</span>
+            </div>
+            <div style="font-size: 8px; color: #9ca3af; margin-top: 6px;">Shows how many other teams picked same drivers</div>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;">
+            <div style="font-weight: 600; font-size: 10px; margin-bottom: 6px;">TITS (Tier Tracking)</div>
+            <div style="font-size: 9px; color: #9ca3af;">
+              <div>• <span style="color: #fbbf24;">T1 Remaining:</span> Uses left for top drivers</div>
+              <div>• <span style="color: #10b981;">T2 Remaining:</span> Uses left for mid drivers</div>
+              <div>• <span style="color: #fff;">TITS %:</span> Overall resource health</div>
+            </div>
+            <div style="font-size: 8px; color: #6b7280; margin-top: 4px;">Higher % = more flexibility later!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <strong>Questions?</strong> Check the Rules page for complete details or ask your league commissioner • Good luck this season! 🏁
+    </div>
+  </div>
+</body>
+</html>
