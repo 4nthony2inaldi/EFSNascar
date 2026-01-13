@@ -229,14 +229,66 @@ export default async function RaceResultsPage({ params }: PageProps) {
               <thead>
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">Team</th>
+                  <th className="pb-3 pr-4 text-center">Points</th>
                   <th className="pb-3 pr-4">Driver 1</th>
                   <th className="pb-3 pr-4">Driver 2</th>
                   <th className="pb-3 pr-4">Driver 3</th>
                 </tr>
               </thead>
               <tbody>
-                {picks.map((pick: any) => {
+                {[...picks].sort((a: any, b: any) => {
+                  // Sort by calculated points (highest first)
+                  const getPoints = (pick: any) => {
+                    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+                    let totalPoints = 0;
+                    let stageBonus = 0;
+                    let lapsLedBonus = 0;
+                    let allTop10 = true;
+
+                    for (const driverId of driverIds) {
+                      const result = resultsMap[driverId];
+                      if (result) {
+                        totalPoints += formatPoints(result.finish_position);
+                        if (result.stage_1_winner) stageBonus += 1;
+                        if (result.stage_2_winner) stageBonus += 1;
+                        if (result.most_laps_led) lapsLedBonus = 1;
+                        if (result.finish_position > 10) allTop10 = false;
+                      } else {
+                        allTop10 = false;
+                      }
+                    }
+
+                    const top10Bonus = allTop10 ? 1 : 0;
+                    return totalPoints + stageBonus + lapsLedBonus + top10Bonus;
+                  };
+                  return getPoints(b) - getPoints(a);
+                }).map((pick: any) => {
                   const isUserTeam = pick.team_id === userTeamId;
+
+                  // Calculate team points from picks
+                  const calculateTeamPoints = () => {
+                    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+                    let totalPoints = 0;
+                    let stageBonus = 0;
+                    let lapsLedBonus = 0;
+                    let allTop10 = true;
+
+                    for (const driverId of driverIds) {
+                      const result = resultsMap[driverId];
+                      if (result) {
+                        totalPoints += formatPoints(result.finish_position);
+                        if (result.stage_1_winner) stageBonus += 1;
+                        if (result.stage_2_winner) stageBonus += 1;
+                        if (result.most_laps_led) lapsLedBonus = 1;
+                        if (result.finish_position > 10) allTop10 = false;
+                      } else {
+                        allTop10 = false;
+                      }
+                    }
+
+                    const top10Bonus = allTop10 ? 1 : 0;
+                    return totalPoints + stageBonus + lapsLedBonus + top10Bonus;
+                  };
 
                   const renderDriver = (driverId: string) => {
                     const result = resultsMap[driverId];
@@ -270,6 +322,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           </span>
                           <span className="text-white">{pick.team?.name}</span>
                         </Link>
+                      </td>
+                      <td className="py-3 pr-4 text-center text-white font-bold">
+                        {race.status === 'final' ? calculateTeamPoints() : '-'}
                       </td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
