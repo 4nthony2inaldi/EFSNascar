@@ -454,6 +454,27 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     }))
     .sort((a, b) => b.avgPoints - a.avgPoints);
 
+  // Strategy distribution data for bar chart (ordered by intensity: aggressive -> conservative)
+  const strategyOrder = [
+    { name: 'Hail Melon', color: 'bg-red-600' },
+    { name: 'All Gas', color: 'bg-orange-500' },
+    { name: 'Drafting', color: 'bg-amber-500' },
+    { name: 'Saving', color: 'bg-yellow-400' },
+    { name: "Gas 'N' Go", color: 'bg-lime-500' },
+    { name: 'Full Fuel', color: 'bg-emerald-500' },
+    { name: '2 Tires', color: 'bg-cyan-500' },
+    { name: '4 Tires', color: 'bg-blue-500' },
+    { name: '4 Tires & Fuel', color: 'bg-purple-600' },
+  ];
+
+  const strategyDistribution = strategyOrder.map(s => ({
+    name: s.name,
+    count: strategyStats[s.name]?.count || 0,
+    color: s.color,
+  }));
+
+  const maxStrategyCount = Math.max(...strategyDistribution.map(d => d.count), 1);
+
   // Calculate pick popularity stats for this team
   // Helper to get popularity level
   const getPopularityLevel = (count: number, totalTeams: number): string => {
@@ -604,6 +625,25 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       const order = ['unique', 'rare', 'uncommon', 'common', 'popular', 'chalk'];
       return order.indexOf(a.level) - order.indexOf(b.level);
     });
+
+  // Distribution data for bar chart (chalk -> unique order, left to right)
+  const popularityBarColors: Record<string, string> = {
+    chalk: 'bg-red-700',
+    popular: 'bg-red-400',
+    common: 'bg-orange-500',
+    uncommon: 'bg-yellow-500',
+    rare: 'bg-green-500',
+    unique: 'bg-green-800',
+  };
+
+  const popularityDistribution = ['chalk', 'popular', 'common', 'uncommon', 'rare', 'unique'].map(level => ({
+    level,
+    label: popularityLabels[level],
+    count: popularityStats[level].count,
+    color: popularityBarColors[level],
+  }));
+
+  const maxPopularityCount = Math.max(...popularityDistribution.map(d => d.count), 1);
 
   // Calculate average points by track type
   const trackTypeStats: Record<string, { totalPoints: number; count: number }> = {};
@@ -1041,6 +1081,27 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           ) : (
             <p className="text-gray-400">No completed races with pick data yet.</p>
           )}
+
+          {/* Popularity Distribution Bar Chart */}
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="text-xs text-gray-400 mb-2 flex justify-between">
+              <span>Chalk</span>
+              <span>Pick Distribution</span>
+              <span>Unique</span>
+            </div>
+            <div className="flex items-end gap-1 h-16">
+              {popularityDistribution.map((d) => (
+                <div key={d.level} className="flex-1 flex flex-col items-center">
+                  <div
+                    className={`w-full ${d.color} rounded-t transition-all`}
+                    style={{ height: `${(d.count / maxPopularityCount) * 100}%`, minHeight: d.count > 0 ? '4px' : '0' }}
+                    title={`${d.label}: ${d.count} picks`}
+                  />
+                  <span className="text-[10px] text-gray-500 mt-1">{d.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Average Points by Driver Tier */}
@@ -1117,6 +1178,27 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           ) : (
             <p className="text-gray-400">No completed races with strategy data yet.</p>
           )}
+
+          {/* Strategy Distribution Bar Chart */}
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="text-xs text-gray-400 mb-2 flex justify-between">
+              <span>Hail Melon</span>
+              <span>Strategy Distribution</span>
+              <span>4 Tires & Fuel</span>
+            </div>
+            <div className="flex items-end gap-1 h-16">
+              {strategyDistribution.map((d, idx) => (
+                <div key={d.name} className="flex-1 flex flex-col items-center">
+                  <div
+                    className={`w-full ${d.color} rounded-t transition-all`}
+                    style={{ height: `${(d.count / maxStrategyCount) * 100}%`, minHeight: d.count > 0 ? '4px' : '0' }}
+                    title={`${d.name}: ${d.count} races`}
+                  />
+                  <span className="text-[10px] text-gray-500 mt-1">{d.count > 0 ? d.count : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Average Points by Track Type */}
