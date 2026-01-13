@@ -184,7 +184,7 @@ export default function ResultsImportPage() {
         </p>
         <ul className="text-purple-300 text-sm space-y-1 list-disc list-inside mb-4">
           <li>Finishing positions for all drivers</li>
-          <li>Stage 1 and Stage 2 winners</li>
+          <li>Stage 1, Stage 2, and Stage 3 winners (when available in source data)</li>
           <li>Laps led by each driver</li>
           <li>Most laps led designation</li>
         </ul>
