@@ -27,6 +27,7 @@ export default function AdminResultsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -214,6 +215,20 @@ export default function AdminResultsPage() {
         .update({ status: 'final' })
         .eq('id', selectedRace.id);
 
+      // Calculate scores for this race
+      const scoreResponse = await fetch('/api/calculate-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ race_id: selectedRace.id }),
+      });
+
+      if (!scoreResponse.ok) {
+        const scoreError = await scoreResponse.json();
+        console.error('Score calculation error:', scoreError);
+        // Don't throw - results are saved, just warn about scores
+        setError('Results saved but score calculation failed: ' + (scoreError.error || 'Unknown error'));
+      }
+
       setSuccess(true);
 
       // Reload data
@@ -222,6 +237,34 @@ export default function AdminResultsPage() {
       setError(err.message || 'Failed to save results');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCalculateScores = async () => {
+    if (!selectedRace) return;
+
+    setCalculating(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/calculate-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ race_id: selectedRace.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to calculate scores');
+      }
+
+      const data = await response.json();
+      setSuccess(true);
+      alert(`Scores calculated for ${data.scores?.length || 0} teams`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to calculate scores');
+    } finally {
+      setCalculating(false);
     }
   };
 
@@ -270,6 +313,15 @@ export default function AdminResultsPage() {
                 {selectedRace.status}
               </span>
             </p>
+            {existingResults.length > 0 && (
+              <button
+                onClick={handleCalculateScores}
+                disabled={calculating}
+                className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {calculating ? 'Calculating...' : 'Calculate Scores for This Race'}
+              </button>
+            )}
           </div>
         )}
       </div>
