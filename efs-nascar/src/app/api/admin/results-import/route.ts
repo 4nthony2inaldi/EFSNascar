@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Import the static JSON data
 import results2020 from '@/data/results/nascar-results-2020.json';
@@ -149,7 +150,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    // Try to use admin client (bypasses RLS), fall back to regular client
+    const adminClient = createAdminClient();
+    const regularClient = await createClient();
+    const supabase = adminClient || regularClient;
+    const usingAdminClient = !!adminClient;
 
     // Get the season for this year
     const { data: season, error: seasonError } = await supabase
@@ -314,6 +319,7 @@ export async function POST(request: NextRequest) {
       // Debug info
       driversInDatabase: driverMap.size,
       sampleDbDrivers: Array.from(driverMap.keys()).slice(0, 10),
+      usingAdminClient,
     });
   } catch (error: any) {
     console.error('Import error:', error);
