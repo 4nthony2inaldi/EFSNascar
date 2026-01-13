@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, Team } from '@/types';
+import { SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
 interface NavbarProps {
   user: Profile | null;
@@ -13,17 +14,44 @@ interface NavbarProps {
   isCommissioner: boolean;
 }
 
+// Helper to get cookie value on client
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
+}
+
 export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [seasonParam, setSeasonParam] = useState<string | null>(null);
   const supabase = createClient();
+
+  // Get the season from URL or cookie
+  useEffect(() => {
+    const urlSeason = searchParams.get('season');
+    const cookieSeason = getCookie(SEASON_COOKIE_NAME);
+    setSeasonParam(urlSeason || cookieSeason);
+  }, [searchParams]);
+
+  // Helper to build href with season param preserved
+  const buildHref = (basePath: string) => {
+    if (seasonParam) {
+      return `${basePath}?season=${seasonParam}`;
+    }
+    return basePath;
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
     router.refresh();
   };
+
+  // Pages that support season filtering
+  const seasonAwarePages = ['/', '/standings', '/picks', '/schedule', '/driver-rankings', '/driver-usage', '/teams'];
 
   const navLinks = [
     { href: '/', label: 'Dashboard' },
@@ -35,6 +63,14 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
     { href: '/teams', label: 'Teams' },
     { href: '/rules', label: 'Rules' },
   ];
+
+  // Build href with season param for season-aware pages
+  const getNavHref = (href: string) => {
+    if (seasonAwarePages.includes(href)) {
+      return buildHref(href);
+    }
+    return href;
+  };
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -70,7 +106,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
-                    href={link.href}
+                    href={getNavHref(link.href)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive(link.href)
                         ? 'bg-gradient-to-r from-purple-600/30 to-purple-800/30 text-amber-400 border border-purple-500/30'
@@ -155,7 +191,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
-                    href={link.href}
+                    href={getNavHref(link.href)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`block px-4 py-3 rounded-lg text-base font-medium ${
                       isActive(link.href)
