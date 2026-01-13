@@ -5,7 +5,9 @@ import { POSITION_POINTS, BASE_DRIVER_USES, DEFAULT_BONUS_USES } from '@/types';
 // Default configuration values (used when no config exists for a season)
 export const DEFAULT_SCORING_CONFIG: Omit<ScoringConfig, 'id' | 'season_id' | 'created_at' | 'updated_at'> = {
   position_points: { ...POSITION_POINTS },
-  stage_win_bonus: 1,
+  stage_1_bonus: 1,
+  stage_2_bonus: 1,
+  stage_3_bonus: 1,
   laps_led_bonus: 1,
   top_10_all_drivers_bonus: 1,
   base_driver_uses: BASE_DRIVER_USES,
@@ -47,9 +49,17 @@ export function getPointsForPosition(position: number, config: ScoringConfig | n
   return points[position] || 0;
 }
 
-// Get bonus values
-export function getStageBonusPoints(config: ScoringConfig | null): number {
-  return config?.stage_win_bonus ?? DEFAULT_SCORING_CONFIG.stage_win_bonus;
+// Get bonus values for each stage
+export function getStage1BonusPoints(config: ScoringConfig | null): number {
+  return config?.stage_1_bonus ?? DEFAULT_SCORING_CONFIG.stage_1_bonus;
+}
+
+export function getStage2BonusPoints(config: ScoringConfig | null): number {
+  return config?.stage_2_bonus ?? DEFAULT_SCORING_CONFIG.stage_2_bonus;
+}
+
+export function getStage3BonusPoints(config: ScoringConfig | null): number {
+  return config?.stage_3_bonus ?? DEFAULT_SCORING_CONFIG.stage_3_bonus;
 }
 
 export function getLapsLedBonusPoints(config: ScoringConfig | null): number {

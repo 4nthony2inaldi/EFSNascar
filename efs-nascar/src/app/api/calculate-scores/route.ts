@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 import type { ScoringConfig } from '@/types';
 import {
   getPointsForPosition,
-  getStageBonusPoints,
+  getStage1BonusPoints,
+  getStage2BonusPoints,
+  getStage3BonusPoints,
   getLapsLedBonusPoints,
   getTop10AllDriversBonusPoints,
 } from '@/lib/scoring-config';
@@ -127,7 +129,9 @@ export async function POST(request: Request) {
       let stageWins = 0;
 
       // Calculate points for each driver using scoring config
-      const stageBonusValue = getStageBonusPoints(config);
+      const stage1BonusValue = getStage1BonusPoints(config);
+      const stage2BonusValue = getStage2BonusPoints(config);
+      const stage3BonusValue = getStage3BonusPoints(config);
       const lapsLedBonusValue = getLapsLedBonusPoints(config);
       const top10BonusValue = getTop10AllDriversBonusPoints(config);
 
@@ -140,17 +144,17 @@ export async function POST(request: Request) {
           else if (index === 1) driver2Points = points;
           else driver3Points = points;
 
-          // Stage bonus (using config value)
+          // Stage bonuses (using per-stage config values)
           if (result.stage_1_winner) {
-            stageBonus += stageBonusValue;
+            stageBonus += stage1BonusValue;
             stageWins += 1;
           }
           if (result.stage_2_winner) {
-            stageBonus += stageBonusValue;
+            stageBonus += stage2BonusValue;
             stageWins += 1;
           }
           if (result.stage_3_winner) {
-            stageBonus += stageBonusValue;
+            stageBonus += stage3BonusValue;
             stageWins += 1;
           }
 

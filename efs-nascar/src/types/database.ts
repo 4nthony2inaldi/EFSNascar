@@ -174,8 +174,10 @@ export interface ScoringConfig {
   // Position points (JSON object: {"1": 10, "2": 9, ...})
   position_points: Record<string, number>;
 
-  // Bonus points
-  stage_win_bonus: number;
+  // Bonus points (separate values for each stage)
+  stage_1_bonus: number;
+  stage_2_bonus: number;
+  stage_3_bonus: number;
   laps_led_bonus: number;
   top_10_all_drivers_bonus: number;
 

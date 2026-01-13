@@ -79,6 +79,7 @@ export interface RaceScore {
 
 /**
  * Determines the current playoff round based on completed races
+ * Handles 0-race rounds (skipped rounds) appropriately
  */
 export function getPlayoffRound(
   completedPlayoffRaces: { race_type: RaceType }[],
@@ -92,9 +93,18 @@ export function getPlayoffRound(
   const round2Races = completedPlayoffRaces.filter(r => r.race_type === 'playoff_round2').length;
   const finalsRaces = completedPlayoffRaces.filter(r => r.race_type === 'playoff_finals').length;
 
-  if (finalsRaces >= finalsRacesNeeded) return 'complete';
-  if (finalsRaces > 0 || round2Races >= round2RacesNeeded) return 'finals';
-  if (round2Races > 0 || round1Races >= round1RacesNeeded) return 'round2';
+  // Handle completion based on what rounds exist
+  if (finalsRacesNeeded > 0 && finalsRaces >= finalsRacesNeeded) return 'complete';
+  if (finalsRacesNeeded === 0 && round2RacesNeeded > 0 && round2Races >= round2RacesNeeded) return 'complete';
+  if (finalsRacesNeeded === 0 && round2RacesNeeded === 0 && round1RacesNeeded > 0 && round1Races >= round1RacesNeeded) return 'complete';
+
+  // Determine current round
+  if (finalsRaces > 0 || (round2RacesNeeded > 0 && round2Races >= round2RacesNeeded)) return 'finals';
+  if (round2Races > 0 || (round1RacesNeeded > 0 && round1Races >= round1RacesNeeded) || round1RacesNeeded === 0) {
+    // If round 1 is skipped (0 races), go straight to round 2 check
+    if (round1RacesNeeded === 0 && round2Races > 0) return 'round2';
+    if (round1RacesNeeded > 0 && (round2Races > 0 || round1Races >= round1RacesNeeded)) return 'round2';
+  }
   if (round1Races > 0) return 'round1';
 
   return 'not_started';
@@ -199,42 +209,77 @@ export function calculatePlayoffStandings(
       }));
   };
 
+  // Check if rounds are skipped (0 races configured)
+  const round1Skipped = playoffOpts.round1Races === 0;
+  const round2Skipped = playoffOpts.round2Races === 0;
+  const finalsSkipped = playoffOpts.finalsRaces === 0;
+
   // Calculate Round 1 standings (seeds after catbird compete)
-  const round1Competitors = championshipSeeds.slice(numCatbirdSeats); // Seeds after catbird seats
+  // If round 1 is skipped, this will be empty
+  const round1Competitors = round1Skipped ? [] : championshipSeeds.slice(numCatbirdSeats);
   const round1Standings = aggregateScores(round1Competitors, round1Scores, regularSeasonStandings);
 
-  // Determine who was eliminated after Round 1 (if round 1 is complete)
-  const round1EliminationCount = playoffOpts.round1Eliminations;
+  // Determine who was eliminated after Round 1 (if round 1 exists and is complete)
+  const round1EliminationCount = round1Skipped ? 0 : playoffOpts.round1Eliminations;
   let round1Eliminated: string[] = [];
-  if (round1Scores.length >= playoffOpts.round1Races && round1Standings.length > 0) {
+  if (!round1Skipped && round1Scores.length >= playoffOpts.round1Races && round1Standings.length > 0 && round1EliminationCount > 0) {
     // Bottom N teams after Round 1 are eliminated
     round1Eliminated = round1Standings.slice(-round1EliminationCount).map(s => s.team_id);
     eliminated.push(...round1Eliminated);
   }
 
-  // Calculate Round 2 standings (catbird seats + survivors from round 1)
-  const round1Survivors = round1Standings.length - round1EliminationCount;
-  const round2Competitors = [
-    ...catbirdSeats,
-    ...round1Standings.slice(0, round1Survivors).map(s => s.team_id).filter(id => !round1Eliminated.includes(id)),
-  ];
+  // Calculate Round 2 standings
+  // If round 1 is skipped, all championship teams go directly to round 2
+  // If round 2 is also skipped, this will be empty
+  let round2Competitors: string[] = [];
+  if (round2Skipped) {
+    round2Competitors = [];
+  } else if (round1Skipped) {
+    // Round 1 skipped - all championship teams compete in round 2
+    round2Competitors = championshipSeeds;
+  } else {
+    // Normal flow - catbird seats + round 1 survivors
+    const round1Survivors = round1Standings.length - round1EliminationCount;
+    round2Competitors = [
+      ...catbirdSeats,
+      ...round1Standings.slice(0, round1Survivors).map(s => s.team_id).filter(id => !round1Eliminated.includes(id)),
+    ];
+  }
   const round2Standings = aggregateScores(round2Competitors, round2Scores, regularSeasonStandings);
 
-  // Determine who was eliminated after Round 2 (if round 2 is complete)
-  const round2EliminationCount = playoffOpts.round2Eliminations;
+  // Determine who was eliminated after Round 2 (if round 2 exists and is complete)
+  const round2EliminationCount = round2Skipped ? 0 : playoffOpts.round2Eliminations;
   let round2Eliminated: string[] = [];
-  if (round2Scores.length >= playoffOpts.round2Races && round2Standings.length > 0) {
+  if (!round2Skipped && round2Scores.length >= playoffOpts.round2Races && round2Standings.length > 0 && round2EliminationCount > 0) {
     // Bottom N teams after Round 2 are eliminated
     round2Eliminated = round2Standings.slice(-round2EliminationCount).map(s => s.team_id);
     eliminated.push(...round2Eliminated);
   }
 
-  // Calculate Finals standings (survivors from round 2)
-  const round2Survivors = round2Standings.length - round2EliminationCount;
-  const finalsCompetitors = round2Standings
-    .slice(0, round2Survivors)
-    .map(s => s.team_id)
-    .filter(id => !round2Eliminated.includes(id));
+  // Calculate Finals standings
+  // If finals is skipped, this will be empty
+  let finalsCompetitors: string[] = [];
+  if (finalsSkipped) {
+    finalsCompetitors = [];
+  } else if (round2Skipped) {
+    // Round 2 skipped - survivors from round 1 (or all championship if round 1 also skipped)
+    if (round1Skipped) {
+      finalsCompetitors = championshipSeeds;
+    } else {
+      const round1Survivors = round1Standings.length - round1EliminationCount;
+      finalsCompetitors = round1Standings
+        .slice(0, round1Survivors)
+        .map(s => s.team_id)
+        .filter(id => !round1Eliminated.includes(id));
+    }
+  } else {
+    // Normal flow - survivors from round 2
+    const round2Survivors = round2Standings.length - round2EliminationCount;
+    finalsCompetitors = round2Standings
+      .slice(0, round2Survivors)
+      .map(s => s.team_id)
+      .filter(id => !round2Eliminated.includes(id));
+  }
   const finalsStandings = aggregateScores(finalsCompetitors, finalsScores, regularSeasonStandings);
 
   // Consolation Bracket: seeds 8-15 + eliminated championship teams

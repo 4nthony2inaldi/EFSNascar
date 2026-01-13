@@ -28,8 +28,10 @@ export default function AdminScoringPage() {
     // Position points
     position_points: { ...DEFAULT_POSITION_POINTS },
 
-    // Bonus points
-    stage_win_bonus: 1,
+    // Bonus points (separate values for each stage)
+    stage_1_bonus: 1,
+    stage_2_bonus: 1,
+    stage_3_bonus: 1,
     laps_led_bonus: 1,
     top_10_all_drivers_bonus: 1,
 
@@ -49,7 +51,7 @@ export default function AdminScoringPage() {
     muddy_mile_start: 16,
     muddy_mile_end: 17,
 
-    // Playoff round configuration
+    // Playoff round configuration (0 = skip round)
     playoff_round1_races: 1,
     playoff_round2_races: 2,
     playoff_finals_races: 2,
@@ -96,7 +98,9 @@ export default function AdminScoringPage() {
       setEditingConfig(existingConfig);
       setFormData({
         position_points: existingConfig.position_points as Record<string, number>,
-        stage_win_bonus: existingConfig.stage_win_bonus,
+        stage_1_bonus: existingConfig.stage_1_bonus,
+        stage_2_bonus: existingConfig.stage_2_bonus,
+        stage_3_bonus: existingConfig.stage_3_bonus,
         laps_led_bonus: existingConfig.laps_led_bonus,
         top_10_all_drivers_bonus: existingConfig.top_10_all_drivers_bonus,
         base_driver_uses: existingConfig.base_driver_uses,
@@ -120,7 +124,9 @@ export default function AdminScoringPage() {
       // Reset to defaults
       setFormData({
         position_points: { ...DEFAULT_POSITION_POINTS },
-        stage_win_bonus: 1,
+        stage_1_bonus: 1,
+        stage_2_bonus: 1,
+        stage_3_bonus: 1,
         laps_led_bonus: 1,
         top_10_all_drivers_bonus: 1,
         base_driver_uses: 4,
@@ -157,7 +163,9 @@ export default function AdminScoringPage() {
     const configData = {
       season_id: selectedSeasonId,
       position_points: formData.position_points,
-      stage_win_bonus: formData.stage_win_bonus,
+      stage_1_bonus: formData.stage_1_bonus,
+      stage_2_bonus: formData.stage_2_bonus,
+      stage_3_bonus: formData.stage_3_bonus,
       laps_led_bonus: formData.laps_led_bonus,
       top_10_all_drivers_bonus: formData.top_10_all_drivers_bonus,
       base_driver_uses: formData.base_driver_uses,
@@ -217,7 +225,9 @@ export default function AdminScoringPage() {
     if (sourceConfig) {
       setFormData({
         position_points: sourceConfig.position_points as Record<string, number>,
-        stage_win_bonus: sourceConfig.stage_win_bonus,
+        stage_1_bonus: sourceConfig.stage_1_bonus,
+        stage_2_bonus: sourceConfig.stage_2_bonus,
+        stage_3_bonus: sourceConfig.stage_3_bonus,
         laps_led_bonus: sourceConfig.laps_led_bonus,
         top_10_all_drivers_bonus: sourceConfig.top_10_all_drivers_bonus,
         base_driver_uses: sourceConfig.base_driver_uses,
@@ -350,21 +360,42 @@ export default function AdminScoringPage() {
             {/* Bonus Points */}
             <div>
               <h4 className="text-md font-bold text-amber-400 mb-3">Bonus Points</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-1">Stage Win Bonus</label>
+                  <label className="block text-sm font-medium text-purple-200 mb-1">Stage 1 Win</label>
                   <input
                     type="number"
                     min="0"
                     max="10"
-                    value={formData.stage_win_bonus}
-                    onChange={(e) => setFormData({ ...formData, stage_win_bonus: parseInt(e.target.value) || 0 })}
+                    value={formData.stage_1_bonus}
+                    onChange={(e) => setFormData({ ...formData, stage_1_bonus: parseInt(e.target.value) || 0 })}
                     className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <p className="text-xs text-purple-500 mt-1">Points per stage win</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-1">Most Laps Led Bonus</label>
+                  <label className="block text-sm font-medium text-purple-200 mb-1">Stage 2 Win</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={formData.stage_2_bonus}
+                    onChange={(e) => setFormData({ ...formData, stage_2_bonus: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-purple-200 mb-1">Stage 3 Win</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={formData.stage_3_bonus}
+                    onChange={(e) => setFormData({ ...formData, stage_3_bonus: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-purple-200 mb-1">Most Laps Led</label>
                   <input
                     type="number"
                     min="0"
@@ -373,10 +404,9 @@ export default function AdminScoringPage() {
                     onChange={(e) => setFormData({ ...formData, laps_led_bonus: parseInt(e.target.value) || 0 })}
                     className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <p className="text-xs text-purple-500 mt-1">Points for most laps led</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-1">All 3 Drivers Top 10</label>
+                  <label className="block text-sm font-medium text-purple-200 mb-1">All 3 Top 10</label>
                   <input
                     type="number"
                     min="0"
@@ -385,9 +415,9 @@ export default function AdminScoringPage() {
                     onChange={(e) => setFormData({ ...formData, top_10_all_drivers_bonus: parseInt(e.target.value) || 0 })}
                     className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <p className="text-xs text-purple-500 mt-1">Bonus when all 3 finish top 10</p>
                 </div>
               </div>
+              <p className="text-xs text-purple-500 mt-2">Points awarded for each type of bonus</p>
             </div>
 
             {/* Driver Usage */}
@@ -551,39 +581,49 @@ export default function AdminScoringPage() {
                   {/* Playoff Rounds */}
                   <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-700/30">
                     <h5 className="text-sm font-bold text-white mb-3">Playoff Round Structure</h5>
+                    <p className="text-xs text-purple-400 mb-4">Set races to 0 to skip a round entirely (e.g., for simpler playoff formats)</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                       <div>
                         <label className="block text-sm font-medium text-purple-200 mb-1">Round 1 Races</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           max="10"
                           value={formData.playoff_round1_races}
-                          onChange={(e) => setFormData({ ...formData, playoff_round1_races: parseInt(e.target.value) || 1 })}
+                          onChange={(e) => setFormData({ ...formData, playoff_round1_races: parseInt(e.target.value) || 0 })}
                           className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
+                        {formData.playoff_round1_races === 0 && (
+                          <p className="text-xs text-amber-400 mt-1">Round skipped</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-purple-200 mb-1">Round 2 Races</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           max="10"
                           value={formData.playoff_round2_races}
-                          onChange={(e) => setFormData({ ...formData, playoff_round2_races: parseInt(e.target.value) || 1 })}
+                          onChange={(e) => setFormData({ ...formData, playoff_round2_races: parseInt(e.target.value) || 0 })}
                           className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
+                        {formData.playoff_round2_races === 0 && (
+                          <p className="text-xs text-amber-400 mt-1">Round skipped</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-purple-200 mb-1">Finals Races</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           max="10"
                           value={formData.playoff_finals_races}
-                          onChange={(e) => setFormData({ ...formData, playoff_finals_races: parseInt(e.target.value) || 1 })}
+                          onChange={(e) => setFormData({ ...formData, playoff_finals_races: parseInt(e.target.value) || 0 })}
                           className="w-full px-4 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
+                        {formData.playoff_finals_races === 0 && (
+                          <p className="text-xs text-amber-400 mt-1">Round skipped</p>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -669,7 +709,7 @@ export default function AdminScoringPage() {
                       P1:{config.position_points['1']} P2:{config.position_points['2']} P3:{config.position_points['3']}...
                     </td>
                     <td className="px-4 py-3 text-purple-300 text-sm">
-                      Stage:{config.stage_win_bonus} Laps:{config.laps_led_bonus} T10:{config.top_10_all_drivers_bonus}
+                      S1:{config.stage_1_bonus} S2:{config.stage_2_bonus} S3:{config.stage_3_bonus} Laps:{config.laps_led_bonus} T10:{config.top_10_all_drivers_bonus}
                     </td>
                     <td className="px-4 py-3 text-purple-300 text-sm">
                       {config.base_driver_uses} (+{config.bonus_uses_per_season})

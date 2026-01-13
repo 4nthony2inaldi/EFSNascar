@@ -8,8 +8,10 @@ CREATE TABLE IF NOT EXISTS scoring_configs (
   -- Position points (JSON object: {"1": 10, "2": 9, ...})
   position_points JSONB NOT NULL DEFAULT '{"1": 10, "2": 9, "3": 8, "4": 7, "5": 6, "6": 5, "7": 4, "8": 3, "9": 2, "10": 1}',
 
-  -- Bonus points
-  stage_win_bonus INTEGER NOT NULL DEFAULT 1,
+  -- Bonus points (separate values for each stage)
+  stage_1_bonus INTEGER NOT NULL DEFAULT 1,
+  stage_2_bonus INTEGER NOT NULL DEFAULT 1,
+  stage_3_bonus INTEGER NOT NULL DEFAULT 1,
   laps_led_bonus INTEGER NOT NULL DEFAULT 1,
   top_10_all_drivers_bonus INTEGER NOT NULL DEFAULT 1,
 
@@ -29,7 +31,7 @@ CREATE TABLE IF NOT EXISTS scoring_configs (
   muddy_mile_start INTEGER NOT NULL DEFAULT 16,
   muddy_mile_end INTEGER NOT NULL DEFAULT 17,
 
-  -- Playoff round configuration (number of races per round)
+  -- Playoff round configuration (number of races per round, 0 = skip round)
   playoff_round1_races INTEGER NOT NULL DEFAULT 1,
   playoff_round2_races INTEGER NOT NULL DEFAULT 2,
   playoff_finals_races INTEGER NOT NULL DEFAULT 2,
