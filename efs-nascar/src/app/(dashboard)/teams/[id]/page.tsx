@@ -109,40 +109,51 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     }
   }
 
+  // Get race IDs for querying (guard against empty array)
+  const raceIds = races.map(r => r.id);
+
   // Get all picks for this team in selected season
-  const { data: picksData } = await supabase
-    .from('picks')
-    .select(`
-      *,
-      driver_1:drivers!picks_driver_1_id_fkey(*),
-      driver_2:drivers!picks_driver_2_id_fkey(*),
-      driver_3:drivers!picks_driver_3_id_fkey(*)
-    `)
-    .eq('team_id', id)
-    .in('race_id', races.map(r => r.id));
+  const { data: picksData } = raceIds.length > 0
+    ? await supabase
+        .from('picks')
+        .select(`
+          *,
+          driver_1:drivers!picks_driver_1_id_fkey(*),
+          driver_2:drivers!picks_driver_2_id_fkey(*),
+          driver_3:drivers!picks_driver_3_id_fkey(*)
+        `)
+        .eq('team_id', id)
+        .in('race_id', raceIds)
+    : { data: [] };
 
   // Get ALL picks for ALL teams in selected season (for popularity and league average calculations)
-  const { data: allPicksData } = await supabase
-    .from('picks')
-    .select('race_id, driver_1_id, driver_2_id, driver_3_id, team_id')
-    .in('race_id', races.map(r => r.id));
+  const { data: allPicksData } = raceIds.length > 0
+    ? await supabase
+        .from('picks')
+        .select('race_id, driver_1_id, driver_2_id, driver_3_id, team_id')
+        .in('race_id', raceIds)
+    : { data: [] };
 
   // Get expanded picks for all teams (for league-wide strategy calculation)
-  const { data: allPicksExpandedData } = await supabase
-    .from('picks')
-    .select(`
-      *,
-      driver_1:drivers!picks_driver_1_id_fkey(*),
-      driver_2:drivers!picks_driver_2_id_fkey(*),
-      driver_3:drivers!picks_driver_3_id_fkey(*)
-    `)
-    .in('race_id', races.map(r => r.id));
+  const { data: allPicksExpandedData } = raceIds.length > 0
+    ? await supabase
+        .from('picks')
+        .select(`
+          *,
+          driver_1:drivers!picks_driver_1_id_fkey(*),
+          driver_2:drivers!picks_driver_2_id_fkey(*),
+          driver_3:drivers!picks_driver_3_id_fkey(*)
+        `)
+        .in('race_id', raceIds)
+    : { data: [] };
 
   // Get all race results for the selected season
-  const { data: raceResultsData } = await supabase
-    .from('race_results')
-    .select('*')
-    .in('race_id', races.map(r => r.id));
+  const { data: raceResultsData } = raceIds.length > 0
+    ? await supabase
+        .from('race_results')
+        .select('*')
+        .in('race_id', raceIds)
+    : { data: [] };
 
   // Build lookup maps
   const picksByRaceId = new Map<string, any>();
