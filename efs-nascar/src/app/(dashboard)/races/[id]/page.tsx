@@ -103,7 +103,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
   // Calculate total points for a driver including bonuses
   const calculateDriverTotalPoints = (result: any) => {
     const positionPoints = POSITION_POINTS[result.finish_position] || 0;
-    const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0);
+    const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0) + (result.stage_3_winner ? 1 : 0);
     const lapsLedBonus = result.most_laps_led ? 1 : 0;
     return positionPoints + stageBonus + lapsLedBonus;
   };
@@ -111,6 +111,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
   // Find stage winners and most laps led
   const stage1Winner = results?.find((r: any) => r.stage_1_winner);
   const stage2Winner = results?.find((r: any) => r.stage_2_winner);
+  const stage3Winner = results?.find((r: any) => r.stage_3_winner);
   const mostLapsLed = results?.find((r: any) => r.most_laps_led);
 
   // Check if deadline has passed for showing picks link
@@ -170,6 +171,14 @@ export default async function RaceResultsPage({ params }: PageProps) {
                 <div className="text-gray-400 text-sm">Stage 2 Winner</div>
                 <div className="text-white font-medium">
                   #{stage2Winner.driver?.car_number} {stage2Winner.driver?.name}
+                </div>
+              </div>
+            )}
+            {stage3Winner && (
+              <div className="bg-gray-700 rounded-lg p-4">
+                <div className="text-gray-400 text-sm">Stage 3 Winner</div>
+                <div className="text-white font-medium">
+                  #{stage3Winner.driver?.car_number} {stage3Winner.driver?.name}
                 </div>
               </div>
             )}
@@ -315,6 +324,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           )}
                           {result.stage_2_winner && (
                             <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded">S2</span>
+                          )}
+                          {result.stage_3_winner && (
+                            <span className="px-1.5 py-0.5 bg-pink-500/20 text-pink-400 text-xs rounded">S3</span>
                           )}
                           {result.most_laps_led && (
                             <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">ML</span>

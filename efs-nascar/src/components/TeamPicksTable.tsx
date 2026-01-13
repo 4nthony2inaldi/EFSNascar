@@ -39,7 +39,7 @@ function getOverlapColor(count: number, totalTeams: number) {
 
 function calculateDriverTotalPoints(result: any) {
   const positionPoints = POSITION_POINTS[result.finish_position] || 0;
-  const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0);
+  const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0) + (result.stage_3_winner ? 1 : 0);
   const lapsLedBonus = result.most_laps_led ? 1 : 0;
   return positionPoints + stageBonus + lapsLedBonus;
 }

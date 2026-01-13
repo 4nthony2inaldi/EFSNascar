@@ -127,6 +127,10 @@ export async function POST(request: Request) {
             stageBonus += 1;
             stageWins += 1;
           }
+          if (result.stage_3_winner) {
+            stageBonus += 1;
+            stageWins += 1;
+          }
 
           // Most laps led bonus
           if (result.most_laps_led) {

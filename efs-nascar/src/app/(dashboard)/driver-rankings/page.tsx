@@ -24,11 +24,13 @@ function calculateFantasyPoints(
   finishPosition: number,
   stage1Winner: boolean,
   stage2Winner: boolean,
+  stage3Winner: boolean,
   mostLapsLed: boolean
 ): number {
   let points = POSITION_POINTS[finishPosition] || 0;
   if (stage1Winner) points += 1;
   if (stage2Winner) points += 1;
+  if (stage3Winner) points += 1;
   if (mostLapsLed) points += 1;
   return points;
 }
@@ -77,6 +79,7 @@ export default async function DriverRankingsPage() {
         finish_position,
         stage_1_winner,
         stage_2_winner,
+        stage_3_winner,
         most_laps_led,
         api_driver_name,
         api_car_number
@@ -185,6 +188,7 @@ export default async function DriverRankingsPage() {
       result.finish_position || 0,
       result.stage_1_winner || false,
       result.stage_2_winner || false,
+      result.stage_3_winner || false,
       result.most_laps_led || false
     );
 
@@ -205,6 +209,7 @@ export default async function DriverRankingsPage() {
 
     if (result.stage_1_winner) stats.stage_wins += 1;
     if (result.stage_2_winner) stats.stage_wins += 1;
+    if (result.stage_3_winner) stats.stage_wins += 1;
 
     if (result.most_laps_led) stats.laps_led_races += 1;
   }

@@ -318,6 +318,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     let bonusPoints = 0;
     if (result.stage_1_winner) bonusPoints += 1;
     if (result.stage_2_winner) bonusPoints += 1;
+    if (result.stage_3_winner) bonusPoints += 1;
     // Note: laps led bonus is team-level (only 1 per team), but for max potential we include it
     if (result.most_laps_led) bonusPoints += 1;
 
@@ -352,6 +353,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         // Add stage wins
         if (result.stage_1_winner) points += 1;
         if (result.stage_2_winner) points += 1;
+        if (result.stage_3_winner) points += 1;
         // Add laps led (individual driver contribution)
         if (result.most_laps_led) points += 1;
       }
@@ -666,6 +668,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         points = POSITION_POINTS[result.finish_position] || 0;
         if (result.stage_1_winner) points += 1;
         if (result.stage_2_winner) points += 1;
+        if (result.stage_3_winner) points += 1;
         if (result.most_laps_led) points += 1;
       }
 
@@ -723,6 +726,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         points = POSITION_POINTS[result.finish_position] || 0;
         if (result.stage_1_winner) points += 1;
         if (result.stage_2_winner) points += 1;
+        if (result.stage_3_winner) points += 1;
         if (result.most_laps_led) points += 1;
       }
 
@@ -832,6 +836,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         points = POSITION_POINTS[result.finish_position] || 0;
         if (result.stage_1_winner) points += 1;
         if (result.stage_2_winner) points += 1;
+        if (result.stage_3_winner) points += 1;
         if (result.most_laps_led) points += 1;
       }
 
@@ -953,6 +958,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         points = POSITION_POINTS[result.finish_position] || 0;
         if (result.stage_1_winner) points += 1;
         if (result.stage_2_winner) points += 1;
+        if (result.stage_3_winner) points += 1;
         if (result.most_laps_led) points += 1;
       }
 
@@ -985,6 +991,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         points = POSITION_POINTS[result.finish_position] || 0;
         if (result.stage_1_winner) points += 1;
         if (result.stage_2_winner) points += 1;
+        if (result.stage_3_winner) points += 1;
         if (result.most_laps_led) points += 1;
       }
 

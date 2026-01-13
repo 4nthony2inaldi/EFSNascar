@@ -10,6 +10,7 @@ interface ResultEntry {
   finish_position: number;
   stage_1_winner: boolean;
   stage_2_winner: boolean;
+  stage_3_winner: boolean;
   laps_led: number;
   most_laps_led: boolean;
 }
@@ -23,6 +24,7 @@ interface ApiImportResult {
     resultsCount: number;
     stage1Winner?: { name: string; carNumber: number } | null;
     stage2Winner?: { name: string; carNumber: number } | null;
+    stage3Winner?: { name: string; carNumber: number } | null;
     mostLapsLed?: { name: string; carNumber: number; lapsLed: number } | null;
   };
   warnings?: {
@@ -123,6 +125,7 @@ export default function AdminResultsPage() {
         finish_position: r.finish_position,
         stage_1_winner: r.stage_1_winner,
         stage_2_winner: r.stage_2_winner,
+        stage_3_winner: r.stage_3_winner || false,
         laps_led: r.laps_led,
         most_laps_led: r.most_laps_led,
       })));
@@ -151,6 +154,7 @@ export default function AdminResultsPage() {
       finish_position: nextPosition,
       stage_1_winner: false,
       stage_2_winner: false,
+      stage_3_winner: false,
       laps_led: 0,
       most_laps_led: false,
     }]);
@@ -225,6 +229,7 @@ export default function AdminResultsPage() {
           finish_position: r.finish_position,
           stage_1_winner: r.stage_1_winner,
           stage_2_winner: r.stage_2_winner,
+          stage_3_winner: r.stage_3_winner,
           laps_led: r.laps_led,
           most_laps_led: r.most_laps_led,
         })));
@@ -458,6 +463,7 @@ export default function AdminResultsPage() {
                     <th className="pb-3 pr-4">Driver</th>
                     <th className="pb-3 pr-4 text-center w-24">Stage 1</th>
                     <th className="pb-3 pr-4 text-center w-24">Stage 2</th>
+                    <th className="pb-3 pr-4 text-center w-24">Stage 3</th>
                     <th className="pb-3 pr-4 text-center w-24">Laps Led</th>
                     <th className="pb-3 pr-4 text-center w-24">Most Laps</th>
                     <th className="pb-3 w-20"></th>
@@ -501,6 +507,14 @@ export default function AdminResultsPage() {
                           type="checkbox"
                           checked={result.stage_2_winner}
                           onChange={(e) => updateResult(index, 'stage_2_winner', e.target.checked)}
+                          className="w-5 h-5"
+                        />
+                      </td>
+                      <td className="py-3 pr-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={result.stage_3_winner}
+                          onChange={(e) => updateResult(index, 'stage_3_winner', e.target.checked)}
                           className="w-5 h-5"
                         />
                       </td>
@@ -563,6 +577,7 @@ export default function AdminResultsPage() {
                           finish_position: i,
                           stage_1_winner: false,
                           stage_2_winner: false,
+                          stage_3_winner: false,
                           laps_led: 0,
                           most_laps_led: false,
                         });

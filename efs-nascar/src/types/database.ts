@@ -104,6 +104,7 @@ export interface RaceResult {
   finish_position: number;
   stage_1_winner: boolean;
   stage_2_winner: boolean;
+  stage_3_winner: boolean;
   laps_led: number;
   most_laps_led: boolean;
   // Original API data for re-matching when drivers change car numbers
@@ -268,6 +269,7 @@ export interface CreateRaceResultInput {
   finish_position: number;
   stage_1_winner?: boolean;
   stage_2_winner?: boolean;
+  stage_3_winner?: boolean;
   laps_led?: number;
   most_laps_led?: boolean;
   // Original API data for re-matching when drivers change car numbers

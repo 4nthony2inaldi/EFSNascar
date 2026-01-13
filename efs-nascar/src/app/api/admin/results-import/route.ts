@@ -248,6 +248,7 @@ export async function POST(request: NextRequest) {
         // Determine stage winners (position 1 in stage = winner)
         const stage1Winner = result.s1 === 1;
         const stage2Winner = result.s2 === 1;
+        const stage3Winner = result.s3 === 1;
 
         // Find who led most laps in this race
         const maxLapsLed = Math.max(...raceData.results.map(r => r.laps_led || 0));
@@ -264,6 +265,7 @@ export async function POST(request: NextRequest) {
             finish_position: result.finish,
             stage_1_winner: stage1Winner,
             stage_2_winner: stage2Winner,
+            stage_3_winner: stage3Winner,
             laps_led: result.laps_led || 0,
             most_laps_led: mostLapsLed,
             api_driver_name: result.driver,

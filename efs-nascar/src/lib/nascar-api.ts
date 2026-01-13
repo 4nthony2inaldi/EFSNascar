@@ -12,6 +12,7 @@ export interface TransformedRaceResult {
   lapsLed: number;
   isStage1Winner: boolean;
   isStage2Winner: boolean;
+  isStage3Winner: boolean;
   isMostLapsLed: boolean;
 }
 
@@ -23,6 +24,7 @@ export interface TransformedRaceData {
   results: TransformedRaceResult[];
   stage1Winner: { name: string; carNumber: number } | null;
   stage2Winner: { name: string; carNumber: number } | null;
+  stage3Winner: { name: string; carNumber: number } | null;
   mostLapsLedDriver: { name: string; carNumber: number; lapsLed: number } | null;
 }
 
@@ -235,6 +237,7 @@ class NASCARApiService {
     // Extract stage winners
     let stage1Winner: { name: string; carNumber: number } | null = null;
     let stage2Winner: { name: string; carNumber: number } | null = null;
+    let stage3Winner: { name: string; carNumber: number } | null = null;
 
     if (raceData.stage1Winner) {
       const winner = results.find((r: any) =>
@@ -256,10 +259,21 @@ class NASCARApiService {
       };
     }
 
+    if (raceData.stage3Winner) {
+      const winner = results.find((r: any) =>
+        (r.driverName || r.driver) === raceData.stage3Winner
+      );
+      stage3Winner = {
+        name: raceData.stage3Winner,
+        carNumber: winner ? parseInt(winner.carNumber || winner.car || '0') : 0,
+      };
+    }
+
     // Also check for stages array format
     if (raceData.stages && Array.isArray(raceData.stages)) {
       const stage1 = raceData.stages.find((s: any) => s.number === 1 || s.stage === 1);
       const stage2 = raceData.stages.find((s: any) => s.number === 2 || s.stage === 2);
+      const stage3 = raceData.stages.find((s: any) => s.number === 3 || s.stage === 3);
 
       if (stage1?.winner || stage1?.results?.[0]) {
         const winnerName = stage1.winner || stage1.results[0]?.driver || stage1.results[0]?.driverName;
@@ -274,6 +288,15 @@ class NASCARApiService {
         const winnerName = stage2.winner || stage2.results[0]?.driver || stage2.results[0]?.driverName;
         const winnerCar = stage2.results?.[0]?.car || stage2.results?.[0]?.carNumber;
         stage2Winner = {
+          name: winnerName || '',
+          carNumber: parseInt(winnerCar || '0'),
+        };
+      }
+
+      if (stage3?.winner || stage3?.results?.[0]) {
+        const winnerName = stage3.winner || stage3.results[0]?.driver || stage3.results[0]?.driverName;
+        const winnerCar = stage3.results?.[0]?.car || stage3.results?.[0]?.carNumber;
+        stage3Winner = {
           name: winnerName || '',
           carNumber: parseInt(winnerCar || '0'),
         };
@@ -297,6 +320,7 @@ class NASCARApiService {
           lapsLed,
           isStage1Winner: stage1Winner?.name === driverName,
           isStage2Winner: stage2Winner?.name === driverName,
+          isStage3Winner: stage3Winner?.name === driverName,
           isMostLapsLed: mostLapsLedDriver === driverName && maxLapsLed > 0,
         };
       });
@@ -309,6 +333,7 @@ class NASCARApiService {
       results: transformedResults,
       stage1Winner,
       stage2Winner,
+      stage3Winner,
       mostLapsLedDriver: mostLapsLedDriver ? {
         name: mostLapsLedDriver,
         carNumber: transformedResults.find(r => r.driverName === mostLapsLedDriver)?.carNumber || 0,

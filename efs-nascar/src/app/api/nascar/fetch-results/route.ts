@@ -184,6 +184,7 @@ export async function POST(request: Request) {
         finish_position: result.finishPosition,
         stage_1_winner: result.isStage1Winner,
         stage_2_winner: result.isStage2Winner,
+        stage_3_winner: result.isStage3Winner,
         laps_led: result.lapsLed,
         most_laps_led: result.isMostLapsLed,
         api_driver_name: result.driverName,
@@ -222,6 +223,7 @@ export async function POST(request: Request) {
         resultsCount: raceResults.length,
         stage1Winner: transformedData.stage1Winner,
         stage2Winner: transformedData.stage2Winner,
+        stage3Winner: transformedData.stage3Winner,
         mostLapsLed: transformedData.mostLapsLedDriver,
       },
       warnings: unmatchedDrivers.length > 0 || matchedByFallback.length > 0 ? {
