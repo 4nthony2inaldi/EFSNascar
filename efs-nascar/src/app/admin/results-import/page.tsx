@@ -23,6 +23,8 @@ interface ImportResponse {
   // Debug info
   driversInDatabase?: number;
   sampleDbDrivers?: string[];
+  usingAdminClient?: boolean;
+  insertErrors?: string[];
 }
 
 interface Season {
@@ -373,10 +375,21 @@ export default function ResultsImportPage() {
               <p className="text-purple-300">
                 <strong>Drivers in database:</strong> {result.driversInDatabase}
               </p>
+              <p className="text-purple-300 mt-1">
+                <strong>Using admin client:</strong> {result.usingAdminClient ? 'Yes (bypasses RLS)' : 'No (using anon key)'}
+              </p>
               {result.sampleDbDrivers && result.sampleDbDrivers.length > 0 && (
                 <p className="text-purple-400 text-sm mt-2">
                   <strong>Sample normalized names:</strong> {result.sampleDbDrivers.join(', ')}
                 </p>
+              )}
+              {result.insertErrors && result.insertErrors.length > 0 && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-red-400 font-medium mb-2">Insert Errors:</p>
+                  {result.insertErrors.map((err, i) => (
+                    <p key={i} className="text-red-300 text-sm">{err}</p>
+                  ))}
+                </div>
               )}
             </div>
           )}

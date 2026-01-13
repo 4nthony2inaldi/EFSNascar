@@ -220,6 +220,7 @@ export async function POST(request: NextRequest) {
     let totalSkipped = 0;
     let driversNotFound: string[] = [];
     let racesNotFound: string[] = [];
+    let insertErrors: string[] = [];
     const raceResults: { race: string; imported: number; skipped: number; dbRace: string }[] = [];
     const alreadyMatchedRaces = new Set<string>();
 
@@ -287,6 +288,9 @@ export async function POST(request: NextRequest) {
 
         if (insertError) {
           console.error(`Error inserting result for ${result.driver}:`, insertError);
+          if (insertErrors.length < 5) {
+            insertErrors.push(`${result.driver}: ${insertError.message || insertError.code || 'Unknown error'}`);
+          }
           skipped++;
         } else {
           imported++;
@@ -320,6 +324,7 @@ export async function POST(request: NextRequest) {
       driversInDatabase: driverMap.size,
       sampleDbDrivers: Array.from(driverMap.keys()).slice(0, 10),
       usingAdminClient,
+      insertErrors: insertErrors.length > 0 ? insertErrors : undefined,
     });
   } catch (error: any) {
     console.error('Import error:', error);
