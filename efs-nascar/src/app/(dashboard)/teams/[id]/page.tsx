@@ -1172,49 +1172,51 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           )}
         </div>
 
-        {/* TITS Remaining */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">TITS Remaining</h2>
-          {titsStats ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Tier 1 Remaining</span>
-                <span className="text-xl font-bold text-amber-400">{titsStats.t1Remaining}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Tier 2 Remaining</span>
-                <span className="text-xl font-bold text-emerald-400">{titsStats.t2Remaining}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Total TITS</span>
-                <span className="text-2xl font-bold text-amber-500">{titsStats.titsRemaining}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">TITS %</span>
-                <span className={`text-2xl font-bold ${
-                  titsStats.titsPercent >= 50 ? 'text-green-500' :
-                  titsStats.titsPercent >= 30 ? 'text-yellow-500' : 'text-red-500'
-                }`}>
-                  {titsStats.titsPercent.toFixed(1)}%
-                </span>
-              </div>
-              <div className="pt-2 border-t border-gray-700">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">Picks Remaining</span>
-                  <span className="text-gray-400">{titsStats.totalPicksRemaining}</span>
+        {/* TITS Remaining - Only show for active season */}
+        {selectedSeasonId === activeSeason?.id && (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h2 className="text-xl font-bold text-white mb-4">TITS Remaining</h2>
+            {titsStats ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Tier 1 Remaining</span>
+                  <span className="text-xl font-bold text-amber-400">{titsStats.t1Remaining}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm mt-1">
-                  <span className="text-gray-500">5th Use Bonus</span>
-                  <span className={`font-medium ${titsStats.bonusUsed ? 'text-red-400' : 'text-green-400'}`}>
-                    {titsStats.bonusUsed ? 'Used' : 'Available'}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Tier 2 Remaining</span>
+                  <span className="text-xl font-bold text-emerald-400">{titsStats.t2Remaining}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Total TITS</span>
+                  <span className="text-2xl font-bold text-amber-500">{titsStats.titsRemaining}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">TITS %</span>
+                  <span className={`text-2xl font-bold ${
+                    titsStats.titsPercent >= 50 ? 'text-green-500' :
+                    titsStats.titsPercent >= 30 ? 'text-yellow-500' : 'text-red-500'
+                  }`}>
+                    {titsStats.titsPercent.toFixed(1)}%
                   </span>
                 </div>
+                <div className="pt-2 border-t border-gray-700">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500">Picks Remaining</span>
+                    <span className="text-gray-400">{titsStats.totalPicksRemaining}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-1">
+                    <span className="text-gray-500">5th Use Bonus</span>
+                    <span className={`font-medium ${titsStats.bonusUsed ? 'text-red-400' : 'text-green-400'}`}>
+                      {titsStats.bonusUsed ? 'Used' : 'Available'}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <p className="text-gray-400">No active season.</p>
-          )}
-        </div>
+            ) : (
+              <p className="text-gray-400">No active season.</p>
+            )}
+          </div>
+        )}
 
         {/* Team Members */}
         <div className="bg-gray-800 rounded-lg p-6">
