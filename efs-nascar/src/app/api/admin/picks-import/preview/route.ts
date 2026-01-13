@@ -77,9 +77,17 @@ const RACE_NAME_ALIASES: Record<string, string[]> = {
 function fuzzyMatchRace(
   input: string,
   week: number,
-  races: Array<{ id: string; name: string; race_number: number; race_type: string }>
+  races: Array<{ id: string; name: string; race_number: number; race_type: string }>,
+  weekRaceCache: Map<number, { id: string; name: string; race_number: number } | null>
 ): { id: string; name: string; race_number: number } | null {
-  const normalizedInput = normalize(input);
+  // STEP 0: Check cache first - all picks for the same week should go to the same race
+  if (week > 0 && weekRaceCache.has(week)) {
+    return weekRaceCache.get(week) || null;
+  }
+
+  // Strip trailing numbers that look like row identifiers (e.g., "DARLINGTON 310" -> "DARLINGTON")
+  const cleanedInput = input.replace(/\s+\d{2,}$/, '').trim();
+  const normalizedInput = normalize(cleanedInput);
 
   // STEP 1: Find all races matching the track name
   const matchingRaces: Array<{ id: string; name: string; race_number: number; race_type: string }> = [];
@@ -108,43 +116,46 @@ function fuzzyMatchRace(
   }
 
   // STEP 2: If we found matching races, use week number to pick the right one
+  let result: { id: string; name: string; race_number: number } | null = null;
+
   if (matchingRaces.length > 0) {
     // Sort by race_number
     const sortedMatches = [...matchingRaces].sort((a, b) => a.race_number - b.race_number);
 
-    // If only one match, return it
+    // If only one match, use it
     if (sortedMatches.length === 1) {
-      return sortedMatches[0];
-    }
-
-    // Multiple matches (like 2 Atlanta races) - use week to pick closest one
-    if (week > 0) {
+      result = sortedMatches[0];
+    } else if (week > 0) {
+      // Multiple matches (like 2 Atlanta races) - use week to pick closest one
       // The week number roughly corresponds to race_number (with some offset for exhibitions)
       // Find the race whose race_number is closest to the week
-      const closestMatch = sortedMatches.reduce((closest, race) => {
+      result = sortedMatches.reduce((closest, race) => {
         const closestDiff = Math.abs(closest.race_number - week);
         const raceDiff = Math.abs(race.race_number - week);
         return raceDiff < closestDiff ? race : closest;
       }, sortedMatches[0]);
-
-      return closestMatch;
+    } else {
+      // No week provided, return first match
+      result = sortedMatches[0];
     }
-
-    // No week provided, return first match
-    return sortedMatches[0];
   }
 
   // STEP 3: No track name match - fall back to week number only
-  if (week > 0) {
+  if (!result && week > 0) {
     const pointsRaces = races.filter(r => r.race_type !== 'exhibition');
     const sortedPointsRaces = [...pointsRaces].sort((a, b) => a.race_number - b.race_number);
 
     if (week <= sortedPointsRaces.length) {
-      return sortedPointsRaces[week - 1];
+      result = sortedPointsRaces[week - 1];
     }
   }
 
-  return null;
+  // Cache the result for this week
+  if (week > 0) {
+    weekRaceCache.set(week, result);
+  }
+
+  return result;
 }
 
 function parseCSV(csvData: string): ParsedRow[] {
@@ -226,9 +237,12 @@ export async function POST(request: NextRequest) {
     const unmatchedTeams = new Set<string>();
     const unmatchedDrivers = new Set<string>();
 
+    // Cache for week -> race mapping (ensures all picks for same week go to same race)
+    const weekRaceCache = new Map<number, { id: string; name: string; race_number: number } | null>();
+
     // Match each row
     const matched = parsedRows.map(row => {
-      const raceMatch = fuzzyMatchRace(row.race, row.week, races || []);
+      const raceMatch = fuzzyMatchRace(row.race, row.week, races || [], weekRaceCache);
       const teamMatch = fuzzyMatch(row.team, teams || []);
       const driver1Match = fuzzyMatch(row.driver1, drivers || []);
       const driver2Match = fuzzyMatch(row.driver2, drivers || []);
