@@ -167,6 +167,51 @@ export interface Announcement {
   posted_at: string;
 }
 
+export interface ScoringConfig {
+  id: string;
+  season_id: string;
+
+  // Position points (JSON object: {"1": 10, "2": 9, ...})
+  position_points: Record<string, number>;
+
+  // Bonus points
+  stage_win_bonus: number;
+  laps_led_bonus: number;
+  top_10_all_drivers_bonus: number;
+
+  // Driver usage limits
+  base_driver_uses: number;
+  bonus_uses_per_season: number;
+
+  // Regular season configuration
+  regular_season_races: number;
+
+  // Playoff configuration
+  playoff_enabled: boolean;
+  championship_bracket_size: number;
+  catbird_seats: number;
+  consolation_bracket_start: number;
+  consolation_bracket_end: number;
+  muddy_mile_start: number;
+  muddy_mile_end: number;
+
+  // Playoff round configuration (number of races per round)
+  playoff_round1_races: number;
+  playoff_round2_races: number;
+  playoff_finals_races: number;
+
+  // Elimination rules (teams eliminated per round)
+  round1_eliminations: number;
+  round2_eliminations: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScoringConfigWithSeason extends ScoringConfig {
+  season: Season;
+}
+
 // ============================================
 // Extended Types (with relations)
 // ============================================

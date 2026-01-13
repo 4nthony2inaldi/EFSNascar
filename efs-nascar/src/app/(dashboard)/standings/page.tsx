@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import type { Standing, Team, Season, RaceType } from '@/types';
+import type { Standing, Team, Season, RaceType, ScoringConfig } from '@/types';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import { CumulativePointsChart } from '@/components/CumulativePointsChart';
 import {
@@ -11,6 +11,7 @@ import {
   type PlayoffTeamStanding,
   type RaceScore,
 } from '@/lib/playoff-standings';
+import { getPlayoffConfig } from '@/lib/scoring-config';
 
 // Force dynamic rendering to ensure cookies are read fresh
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,16 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
   const selectedSeasonId = params.season || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
+
+  // Get scoring configuration for this season
+  const { data: scoringConfig } = await supabase
+    .from('scoring_configs')
+    .select('*')
+    .eq('season_id', selectedSeasonId)
+    .single();
+
+  const config = scoringConfig as ScoringConfig | null;
+  const playoffOpts = getPlayoffConfig(config);
 
   // Get race counts by type
   const { data: allRaces } = await supabase
@@ -291,7 +302,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       rank: s.rank,
     }));
 
-    playoffStandings = calculatePlayoffStandings(playoffTeamStandings, playoffRaceScores);
+    playoffStandings = calculatePlayoffStandings(playoffTeamStandings, playoffRaceScores, config);
   }
 
   // Build chart data using regular season scores only

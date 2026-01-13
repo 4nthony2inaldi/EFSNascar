@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import { POSITION_POINTS } from '@/types';
+import type { ScoringConfig } from '@/types';
+import {
+  getPointsForPosition,
+  getStageBonusPoints,
+  getLapsLedBonusPoints,
+  getTop10AllDriversBonusPoints,
+} from '@/lib/scoring-config';
 
 export async function POST(request: Request) {
   try {
@@ -38,6 +44,16 @@ export async function POST(request: Request) {
     if (raceError || !race) {
       return NextResponse.json({ error: 'Race not found' }, { status: 404 });
     }
+
+    // Get scoring configuration for this season
+    const { data: scoringConfig } = await supabase
+      .from('scoring_configs')
+      .select('*')
+      .eq('season_id', race.season_id)
+      .single();
+
+    // Use scoring config (will use defaults if null)
+    const config = scoringConfig as ScoringConfig | null;
 
     // Get race results
     const { data: results, error: resultsError } = await supabase
@@ -110,33 +126,37 @@ export async function POST(request: Request) {
       let raceWins = 0;
       let stageWins = 0;
 
-      // Calculate points for each driver
+      // Calculate points for each driver using scoring config
+      const stageBonusValue = getStageBonusPoints(config);
+      const lapsLedBonusValue = getLapsLedBonusPoints(config);
+      const top10BonusValue = getTop10AllDriversBonusPoints(config);
+
       driverIds.forEach((driverId, index) => {
         const result = resultsByDriver[driverId];
         if (result) {
-          const points = POSITION_POINTS[result.finish_position] || 0;
+          const points = getPointsForPosition(result.finish_position, config);
 
           if (index === 0) driver1Points = points;
           else if (index === 1) driver2Points = points;
           else driver3Points = points;
 
-          // Stage bonus
+          // Stage bonus (using config value)
           if (result.stage_1_winner) {
-            stageBonus += 1;
+            stageBonus += stageBonusValue;
             stageWins += 1;
           }
           if (result.stage_2_winner) {
-            stageBonus += 1;
+            stageBonus += stageBonusValue;
             stageWins += 1;
           }
           if (result.stage_3_winner) {
-            stageBonus += 1;
+            stageBonus += stageBonusValue;
             stageWins += 1;
           }
 
-          // Most laps led bonus
+          // Most laps led bonus (using config value)
           if (result.most_laps_led) {
-            lapsLedBonus = 1;
+            lapsLedBonus = lapsLedBonusValue;
           }
 
           // Race winner
@@ -146,14 +166,14 @@ export async function POST(request: Request) {
         }
       });
 
-      // All 3 drivers in top 10 bonus
+      // All 3 drivers in top 10 bonus (using config value)
       const allTop10 = driverIds.every((driverId) => {
         const result = resultsByDriver[driverId];
         return result && result.finish_position <= 10;
       });
 
       if (allTop10) {
-        top10Bonus = 1;
+        top10Bonus = top10BonusValue;
       }
 
       const totalPoints = driver1Points + driver2Points + driver3Points + stageBonus + lapsLedBonus + top10Bonus;

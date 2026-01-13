@@ -1,5 +1,21 @@
 // Playoff standings calculation utilities
-import type { RaceType } from '@/types/database';
+import type { RaceType, ScoringConfig } from '@/types/database';
+import { getPlayoffConfig } from '@/lib/scoring-config';
+
+// Playoff configuration extracted from scoring config
+export interface PlayoffConfigOptions {
+  championshipBracketSize: number;
+  catbirdSeats: number;
+  consolationStart: number;
+  consolationEnd: number;
+  muddyMileStart: number;
+  muddyMileEnd: number;
+  round1Races: number;
+  round2Races: number;
+  finalsRaces: number;
+  round1Eliminations: number;
+  round2Eliminations: number;
+}
 
 export interface PlayoffTeamStanding {
   team_id: string;
@@ -65,15 +81,20 @@ export interface RaceScore {
  * Determines the current playoff round based on completed races
  */
 export function getPlayoffRound(
-  completedPlayoffRaces: { race_type: RaceType }[]
+  completedPlayoffRaces: { race_type: RaceType }[],
+  config?: PlayoffConfigOptions | null
 ): PlayoffStandings['playoffRound'] {
+  const round1RacesNeeded = config?.round1Races ?? 1;
+  const round2RacesNeeded = config?.round2Races ?? 2;
+  const finalsRacesNeeded = config?.finalsRaces ?? 2;
+
   const round1Races = completedPlayoffRaces.filter(r => r.race_type === 'playoff_round1').length;
   const round2Races = completedPlayoffRaces.filter(r => r.race_type === 'playoff_round2').length;
   const finalsRaces = completedPlayoffRaces.filter(r => r.race_type === 'playoff_finals').length;
 
-  if (finalsRaces >= 2) return 'complete';
-  if (finalsRaces > 0 || round2Races >= 2) return 'finals';
-  if (round2Races > 0 || round1Races >= 1) return 'round2';
+  if (finalsRaces >= finalsRacesNeeded) return 'complete';
+  if (finalsRaces > 0 || round2Races >= round2RacesNeeded) return 'finals';
+  if (round2Races > 0 || round1Races >= round1RacesNeeded) return 'round2';
   if (round1Races > 0) return 'round1';
 
   return 'not_started';
@@ -81,11 +102,16 @@ export function getPlayoffRound(
 
 /**
  * Calculates playoff standings from race scores
+ * @param scoringConfig Optional scoring configuration from the database
  */
 export function calculatePlayoffStandings(
   regularSeasonStandings: PlayoffTeamStanding[],
-  playoffRaceScores: RaceScore[]
+  playoffRaceScores: RaceScore[],
+  scoringConfig?: ScoringConfig | null
 ): PlayoffStandings {
+  // Get playoff config (uses defaults if scoringConfig is null)
+  const playoffOpts = getPlayoffConfig(scoringConfig ?? null);
+
   // Separate scores by playoff round
   const round1Scores = playoffRaceScores.filter(s => s.race.race_type === 'playoff_round1');
   const round2Scores = playoffRaceScores.filter(s => s.race.race_type === 'playoff_round2');
@@ -95,13 +121,20 @@ export function calculatePlayoffStandings(
     ...round1Scores.map(s => s.race),
     ...round2Scores.map(s => s.race),
     ...finalsScores.map(s => s.race),
-  ]);
+  ], playoffOpts);
 
-  // Get team IDs by their regular season seed
-  const catbirdSeats = regularSeasonStandings.slice(0, 2).map(s => s.team_id);
-  const championshipSeeds = regularSeasonStandings.slice(0, 7).map(s => s.team_id);
-  const consolationSeeds = regularSeasonStandings.slice(7, 15).map(s => s.team_id);
-  const muddyMileSeeds = regularSeasonStandings.slice(15, 17).map(s => s.team_id);
+  // Get team IDs by their regular season seed (using config values)
+  const numCatbirdSeats = playoffOpts.catbirdSeats;
+  const numChampionship = playoffOpts.championshipBracketSize;
+  const consolationStart = playoffOpts.consolationStart - 1; // Convert to 0-indexed
+  const consolationEnd = playoffOpts.consolationEnd;
+  const muddyStart = playoffOpts.muddyMileStart - 1; // Convert to 0-indexed
+  const muddyEnd = playoffOpts.muddyMileEnd;
+
+  const catbirdSeats = regularSeasonStandings.slice(0, numCatbirdSeats).map(s => s.team_id);
+  const championshipSeeds = regularSeasonStandings.slice(0, numChampionship).map(s => s.team_id);
+  const consolationSeeds = regularSeasonStandings.slice(consolationStart, consolationEnd).map(s => s.team_id);
+  const muddyMileSeeds = regularSeasonStandings.slice(muddyStart, muddyEnd).map(s => s.team_id);
 
   const eliminated: string[] = [];
 
@@ -166,36 +199,40 @@ export function calculatePlayoffStandings(
       }));
   };
 
-  // Calculate Round 1 standings (seeds 3-7 compete, seeds 1-2 have bye)
-  const round1Competitors = championshipSeeds.slice(2, 7); // Seeds 3-7
+  // Calculate Round 1 standings (seeds after catbird compete)
+  const round1Competitors = championshipSeeds.slice(numCatbirdSeats); // Seeds after catbird seats
   const round1Standings = aggregateScores(round1Competitors, round1Scores, regularSeasonStandings);
 
   // Determine who was eliminated after Round 1 (if round 1 is complete)
+  const round1EliminationCount = playoffOpts.round1Eliminations;
   let round1Eliminated: string[] = [];
-  if (round1Scores.length >= 1 && round1Standings.length > 0) {
-    // Bottom team after Round 1 is eliminated
-    round1Eliminated = [round1Standings[round1Standings.length - 1].team_id];
+  if (round1Scores.length >= playoffOpts.round1Races && round1Standings.length > 0) {
+    // Bottom N teams after Round 1 are eliminated
+    round1Eliminated = round1Standings.slice(-round1EliminationCount).map(s => s.team_id);
     eliminated.push(...round1Eliminated);
   }
 
-  // Calculate Round 2 standings (6 teams: catbird seats + 4 survivors from round 1)
+  // Calculate Round 2 standings (catbird seats + survivors from round 1)
+  const round1Survivors = round1Standings.length - round1EliminationCount;
   const round2Competitors = [
     ...catbirdSeats,
-    ...round1Standings.slice(0, 4).map(s => s.team_id).filter(id => !round1Eliminated.includes(id)),
-  ].slice(0, 6);
+    ...round1Standings.slice(0, round1Survivors).map(s => s.team_id).filter(id => !round1Eliminated.includes(id)),
+  ];
   const round2Standings = aggregateScores(round2Competitors, round2Scores, regularSeasonStandings);
 
   // Determine who was eliminated after Round 2 (if round 2 is complete)
+  const round2EliminationCount = playoffOpts.round2Eliminations;
   let round2Eliminated: string[] = [];
-  if (round2Scores.length >= 2 && round2Standings.length > 0) {
-    // Bottom 2 teams after Round 2 are eliminated
-    round2Eliminated = round2Standings.slice(-2).map(s => s.team_id);
+  if (round2Scores.length >= playoffOpts.round2Races && round2Standings.length > 0) {
+    // Bottom N teams after Round 2 are eliminated
+    round2Eliminated = round2Standings.slice(-round2EliminationCount).map(s => s.team_id);
     eliminated.push(...round2Eliminated);
   }
 
-  // Calculate Finals standings (4 teams: survivors from round 2)
+  // Calculate Finals standings (survivors from round 2)
+  const round2Survivors = round2Standings.length - round2EliminationCount;
   const finalsCompetitors = round2Standings
-    .slice(0, 4)
+    .slice(0, round2Survivors)
     .map(s => s.team_id)
     .filter(id => !round2Eliminated.includes(id));
   const finalsStandings = aggregateScores(finalsCompetitors, finalsScores, regularSeasonStandings);

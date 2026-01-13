@@ -41,6 +41,7 @@ export default async function AdminLayout({
   const adminLinks = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/seasons', label: 'Seasons' },
+    { href: '/admin/scoring', label: 'Scoring' },
     { href: '/admin/races', label: 'Races' },
     { href: '/admin/schedule', label: 'Schedule Mgmt' },
     { href: '/admin/drivers', label: 'Drivers' },
