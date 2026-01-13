@@ -215,6 +215,16 @@ export default function ResultsImportPage() {
                   Added: {syncResult.drivers.join(', ')}
                 </p>
               )}
+              {(syncResult as any).totalInJson !== undefined && (
+                <div className="mt-2 text-xs text-purple-400">
+                  <p>Drivers in JSON: {(syncResult as any).totalInJson}</p>
+                  <p>Drivers in database: {(syncResult as any).totalInDatabase}</p>
+                  <p>Missing count: {(syncResult as any).missingCount}</p>
+                  {(syncResult as any).sampleDbDrivers?.length > 0 && (
+                    <p className="mt-1">Sample DB drivers: {(syncResult as any).sampleDbDrivers.map((d: any) => `${d.name} → ${d.normalized}`).join(', ')}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

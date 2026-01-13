@@ -146,14 +146,27 @@ export async function POST() {
       }
     }
 
+    // Sample for debugging
+    const sampleJsonDrivers = allDrivers.slice(0, 5).map(d => ({
+      name: d.name,
+      normalized: normalizeDriverName(d.name)
+    }));
+    const sampleDbDrivers = (existingDrivers || []).slice(0, 5).map(d => ({
+      name: d.name,
+      normalized: normalizeDriverName(d.name)
+    }));
+
     return NextResponse.json({
       message: `Added ${added} new drivers, updated ${updated} existing drivers`,
       added,
       updated,
       addedDrivers: addedNames,
       updatedDrivers: updatedNames.slice(0, 20), // Show first 20 updates
-      total: allDrivers.length,
-      existing: existingDrivers?.length || 0,
+      totalInJson: allDrivers.length,
+      totalInDatabase: existingDrivers?.length || 0,
+      sampleJsonDrivers,
+      sampleDbDrivers,
+      missingCount: missingDrivers.length,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
