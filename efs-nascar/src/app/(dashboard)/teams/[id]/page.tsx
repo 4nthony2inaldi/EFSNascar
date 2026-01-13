@@ -808,6 +808,53 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     ? Math.round(leagueWeightedSum / leagueTotalPickCount)
     : 0;
 
+  // Calculate per-team contrarian scores for dynamic scale
+  const teamContrarianScores: Record<string, { score: number; pickCount: number }> = {};
+
+  for (const pick of allPicksData || []) {
+    const race = races.find(r => r.id === pick.race_id);
+    if (!race || race.status !== 'final') continue;
+
+    const totalTeams = teamCountByRace[pick.race_id] || 1;
+    const driverCounts = driverPickCountsByRace[pick.race_id] || {};
+
+    if (!teamContrarianScores[pick.team_id]) {
+      teamContrarianScores[pick.team_id] = { score: 0, pickCount: 0 };
+    }
+
+    const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+    for (const driverId of driverIds) {
+      const pickCount = driverCounts[driverId] || 1;
+      const popularity = getPopularityLevel(pickCount, totalTeams);
+      teamContrarianScores[pick.team_id].score += contrarianWeights[popularity] || 0;
+      teamContrarianScores[pick.team_id].pickCount += 1;
+    }
+  }
+
+  // Calculate final contrarian percentage for each team
+  const allTeamScores = Object.entries(teamContrarianScores)
+    .filter(([_, data]) => data.pickCount > 0)
+    .map(([teamId, data]) => ({
+      teamId,
+      contrarianScore: Math.round(data.score / data.pickCount),
+    }));
+
+  // Find min and max for dynamic scale (with 10% padding on each side)
+  const allScores = allTeamScores.map(t => t.contrarianScore);
+  const rawMin = allScores.length > 0 ? Math.min(...allScores) : 0;
+  const rawMax = allScores.length > 0 ? Math.max(...allScores) : 100;
+  const scoreRange = rawMax - rawMin || 20; // Avoid division by zero
+  const scalePadding = Math.max(10, Math.round(scoreRange * 0.1)); // 10% of range or minimum 10
+  const scaleMin = Math.max(0, rawMin - scalePadding);
+  const scaleMax = Math.min(100, rawMax + scalePadding);
+  const scaleRange = scaleMax - scaleMin;
+
+  // Helper to convert score to position on dynamic scale
+  const scoreToPosition = (score: number) => {
+    if (scaleRange === 0) return 50;
+    return Math.max(0, Math.min(100, ((score - scaleMin) / scaleRange) * 100));
+  };
+
   // Calculate Popularity x Tier matrix
   const popularityTierMatrix: Record<string, Record<number, { totalPoints: number; count: number }>> = {
     unique: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
@@ -1433,7 +1480,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             <p className="text-gray-400">No completed races with pick data yet.</p>
           )}
 
-          {/* Zig Scale - Contrarian Meter */}
+          {/* Zig Scale - Contrarian Meter (Dynamic Range) */}
           {totalPickCount > 0 && (
             <div className="mt-6 pt-4 border-t border-gray-700">
               <div className="relative">
@@ -1447,7 +1494,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                 {/* League Average marker */}
                 <div
                   className="absolute top-0 -translate-x-1/2"
-                  style={{ left: `${leagueContrarianScore}%` }}
+                  style={{ left: `${scoreToPosition(leagueContrarianScore)}%` }}
                 >
                   <div className="h-6 w-0.5 bg-gray-500" />
                   <div className="text-xs text-gray-400 mt-1 whitespace-nowrap -translate-x-1/2 absolute left-1/2">
@@ -1458,7 +1505,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                 {/* Team marker */}
                 <div
                   className="absolute top-0 -translate-x-1/2"
-                  style={{ left: `${contrarianScore}%` }}
+                  style={{ left: `${scoreToPosition(contrarianScore)}%` }}
                 >
                   <div className={`h-8 w-1 rounded ${
                     contrarianScore >= 60 ? 'bg-green-500' :
@@ -1472,15 +1519,15 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                   </div>
                 </div>
 
-                {/* Labels */}
+                {/* Labels - Dynamic scale values */}
                 <div className="flex justify-between mt-10 text-sm">
                   <div className="text-center">
                     <div className="text-gray-300 font-medium">Chalk</div>
-                    <div className="text-gray-500 text-xs">0% Zig</div>
+                    <div className="text-gray-500 text-xs">{scaleMin}% Zig</div>
                   </div>
                   <div className="text-center">
                     <div className="text-gray-300 font-medium">Zig</div>
-                    <div className="text-gray-500 text-xs">100% Zig</div>
+                    <div className="text-gray-500 text-xs">{scaleMax}% Zig</div>
                   </div>
                 </div>
               </div>
