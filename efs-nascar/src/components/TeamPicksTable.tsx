@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { RaceResult, Driver } from '@/types';
+import type { RaceResult, Driver, ScoringConfig } from '@/types';
 import { POSITION_POINTS } from '@/types';
 
 type PopularityLevel = 'unique' | 'rare' | 'uncommon' | 'common' | 'popular' | 'chalk' | null;
@@ -13,6 +13,7 @@ interface TeamPicksTableProps {
   driverPickCounts: Record<string, number>;
   userTeamId: string | null;
   scores: any[] | null;
+  scoringConfig?: ScoringConfig | null;
 }
 
 function getPopularityLevel(count: number, totalTeams: number): PopularityLevel {
@@ -37,14 +38,28 @@ function getOverlapColor(count: number, totalTeams: number) {
   return 'bg-red-700/40 text-red-300 border border-red-700/50'; // Chalk
 }
 
-function calculateDriverTotalPoints(result: any) {
-  const positionPoints = POSITION_POINTS[result.finish_position] || 0;
-  const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0) + (result.stage_3_winner ? 1 : 0);
-  const lapsLedBonus = result.most_laps_led ? 1 : 0;
+function getPositionPoints(position: number, config?: ScoringConfig | null): number {
+  if (config?.position_points) {
+    return config.position_points[position.toString()] || 0;
+  }
+  return POSITION_POINTS[position] || 0;
+}
+
+function getStageBonus(result: any, config?: ScoringConfig | null): number {
+  const s1 = result.stage_1_winner ? (config?.stage_1_bonus ?? 1) : 0;
+  const s2 = result.stage_2_winner ? (config?.stage_2_bonus ?? 1) : 0;
+  const s3 = result.stage_3_winner ? (config?.stage_3_bonus ?? 1) : 0;
+  return s1 + s2 + s3;
+}
+
+function calculateDriverTotalPoints(result: any, config?: ScoringConfig | null) {
+  const positionPoints = getPositionPoints(result.finish_position, config);
+  const stageBonus = getStageBonus(result, config);
+  const lapsLedBonus = result.most_laps_led ? (config?.laps_led_bonus ?? 1) : 0;
   return positionPoints + stageBonus + lapsLedBonus;
 }
 
-export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId, scores }: TeamPicksTableProps) {
+export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId, scores, scoringConfig }: TeamPicksTableProps) {
   const [activeFilter, setActiveFilter] = useState<PopularityLevel>(null);
   const totalTeams = picks.length || 1;
 
@@ -60,15 +75,15 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
       const d1Result = resultsMap[pick.driver_1_id];
       const d2Result = resultsMap[pick.driver_2_id];
       const d3Result = resultsMap[pick.driver_3_id];
-      const d1Points = d1Result ? calculateDriverTotalPoints(d1Result) : 0;
-      const d2Points = d2Result ? calculateDriverTotalPoints(d2Result) : 0;
-      const d3Points = d3Result ? calculateDriverTotalPoints(d3Result) : 0;
+      const d1Points = d1Result ? calculateDriverTotalPoints(d1Result, scoringConfig) : 0;
+      const d2Points = d2Result ? calculateDriverTotalPoints(d2Result, scoringConfig) : 0;
+      const d3Points = d3Result ? calculateDriverTotalPoints(d3Result, scoringConfig) : 0;
 
       const allTop10 = d1Result && d2Result && d3Result &&
         d1Result.finish_position <= 10 &&
         d2Result.finish_position <= 10 &&
         d3Result.finish_position <= 10;
-      const top10Bonus = allTop10 ? 1 : 0;
+      const top10Bonus = allTop10 ? (scoringConfig?.top_10_all_drivers_bonus ?? 1) : 0;
 
       const calculatedTotal = d1Points + d2Points + d3Points + top10Bonus;
       return { ...pick, calculatedTotal };
@@ -81,8 +96,8 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
 
     if (!result) return <span className="text-gray-500">Unknown</span>;
 
-    const totalPoints = calculateDriverTotalPoints(result);
-    const posPoints = POSITION_POINTS[result.finish_position] || 0;
+    const totalPoints = calculateDriverTotalPoints(result, scoringConfig);
+    const posPoints = getPositionPoints(result.finish_position, scoringConfig);
     const hasBonus = totalPoints > posPoints;
     const popularityLevel = getPopularityLevel(pickCount, totalTeams);
     const isHighlighted = activeFilter && popularityLevel === activeFilter;

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, RaceResult, Driver, Pick, Team, RaceScore } from '@/types';
+import type { Race, RaceResult, Driver, Pick, Team, RaceScore, ScoringConfig } from '@/types';
 import { POSITION_POINTS } from '@/types';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
@@ -9,6 +9,7 @@ import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import { LocalTime } from '@/components/LocalTime';
 import { RaceNavigation } from '@/components/RaceNavigation';
 import { TeamPicksTable } from '@/components/TeamPicksTable';
+import { getPointsForPosition, getStage1BonusPoints, getStage2BonusPoints, getStage3BonusPoints, getLapsLedBonusPoints } from '@/lib/scoring-config';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -37,6 +38,13 @@ export default async function RaceResultsPage({ params }: PageProps) {
   if (error || !race) {
     notFound();
   }
+
+  // Get scoring config for this season
+  const { data: scoringConfig } = await supabase
+    .from('scoring_configs')
+    .select('*')
+    .eq('season_id', race.season_id)
+    .single();
 
   // Get race results with drivers
   const { data: results } = await supabase
@@ -97,15 +105,17 @@ export default async function RaceResultsPage({ params }: PageProps) {
   };
 
   const formatPoints = (position: number) => {
-    return POSITION_POINTS[position] || 0;
+    return getPointsForPosition(position, scoringConfig);
   };
 
   // Calculate total points for a driver including bonuses
   const calculateDriverTotalPoints = (result: any) => {
-    const positionPoints = POSITION_POINTS[result.finish_position] || 0;
-    const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0) + (result.stage_3_winner ? 1 : 0);
-    const lapsLedBonus = result.most_laps_led ? 1 : 0;
-    return positionPoints + stageBonus + lapsLedBonus;
+    const positionPoints = getPointsForPosition(result.finish_position, scoringConfig);
+    const s1Bonus = result.stage_1_winner ? getStage1BonusPoints(scoringConfig) : 0;
+    const s2Bonus = result.stage_2_winner ? getStage2BonusPoints(scoringConfig) : 0;
+    const s3Bonus = result.stage_3_winner ? getStage3BonusPoints(scoringConfig) : 0;
+    const lapsLedBonus = result.most_laps_led ? getLapsLedBonusPoints(scoringConfig) : 0;
+    return positionPoints + s1Bonus + s2Bonus + s3Bonus + lapsLedBonus;
   };
 
   // Find stage winners and most laps led
@@ -279,6 +289,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
           driverPickCounts={driverPickCounts}
           userTeamId={userTeamId}
           scores={scores}
+          scoringConfig={scoringConfig}
         />
       )}
 
