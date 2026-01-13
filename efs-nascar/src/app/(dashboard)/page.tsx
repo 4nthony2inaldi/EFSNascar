@@ -120,15 +120,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .select('id, race_type, status, race_number')
     .eq('season_id', selectedSeasonId);
 
+  // Treat null/undefined race_type as regular (for backwards compatibility with older seasons)
   const regularRaceIds = (allRaces || [])
-    .filter(r => r.race_type === 'regular')
+    .filter(r => !r.race_type || r.race_type === 'regular')
     .map(r => r.id);
   const playoffRaceIds = (allRaces || [])
     .filter(r => r.race_type === 'playoff_round1' || r.race_type === 'playoff_round2' || r.race_type === 'playoff_finals')
     .map(r => r.id);
 
   const totalRegularRaces = regularRaceIds.length;
-  const completedRegularRaces = (allRaces || []).filter(r => r.race_type === 'regular' && r.status === 'final').length;
+  const completedRegularRaces = (allRaces || []).filter(r => (!r.race_type || r.race_type === 'regular') && r.status === 'final').length;
   const completedPlayoffRaces = (allRaces || []).filter(r =>
     (r.race_type === 'playoff_round1' || r.race_type === 'playoff_round2' || r.race_type === 'playoff_finals') &&
     r.status === 'final'
@@ -141,8 +142,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .eq('race.season_id', selectedSeasonId);
 
   // Separate regular season scores from playoff scores
+  // Treat null/undefined race_type as regular (for backwards compatibility with older seasons)
   const regularSeasonScores = (raceScoresData || []).filter(
-    (s: any) => s.race?.race_type === 'regular'
+    (s: any) => !s.race?.race_type || s.race?.race_type === 'regular'
   );
   const playoffRaceScores = (raceScoresData || []).filter(
     (s: any) => s.race?.race_type === 'playoff_round1' ||
@@ -225,17 +227,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     standings = calculatedStandings as any;
   } else if (!hasStandingsData) {
     // Third fallback: Calculate from picks + race_results directly (regular season only)
-    const { data: picks } = await supabase
+    // Fetch all and filter client-side to handle null race_type for backwards compatibility
+    const { data: allPicks } = await supabase
       .from('picks')
       .select('*, team:teams(*), race:races!inner(season_id, race_type)')
-      .eq('race.season_id', selectedSeasonId)
-      .eq('race.race_type', 'regular');
+      .eq('race.season_id', selectedSeasonId);
 
-    const { data: raceResults } = await supabase
+    const { data: allRaceResults } = await supabase
       .from('race_results')
       .select('*, race:races!inner(season_id, race_type)')
-      .eq('race.season_id', selectedSeasonId)
-      .eq('race.race_type', 'regular');
+      .eq('race.season_id', selectedSeasonId);
+
+    // Filter to regular season races (null/undefined race_type = regular)
+    const picks = (allPicks || []).filter((p: any) => !p.race?.race_type || p.race?.race_type === 'regular');
+    const raceResults = (allRaceResults || []).filter((r: any) => !r.race?.race_type || r.race?.race_type === 'regular');
 
     if (picks && picks.length > 0 && raceResults && raceResults.length > 0) {
       // Build a lookup of race results by race_id and driver_id

@@ -59,7 +59,8 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     .select('id, race_type, status, race_number')
     .eq('season_id', selectedSeasonId);
 
-  const regularRaces = allRaces?.filter(r => r.race_type === 'regular') || [];
+  // Treat null/undefined race_type as regular (for backwards compatibility with older seasons)
+  const regularRaces = allRaces?.filter(r => !r.race_type || r.race_type === 'regular') || [];
   const playoffRaces = allRaces?.filter(r =>
     r.race_type === 'playoff_round1' ||
     r.race_type === 'playoff_round2' ||
@@ -77,8 +78,9 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     .eq('race.season_id', selectedSeasonId);
 
   // Separate regular season scores from playoff scores
+  // Treat null/undefined race_type as regular (for backwards compatibility with older seasons)
   const regularSeasonScores = (allRaceScores || []).filter(
-    (s: any) => s.race?.race_type === 'regular'
+    (s: any) => !s.race?.race_type || s.race?.race_type === 'regular'
   );
   const playoffRaceScores = (allRaceScores || []).filter(
     (s: any) => s.race?.race_type === 'playoff_round1' ||
