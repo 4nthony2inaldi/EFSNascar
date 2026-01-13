@@ -1102,12 +1102,12 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
               <span>Pick Distribution</span>
               <span>Unique</span>
             </div>
-            <div className="flex items-end gap-1 h-16">
+            <div className="flex items-end gap-1 h-32">
               {popularityDistribution.map((d) => (
                 <div key={d.level} className="flex-1 flex flex-col items-center">
                   <div
                     className={`w-full ${d.color} rounded-t transition-all`}
-                    style={{ height: `${(d.count / maxPopularityCount) * 100}%`, minHeight: d.count > 0 ? '4px' : '0' }}
+                    style={{ height: `${(d.count / maxPopularityCount) * 100}%`, minHeight: d.count > 0 ? '8px' : '0' }}
                     title={`${d.label}: ${d.count} picks`}
                   />
                   <span className="text-[10px] text-gray-500 mt-1">{d.count}</span>
@@ -1199,12 +1199,12 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
               <span>Strategy Distribution</span>
               <span>4 Tires & Fuel</span>
             </div>
-            <div className="flex items-end gap-1 h-16">
+            <div className="flex items-end gap-1 h-32">
               {strategyDistribution.map((d, idx) => (
                 <div key={d.name} className="flex-1 flex flex-col items-center">
                   <div
                     className={`w-full ${d.color} rounded-t transition-all`}
-                    style={{ height: `${(d.count / maxStrategyCount) * 100}%`, minHeight: d.count > 0 ? '4px' : '0' }}
+                    style={{ height: `${(d.count / maxStrategyCount) * 100}%`, minHeight: d.count > 0 ? '8px' : '0' }}
                     title={`${d.name}: ${d.count} races`}
                   />
                   <span className="text-[10px] text-gray-500 mt-1">{d.count > 0 ? d.count : ''}</span>
