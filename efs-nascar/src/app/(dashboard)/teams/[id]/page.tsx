@@ -1530,6 +1530,11 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                     <div className="text-gray-500 text-xs">{scaleMax}% Zig</div>
                   </div>
                 </div>
+
+                {/* Debug info - range of actual team scores */}
+                <div className="mt-2 text-xs text-gray-600 text-center">
+                  Range: {rawMin}%-{rawMax}% across {allTeamScores.length} teams • Lg.Avg: {leagueContrarianScore}%
+                </div>
               </div>
             </div>
           )}
