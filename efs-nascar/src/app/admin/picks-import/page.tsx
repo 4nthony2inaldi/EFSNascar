@@ -43,6 +43,7 @@ export default function PicksImportPage() {
   const [driversAdded, setDriversAdded] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteResult, setDeleteResult] = useState<{ message: string; deleted: number } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Fetch seasons on mount
   useState(() => {
@@ -155,6 +156,50 @@ export default function PicksImportPage() {
     }
   };
 
+  const handleExportPicks = async () => {
+    if (!seasonId) {
+      setError('Please select a season first');
+      return;
+    }
+
+    setExporting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/picks/export?seasonId=${seasonId}`);
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Export failed');
+      }
+
+      // Get the filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'picks-export.csv';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      setError(err.message || 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleDeleteSeasonPicks = async () => {
     if (!seasonId) {
       setError('Please select a season first');
@@ -236,19 +281,36 @@ export default function PicksImportPage() {
           </select>
         </div>
 
-        {/* Delete Season Picks */}
+        {/* Export / Delete Season Picks */}
         {seasonId && (
-          <div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <div>
-              <p className="text-red-300 text-sm">Need to start over? Delete all picks for this season first.</p>
+          <div className="space-y-3">
+            {/* Export */}
+            <div className="flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+              <div>
+                <p className="text-emerald-300 text-sm">Export existing picks to CSV for review or editing.</p>
+              </div>
+              <button
+                onClick={handleExportPicks}
+                disabled={exporting}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {exporting ? 'Exporting...' : 'Export Picks to CSV'}
+              </button>
             </div>
-            <button
-              onClick={handleDeleteSeasonPicks}
-              disabled={deleting}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-            >
-              {deleting ? 'Deleting...' : 'Delete Season Picks'}
-            </button>
+
+            {/* Delete */}
+            <div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <div>
+                <p className="text-red-300 text-sm">Need to start over? Delete all picks for this season first.</p>
+              </div>
+              <button
+                onClick={handleDeleteSeasonPicks}
+                disabled={deleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete Season Picks'}
+              </button>
+            </div>
           </div>
         )}
 
