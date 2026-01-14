@@ -3,9 +3,6 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, RaceResult, Driver, Pick, Team, RaceScore, ScoringConfig } from '@/types';
 import { POSITION_POINTS } from '@/types';
-import { calculateDriverTiers } from '@/lib/driverTiers';
-import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
-import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import { LocalTime } from '@/components/LocalTime';
 import { RaceNavigation } from '@/components/RaceNavigation';
 import { TeamPicksTable } from '@/components/TeamPicksTable';
@@ -72,24 +69,12 @@ export default async function RaceResultsPage({ params }: PageProps) {
     resultsMap[r.driver_id] = r;
   });
 
-  // Calculate driver tiers for strategy labels
-  const driverTiers = await calculateDriverTiers(supabase);
-
-  // Count how many teams picked each driver and calculate strategies
+  // Count how many teams picked each driver
   const driverPickCounts: Record<string, number> = {};
-  const teamStrategies: Record<string, PickStrategy> = {};
   picks?.forEach((pick: any) => {
     [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
       driverPickCounts[driverId] = (driverPickCounts[driverId] || 0) + 1;
     });
-
-    // Calculate pick strategy for this team
-    const tiers = [
-      driverTiers.get(pick.driver_1_id) || 0,
-      driverTiers.get(pick.driver_2_id) || 0,
-      driverTiers.get(pick.driver_3_id) || 0,
-    ];
-    teamStrategies[pick.team_id] = getPickStrategy(tiers);
   });
 
   const getOverlapColor = (count: number) => {
@@ -206,80 +191,6 @@ export default async function RaceResultsPage({ params }: PageProps) {
 
       {/* Race Navigation */}
       <RaceNavigation currentRace={race} basePath="results" />
-
-      {/* Team Scores */}
-      {scores && scores.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Team Scores</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
-                  <th className="pb-3 pr-4">#</th>
-                  <th className="pb-3 pr-4">Team</th>
-                  <th className="pb-3 pr-4 text-center">Strategy</th>
-                  <th className="pb-3 pr-4 text-center">Driver 1</th>
-                  <th className="pb-3 pr-4 text-center">Driver 2</th>
-                  <th className="pb-3 pr-4 text-center">Driver 3</th>
-                  <th className="pb-3 pr-4 text-center">Bonus</th>
-                  <th className="pb-3 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scores.map((score: any, index: number) => {
-                  const pick = picks?.find((p: any) => p.team_id === score.team_id);
-                  const isUserTeam = score.team_id === userTeamId;
-
-                  return (
-                    <tr
-                      key={score.id}
-                      className={`border-b border-gray-700/50 ${isUserTeam ? 'bg-yellow-500/10' : ''}`}
-                    >
-                      <td className="py-3 pr-4 text-gray-400">{index + 1}</td>
-                      <td className="py-3 pr-4">
-                        <Link
-                          href={`/teams/${score.team_id}`}
-                          className="flex items-center space-x-2 hover:text-yellow-500"
-                        >
-                          <span className="text-yellow-500 font-bold">
-                            #{score.team?.car_number}
-                          </span>
-                          <span className="text-white">{score.team?.name}</span>
-                          {isUserTeam && (
-                            <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded">
-                              YOU
-                            </span>
-                          )}
-                        </Link>
-                      </td>
-                      <td className="py-3 pr-4 text-center">
-                        {teamStrategies[score.team_id] && (
-                          <PickStrategyBadge strategy={teamStrategies[score.team_id]} size="sm" />
-                        )}
-                      </td>
-                      <td className="py-3 pr-4 text-center text-white">
-                        {score.driver_1_points}
-                      </td>
-                      <td className="py-3 pr-4 text-center text-white">
-                        {score.driver_2_points}
-                      </td>
-                      <td className="py-3 pr-4 text-center text-white">
-                        {score.driver_3_points}
-                      </td>
-                      <td className="py-3 pr-4 text-center text-yellow-500">
-                        +{score.stage_bonus + score.laps_led_bonus + score.top_10_bonus}
-                      </td>
-                      <td className="py-3 text-right text-white font-bold text-lg">
-                        {score.total_points}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* All Teams' Picks */}
       {picks && picks.length > 0 && (
