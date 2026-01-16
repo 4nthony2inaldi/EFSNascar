@@ -503,28 +503,73 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         )}
       </div>
 
+      {/* Scoring System */}
+      <div className="glass rounded-xl p-6">
+        <h2 className="text-lg font-bold text-white mb-3">Scoring System</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Position Points */}
+          <div>
+            <h3 className="text-sm font-medium text-purple-300 mb-2">Position Points</h3>
+            <div className="flex flex-wrap gap-2 text-sm">
+              {config?.position_points ? (
+                Object.entries(config.position_points)
+                  .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                  .map(([pos, pts]) => (
+                    <span key={pos} className="px-2 py-1 bg-purple-900/30 rounded text-purple-200">
+                      P{pos}: <span className="text-white font-medium">{pts}</span>
+                    </span>
+                  ))
+              ) : (
+                <>
+                  <span className="px-2 py-1 bg-purple-900/30 rounded text-purple-200">P1: <span className="text-white font-medium">10</span></span>
+                  <span className="px-2 py-1 bg-purple-900/30 rounded text-purple-200">P2: <span className="text-white font-medium">9</span></span>
+                  <span className="px-2 py-1 bg-purple-900/30 rounded text-purple-200">P3: <span className="text-white font-medium">8</span></span>
+                  <span className="text-purple-400">... down to P10: 1</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Bonus Points */}
+          <div>
+            <h3 className="text-sm font-medium text-purple-300 mb-2">Bonus Points</h3>
+            <div className="space-y-1 text-sm text-purple-200">
+              <div>Stage 1 Win: <span className="text-amber-400 font-medium">+{config?.stage_1_bonus ?? 1}</span></div>
+              <div>Stage 2 Win: <span className="text-amber-400 font-medium">+{config?.stage_2_bonus ?? 1}</span></div>
+              <div>Stage 3 Win: <span className="text-amber-400 font-medium">+{config?.stage_3_bonus ?? 1}</span></div>
+              <div>Most Laps Led: <span className="text-amber-400 font-medium">+{config?.laps_led_bonus ?? 1}</span></div>
+              <div>All 3 Drivers Top 10: <span className="text-amber-400 font-medium">+{config?.top_10_all_drivers_bonus ?? 1}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Standings Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full"></div>
-          <span className="text-purple-300">Catbird Seats (1-2) - First Round Bye</span>
-        </div>
+        {playoffOpts.catbirdSeats > 0 && (
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full"></div>
+            <span className="text-purple-300">Catbird Seats (1-{playoffOpts.catbirdSeats}) - First Round Bye</span>
+          </div>
+        )}
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-          <span className="text-purple-300">Playoff Position (3-6)</span>
+          <span className="text-purple-300">Playoff Position ({playoffOpts.catbirdSeats + 1}-{playoffOpts.championshipBracketSize - 1})</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-amber-400 rounded-full"></div>
-          <span className="text-purple-300">Lucky Dog (7th)</span>
+          <span className="text-purple-300">Lucky Dog ({playoffOpts.championshipBracketSize}th)</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-          <span className="text-purple-300">Consolation (8-15)</span>
+          <span className="text-purple-300">Consolation ({playoffOpts.consolationStart}-{playoffOpts.consolationEnd})</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-          <span className="text-purple-300">Muddy Mile (16-17)</span>
-        </div>
+        {playoffOpts.muddyMileStart > 0 && playoffOpts.muddyMileEnd > 0 && (
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span className="text-purple-300">Muddy Mile ({playoffOpts.muddyMileStart}-{playoffOpts.muddyMileEnd})</span>
+          </div>
+        )}
       </div>
 
       {/* Cumulative Points Chart (Regular Season Only) */}
@@ -660,7 +705,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           <div className="glass rounded-xl overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 border-b border-amber-500/30">
               <h3 className="text-lg font-bold text-amber-400">Championship Bracket</h3>
-              <p className="text-sm text-purple-300">Top 7 teams competing for the championship (points reset each round)</p>
+              <p className="text-sm text-purple-300">Top {playoffOpts.championshipBracketSize} teams competing for the championship (points reset each round)</p>
             </div>
 
             {/* Show current round standings */}
@@ -832,7 +877,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           <div className="glass rounded-xl overflow-hidden">
             <div className="bg-purple-600/20 px-4 py-3 border-b border-purple-500/30">
               <h3 className="text-lg font-bold text-purple-300">Consolation Bracket</h3>
-              <p className="text-sm text-purple-400">Teams 8-15 + eliminated championship teams (cumulative scoring)</p>
+              <p className="text-sm text-purple-400">Teams {playoffOpts.consolationStart}-{playoffOpts.consolationEnd} + eliminated championship teams (cumulative scoring)</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -895,11 +940,12 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
             )}
           </div>
 
-          {/* Muddy Mile */}
+          {/* Muddy Mile - only show if configured */}
+          {playoffOpts.muddyMileStart > 0 && playoffOpts.muddyMileEnd > 0 && (
           <div className="glass rounded-xl overflow-hidden">
             <div className="bg-red-500/20 px-4 py-3 border-b border-red-500/30">
               <h3 className="text-lg font-bold text-red-400">💩 The Muddy Mile</h3>
-              <p className="text-sm text-purple-400">Bottom 2 teams battle to avoid last place (cumulative scoring)</p>
+              <p className="text-sm text-purple-400">Teams {playoffOpts.muddyMileStart}-{playoffOpts.muddyMileEnd} battle to avoid last place (cumulative scoring)</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -970,6 +1016,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 
