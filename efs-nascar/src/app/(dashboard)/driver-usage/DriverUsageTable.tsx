@@ -11,6 +11,7 @@ interface Props {
   usageMap: Record<string, Record<string, number>>;
   seasons: SeasonOption[];
   selectedSeasonId: string;
+  userTeamId?: string | null;
 }
 
 type SortKey = 'weighted_fantasy_points' | 'driver_name' | 'tier';
@@ -99,7 +100,8 @@ export default function DriverUsageTable({
   teams,
   usageMap,
   seasons,
-  selectedSeasonId
+  selectedSeasonId,
+  userTeamId
 }: Props) {
   const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>('weighted_fantasy_points');
@@ -194,8 +196,15 @@ export default function DriverUsageTable({
                   <span className="text-white font-bold">Standings</span>
                 </th>
                 {teams.map(team => (
-                  <th key={team.id} className="px-2 py-2 text-center font-medium min-w-[50px] md:min-w-[60px]">
-                    <span className="text-white text-[10px] md:text-xs">{team.owner_name}</span>
+                  <th
+                    key={team.id}
+                    className={`px-2 py-2 text-center font-medium min-w-[50px] md:min-w-[60px] ${
+                      team.id === userTeamId ? 'bg-amber-500/20 border-x border-amber-500/50' : ''
+                    }`}
+                  >
+                    <span className={`text-[10px] md:text-xs ${team.id === userTeamId ? 'text-amber-400 font-bold' : 'text-white'}`}>
+                      {team.owner_name}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -220,7 +229,12 @@ export default function DriverUsageTable({
                   </div>
                 </th>
                 {teams.map(team => (
-                  <th key={team.id} className="px-2 py-2 text-center text-purple-500 text-[8px] md:text-[10px] min-w-[50px] md:min-w-[60px]">
+                  <th
+                    key={team.id}
+                    className={`px-2 py-2 text-center text-[8px] md:text-[10px] min-w-[50px] md:min-w-[60px] ${
+                      team.id === userTeamId ? 'bg-amber-500/10 border-x border-amber-500/30 text-amber-400' : 'text-purple-500'
+                    }`}
+                  >
                     {team.name}
                   </th>
                 ))}
@@ -262,7 +276,28 @@ export default function DriverUsageTable({
                     {/* Usage cells for each team */}
                     {teams.map(team => {
                       const usage = usageMap[driver.driver_id]?.[team.id] || 0;
-                      return <UsageCell key={team.id} count={usage} />;
+                      const isUserTeam = team.id === userTeamId;
+                      return (
+                        <td
+                          key={team.id}
+                          className={`px-2 py-2 text-center text-sm ${
+                            isUserTeam ? 'border-x border-amber-500/30 ' : ''
+                          }${
+                            usage >= 4 ? 'bg-red-500/40' :
+                            usage >= 2 ? 'bg-red-500/20' :
+                            usage === 1 ? 'bg-red-500/10' : ''
+                          }${isUserTeam && !usage ? 'bg-amber-500/5' : ''}`}
+                        >
+                          <span className={
+                            usage >= 4 ? 'text-white font-bold' :
+                            usage >= 2 ? 'text-red-300' :
+                            usage === 1 ? 'text-red-400/80' :
+                            'text-purple-600'
+                          }>
+                            {usage || ''}
+                          </span>
+                        </td>
+                      );
                     })}
                   </tr>
                 );

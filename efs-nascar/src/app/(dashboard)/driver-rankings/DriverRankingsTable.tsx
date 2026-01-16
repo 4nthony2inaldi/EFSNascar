@@ -64,9 +64,21 @@ function TierBadge({ tier }: { tier: number }) {
 export default function DriverRankingsTable({ rankings }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('fantasy_points');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter rankings by search term
+  const filteredRankings = useMemo(() => {
+    if (!searchTerm.trim()) return rankings;
+    const term = searchTerm.toLowerCase().trim();
+    return rankings.filter(driver =>
+      driver.driver_name.toLowerCase().includes(term) ||
+      driver.current_car_number.toString().includes(term) ||
+      (driver.team_name && driver.team_name.toLowerCase().includes(term))
+    );
+  }, [rankings, searchTerm]);
 
   const sortedRankings = useMemo(() => {
-    return [...rankings].sort((a, b) => {
+    return [...filteredRankings].sort((a, b) => {
       const aVal = a[sortKey];
       const bVal = b[sortKey];
 
@@ -90,7 +102,7 @@ export default function DriverRankingsTable({ rankings }: Props) {
 
       return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
     });
-  }, [rankings, sortKey, sortDirection]);
+  }, [filteredRankings, sortKey, sortDirection]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -138,6 +150,40 @@ export default function DriverRankingsTable({ rankings }: Props) {
 
   return (
     <div className="glass rounded-xl overflow-hidden">
+      {/* Search Input */}
+      <div className="p-4 border-b border-purple-700/30">
+        <div className="relative max-w-md">
+          <input
+            type="text"
+            placeholder="Search by name, car #, or team..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 pl-10 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white placeholder-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
+          <svg
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-purple-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-purple-500 hover:text-purple-300"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-sm text-purple-400">
+            Showing {sortedRankings.length} of {rankings.length} drivers
+          </p>
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>

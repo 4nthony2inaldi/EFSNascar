@@ -70,6 +70,18 @@ export default async function DriverUsagePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const cookieStore = await cookies();
 
+  // Get current user and their team
+  const { data: { user } } = await supabase.auth.getUser();
+  let userTeamId: string | null = null;
+  if (user) {
+    const { data: membership } = await supabase
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .single();
+    userTeamId = membership?.team_id || null;
+  }
+
   // Step 1: Get all seasons
   const { data: seasons } = await supabase
     .from('seasons')
@@ -107,7 +119,24 @@ export default async function DriverUsagePage({ searchParams }: PageProps) {
     `)
     .order('car_number', { ascending: true });
 
-  const teamsWithOwners: TeamWithOwner[] = (teams || []).map((team: any) => {
+  // Get standings to order teams
+  const { data: standingsData } = await supabase
+    .from('standings')
+    .select('team_id, total_points, rank')
+    .eq('season_id', selectedSeasonId)
+    .is('race_id', null)
+    .order('rank', { ascending: true });
+
+  // Create a ranking map: team_id -> rank (lower is better)
+  const rankingMap = new Map<string, number>();
+  if (standingsData && standingsData.length > 0) {
+    standingsData.forEach((s: any, index: number) => {
+      rankingMap.set(s.team_id, s.rank || index + 1);
+    });
+  }
+
+  // Build teams with owners
+  const teamsWithOwnersUnsorted: TeamWithOwner[] = (teams || []).map((team: any) => {
     const owners = team.team_memberships?.filter((m: any) => m.role === 'owner') || [];
     const ownerName = owners.length > 0
       ? owners.map((o: any) => o.profile?.name?.split(' ')[0] || 'Unknown').join('/')
@@ -118,6 +147,14 @@ export default async function DriverUsagePage({ searchParams }: PageProps) {
       car_number: team.car_number,
       owner_name: ownerName,
     };
+  });
+
+  // Sort teams by standings rank (teams not in standings go to the end, ordered by car number)
+  const teamsWithOwners = teamsWithOwnersUnsorted.sort((a, b) => {
+    const rankA = rankingMap.get(a.id) ?? 999;
+    const rankB = rankingMap.get(b.id) ?? 999;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.car_number - b.car_number;
   });
 
   // Step 3: Get races for the selected season that have revealed picks
@@ -357,6 +394,7 @@ export default async function DriverUsagePage({ searchParams }: PageProps) {
         usageMap={usageMap}
         seasons={seasonOptions}
         selectedSeasonId={selectedSeasonId}
+        userTeamId={userTeamId}
       />
 
       {/* Legend */}

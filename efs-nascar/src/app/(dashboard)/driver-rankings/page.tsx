@@ -1,13 +1,16 @@
 import { createClient } from '@/lib/supabase/server';
 import DriverRankingsTable, { DriverStats } from './DriverRankingsTable';
+import {
+  getPositionPoints,
+  getStage1BonusPoints,
+  getStage2BonusPoints,
+  getStage3BonusPoints,
+  getLapsLedBonusPoints,
+  DEFAULT_SCORING_CONFIG,
+} from '@/lib/scoring-config';
+import type { ScoringConfig } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
-
-// Position points: 1st=10, 2nd=9, ..., 10th=1, 11th+=0
-const POSITION_POINTS: Record<number, number> = {
-  1: 10, 2: 9, 3: 8, 4: 7, 5: 6,
-  6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
-};
 
 // Weight multipliers for races:
 // Most recent 30 races: 3x
@@ -19,24 +22,53 @@ function getWeightForRaceIndex(index: number): number {
   return 1;
 }
 
-// Calculate fantasy points for a single race result
+// Calculate fantasy points for a single race result using scoring config
 function calculateFantasyPoints(
   finishPosition: number,
   stage1Winner: boolean,
   stage2Winner: boolean,
   stage3Winner: boolean,
-  mostLapsLed: boolean
+  mostLapsLed: boolean,
+  positionPoints: Record<number, number>,
+  stage1Bonus: number,
+  stage2Bonus: number,
+  stage3Bonus: number,
+  lapsLedBonus: number
 ): number {
-  let points = POSITION_POINTS[finishPosition] || 0;
-  if (stage1Winner) points += 1;
-  if (stage2Winner) points += 1;
-  if (stage3Winner) points += 1;
-  if (mostLapsLed) points += 1;
+  let points = positionPoints[finishPosition] || 0;
+  if (stage1Winner) points += stage1Bonus;
+  if (stage2Winner) points += stage2Bonus;
+  if (stage3Winner) points += stage3Bonus;
+  if (mostLapsLed) points += lapsLedBonus;
   return points;
 }
 
 export default async function DriverRankingsPage() {
   const supabase = await createClient();
+
+  // Get active season's scoring config
+  const { data: activeSeason } = await supabase
+    .from('seasons')
+    .select('id')
+    .eq('is_active', true)
+    .single();
+
+  let scoringConfig: ScoringConfig | null = null;
+  if (activeSeason) {
+    const { data: config } = await supabase
+      .from('scoring_configs')
+      .select('*')
+      .eq('season_id', activeSeason.id)
+      .single();
+    scoringConfig = config as ScoringConfig | null;
+  }
+
+  // Get scoring values from config (or defaults)
+  const positionPoints = getPositionPoints(scoringConfig);
+  const stage1Bonus = getStage1BonusPoints(scoringConfig);
+  const stage2Bonus = getStage2BonusPoints(scoringConfig);
+  const stage3Bonus = getStage3BonusPoints(scoringConfig);
+  const lapsLedBonus = getLapsLedBonusPoints(scoringConfig);
 
   // Step 1: Get the 90 most recent races with status = 'final'
   const { data: races, error: racesError } = await supabase
@@ -183,13 +215,18 @@ export default async function DriverRankingsPage() {
       stats.car_numbers.add(carNumber);
     }
 
-    // Calculate fantasy points for this race
+    // Calculate fantasy points for this race using current season's scoring config
     const raceFantasyPoints = calculateFantasyPoints(
       result.finish_position || 0,
       result.stage_1_winner || false,
       result.stage_2_winner || false,
       result.stage_3_winner || false,
-      result.most_laps_led || false
+      result.most_laps_led || false,
+      positionPoints,
+      stage1Bonus,
+      stage2Bonus,
+      stage3Bonus,
+      lapsLedBonus
     );
 
     // Get weight for this race based on recency

@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, Team, Standing, Pick, Track, TrackType, Season } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
-import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import {
   calculatePlayoffStandings,
   isRegularSeasonComplete,
@@ -12,6 +10,8 @@ import {
   type PlayoffTeamStanding,
   type RaceScore as PlayoffRaceScore,
 } from '@/lib/playoff-standings';
+import { calculateTeamTitsStats } from '@/lib/titsCalculation';
+import { calculateDriverTiers } from '@/lib/driverTiers';
 
 // Force dynamic rendering to ensure cookies are read fresh
 export const dynamic = 'force-dynamic';
@@ -20,37 +20,21 @@ interface RaceWithTrack extends Race {
   track_info: Track | null;
 }
 
-interface DashboardPageProps {
-  searchParams: Promise<{ season?: string }>;
-}
-
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+export default async function DashboardPage() {
   const supabase = await createClient();
-  const params = await searchParams;
-  const cookieStore = await cookies();
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Get all seasons for the selector
-  const { data: allSeasons } = await supabase
-    .from('seasons')
-    .select('*')
-    .order('year', { ascending: false });
-
-  const seasons = (allSeasons || []) as Season[];
-
-  // Get active season
+  // Get active season - dashboard always shows current season only
   const { data: activeSeason } = await supabase
     .from('seasons')
     .select('*')
     .eq('is_active', true)
     .single();
 
-  // Determine which season to display (from URL param, then cookie, then default to active)
-  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
-  const selectedSeasonId = params.season || seasonCookie || activeSeason?.id;
-  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
-  const isViewingActiveSeason = selectedSeasonId === activeSeason?.id;
+  // Dashboard only shows the active season (no season selection)
+  const selectedSeasonId = activeSeason?.id;
+  const isViewingActiveSeason = true;
 
   // Get user's team
   const { data: membership } = await supabase
@@ -112,6 +96,42 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .single();
     hasPicked = !!pick;
     userPick = pick as Pick | null;
+  }
+
+  // Get team submission counts for next race
+  let submissionStats: {
+    submitted: number;
+    total: number;
+    waitingOnTeams: { car_number: number; name: string }[];
+  } | null = null;
+
+  if (nextRace) {
+    // Get all teams
+    const { data: allTeams } = await supabase
+      .from('teams')
+      .select('id, car_number, name')
+      .order('car_number', { ascending: true });
+
+    // Get picks for this race
+    const { data: racePicks } = await supabase
+      .from('picks')
+      .select('team_id')
+      .eq('race_id', nextRace.id);
+
+    const teamsWithPicks = new Set((racePicks || []).map(p => p.team_id));
+    const totalTeams = (allTeams || []).length;
+    const submittedCount = teamsWithPicks.size;
+
+    // Find teams that haven't submitted
+    const waitingOnTeams = (allTeams || [])
+      .filter(t => !teamsWithPicks.has(t.id))
+      .map(t => ({ car_number: t.car_number, name: t.name }));
+
+    submissionStats = {
+      submitted: submittedCount,
+      total: totalTeams,
+      waitingOnTeams,
+    };
   }
 
   // Get all races for the selected season to determine regular vs playoff
@@ -421,6 +441,158 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const userDesignation = getUserDesignation(userRank);
 
+  // Calculate TITS% for user's team
+  let userTitsStats: { titsPercent: number; titsRemaining: number } | null = null;
+  if (userTeam && selectedSeasonId) {
+    const titsStats = await calculateTeamTitsStats(supabase, userTeam.id, selectedSeasonId);
+    if (titsStats) {
+      userTitsStats = {
+        titsPercent: titsStats.titsPercent,
+        titsRemaining: titsStats.titsRemaining,
+      };
+    }
+  }
+
+  // Calculate Zig% (contrarian score) for user's team
+  let userZigPercent: number | null = null;
+  if (userTeam && selectedSeasonId) {
+    // Get revealed races
+    const { data: revealedRaces } = await supabase
+      .from('races')
+      .select('id')
+      .eq('season_id', selectedSeasonId)
+      .or(`status.eq.in_progress,status.eq.final,deadline_datetime.lt.${new Date().toISOString()}`);
+
+    const revealedRaceIds = new Set((revealedRaces || []).map(r => r.id));
+
+    if (revealedRaceIds.size > 0) {
+      // Get all picks from revealed races
+      const { data: allRevealedPicks } = await supabase
+        .from('picks')
+        .select('team_id, race_id, driver_1_id, driver_2_id, driver_3_id')
+        .in('race_id', Array.from(revealedRaceIds));
+
+      if (allRevealedPicks && allRevealedPicks.length > 0) {
+        // Count how many teams picked each driver per race
+        const driverPickCountsByRace: Record<string, Record<string, number>> = {};
+        const teamCountByRace: Record<string, number> = {};
+
+        for (const pick of allRevealedPicks) {
+          if (!driverPickCountsByRace[pick.race_id]) {
+            driverPickCountsByRace[pick.race_id] = {};
+            teamCountByRace[pick.race_id] = 0;
+          }
+          teamCountByRace[pick.race_id]++;
+          [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach(driverId => {
+            if (driverId) {
+              driverPickCountsByRace[pick.race_id][driverId] = (driverPickCountsByRace[pick.race_id][driverId] || 0) + 1;
+            }
+          });
+        }
+
+        // Calculate user's contrarian score
+        const getPopularityLevel = (count: number, totalTeams: number): string => {
+          const percentage = (count / totalTeams) * 100;
+          if (count === 1) return 'unique';
+          if (percentage <= 20) return 'rare';
+          if (percentage <= 35) return 'uncommon';
+          if (percentage <= 50) return 'common';
+          if (percentage <= 70) return 'popular';
+          return 'chalk';
+        };
+
+        const contrarianWeights: Record<string, number> = {
+          unique: 100, rare: 80, uncommon: 60, common: 40, popular: 20, chalk: 0,
+        };
+
+        let totalWeight = 0;
+        let pickCount = 0;
+
+        const userPicks = allRevealedPicks.filter(p => p.team_id === userTeam.id);
+        for (const pick of userPicks) {
+          const totalTeams = teamCountByRace[pick.race_id] || 1;
+          const driverCounts = driverPickCountsByRace[pick.race_id] || {};
+
+          [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach(driverId => {
+            if (driverId) {
+              const count = driverCounts[driverId] || 1;
+              const level = getPopularityLevel(count, totalTeams);
+              totalWeight += contrarianWeights[level];
+              pickCount++;
+            }
+          });
+        }
+
+        userZigPercent = pickCount > 0 ? Math.round(totalWeight / pickCount) : null;
+      }
+    }
+  }
+
+  // Get prior week (last completed race) results for user's team
+  let priorWeekResult: { points: number; raceNumber: number; raceName: string; rankChange: number } | null = null;
+  if (userTeam && selectedSeasonId) {
+    // Get the last completed race
+    const { data: lastCompletedRace } = await supabase
+      .from('races')
+      .select('id, race_number, name')
+      .eq('season_id', selectedSeasonId)
+      .eq('status', 'final')
+      .order('race_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (lastCompletedRace) {
+      // Get user's score for that race
+      const { data: raceScore } = await supabase
+        .from('race_scores')
+        .select('total_points')
+        .eq('team_id', userTeam.id)
+        .eq('race_id', lastCompletedRace.id)
+        .single();
+
+      // Calculate rank change by comparing standings after last race vs two races ago
+      let rankChange = 0;
+      const { data: previousRace } = await supabase
+        .from('races')
+        .select('id')
+        .eq('season_id', selectedSeasonId)
+        .eq('status', 'final')
+        .lt('race_number', lastCompletedRace.race_number)
+        .order('race_number', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (previousRace) {
+        // Get all race scores up to (but not including) the last race
+        const { data: previousScores } = await supabase
+          .from('race_scores')
+          .select('team_id, total_points, race:races!inner(race_number, status, race_type)')
+          .eq('race.season_id', selectedSeasonId)
+          .lte('race.race_number', previousRace.race_number)
+          .eq('race.status', 'final');
+
+        const prevTeamTotals: Record<string, number> = {};
+        for (const score of (previousScores || []).filter((s: any) => !s.race?.race_type || s.race?.race_type === 'regular')) {
+          prevTeamTotals[score.team_id] = (prevTeamTotals[score.team_id] || 0) + (score.total_points || 0);
+        }
+
+        const prevSorted = Object.entries(prevTeamTotals).sort((a, b) => b[1] - a[1]);
+        const prevRank = prevSorted.findIndex(([teamId]) => teamId === userTeam.id) + 1;
+
+        if (prevRank > 0 && userRank) {
+          rankChange = prevRank - userRank; // Positive = improved, negative = dropped
+        }
+      }
+
+      priorWeekResult = {
+        points: raceScore?.total_points || 0,
+        raceNumber: lastCompletedRace.race_number,
+        raceName: lastCompletedRace.name,
+        rankChange,
+      };
+    }
+  }
+
   // Calculate Lucky Dog points and ranking
   // Lucky Dog: team outside top 6 with most race wins, with tiebreakers:
   // 1. Race wins, 2. Stage wins, 3. Laps led leaders chosen, 4. Top 10 bonuses
@@ -498,16 +670,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div>
           <h1 className="text-3xl font-bold text-white">Dashboard</h1>
           <p className="text-purple-400 mt-1">
-            {selectedSeason ? `${selectedSeason.name} Season` : 'No active season'}
+            {activeSeason ? `${activeSeason.name} Season` : 'No active season'}
           </p>
         </div>
-        {seasons.length > 0 && selectedSeasonId && (
-          <SeasonSelector
-            seasons={seasons}
-            currentSeasonId={selectedSeasonId}
-            basePath="/"
-          />
-        )}
       </div>
 
       {/* Alert if no team */}
@@ -575,47 +740,71 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
 
               {userTeam && (
-                <div className="flex items-center justify-between">
-                  {isDeadlinePassed ? (
-                    <div className={`flex items-center ${hasPicked ? 'text-emerald-400' : 'text-red-400'}`}>
-                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        {hasPicked ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    {isDeadlinePassed ? (
+                      <div className={`flex items-center ${hasPicked ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          {hasPicked ? (
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          ) : (
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          )}
+                        </svg>
+                        {hasPicked ? 'Picks submitted' : 'Deadline missed'}
+                      </div>
+                    ) : hasPicked ? (
+                      <div className="flex items-center text-emerald-400">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        ) : (
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        )}
-                      </svg>
-                      {hasPicked ? 'Picks submitted' : 'Deadline missed'}
+                        </svg>
+                        Picks submitted
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-amber-400">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Picks not submitted
+                      </div>
+                    )}
+                    {isDeadlinePassed ? (
+                      <Link
+                        href={`/races/${nextRace.id}/picks`}
+                        className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 shadow-lg shadow-purple-500/25 transition-all"
+                      >
+                        View All Picks
+                      </Link>
+                    ) : (
+                      <Link
+                        href={`/picks?race=${nextRace.id}`}
+                        className="px-5 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all"
+                      >
+                        {hasPicked ? 'Edit Picks' : 'Submit Picks'}
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Team submission status */}
+                  {submissionStats && !isDeadlinePassed && (
+                    <div className="pt-3 border-t border-purple-700/30 text-sm text-purple-300">
+                      <span className="font-medium">{submissionStats.submitted} of {submissionStats.total}</span>
+                      <span className="text-purple-400"> teams submitted.</span>
+                      {submissionStats.waitingOnTeams.length > 0 && submissionStats.waitingOnTeams.length <= 5 && (
+                        <span className="text-purple-400">
+                          {' '}Waiting on{' '}
+                          <span className="text-purple-300">
+                            {submissionStats.waitingOnTeams.map((t, i) => (
+                              <span key={t.car_number}>
+                                #{t.car_number}
+                                {i < submissionStats.waitingOnTeams.length - 2 ? ', ' :
+                                 i === submissionStats.waitingOnTeams.length - 2 ? ' & ' : ''}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      )}
                     </div>
-                  ) : hasPicked ? (
-                    <div className="flex items-center text-emerald-400">
-                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Picks submitted
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-amber-400">
-                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                      Picks not submitted
-                    </div>
-                  )}
-                  {isDeadlinePassed ? (
-                    <Link
-                      href={`/races/${nextRace.id}/picks`}
-                      className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 shadow-lg shadow-purple-500/25 transition-all"
-                    >
-                      View All Picks
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/picks?race=${nextRace.id}`}
-                      className="px-5 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all"
-                    >
-                      {hasPicked ? 'Edit Picks' : 'Submit Picks'}
-                    </Link>
                   )}
                 </div>
               )}
@@ -624,7 +813,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="text-purple-400">
               {!isViewingActiveSeason ? (
                 <div className="text-center py-4">
-                  <p className="text-lg mb-2">Viewing {selectedSeason?.name} Season</p>
+                  <p className="text-lg mb-2">Viewing {activeSeason?.name} Season</p>
                   <p className="text-sm text-purple-500">This is a past season. Switch to the current season to see upcoming races.</p>
                 </div>
               ) : (
@@ -669,14 +858,58 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            {/* Points */}
+            {/* Points & Key Stats */}
             {userStanding && (
               <div className="mb-4 p-3 bg-purple-900/30 rounded-lg">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-                    {userPoints}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                      {userPoints}
+                    </div>
+                    <div className="text-xs text-purple-400">Points</div>
                   </div>
-                  <div className="text-xs text-purple-400">Total Points</div>
+                  {userTitsStats && (
+                    <div>
+                      <div className={`text-2xl font-bold ${
+                        userTitsStats.titsPercent >= 50 ? 'text-green-400' :
+                        userTitsStats.titsPercent >= 30 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {userTitsStats.titsPercent.toFixed(0)}%
+                      </div>
+                      <div className="text-xs text-purple-400">TITS%</div>
+                    </div>
+                  )}
+                  {userZigPercent !== null && (
+                    <div>
+                      <div className={`text-2xl font-bold ${
+                        userZigPercent >= 60 ? 'text-green-400' :
+                        userZigPercent >= 40 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {userZigPercent}%
+                      </div>
+                      <div className="text-xs text-purple-400">Zig%</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Prior Week Results */}
+            {priorWeekResult && (
+              <div className="mb-4 p-3 bg-purple-900/20 border border-purple-700/30 rounded-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-purple-400">Last Race (#{priorWeekResult.raceNumber})</span>
+                  {priorWeekResult.rankChange !== 0 && (
+                    <span className={`text-xs font-medium ${
+                      priorWeekResult.rankChange > 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {priorWeekResult.rankChange > 0 ? '▲' : '▼'} {Math.abs(priorWeekResult.rankChange)} spot{Math.abs(priorWeekResult.rankChange) !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold text-white">{priorWeekResult.points}</span>
+                  <span className="text-xs text-purple-500">pts</span>
                 </div>
               </div>
             )}
@@ -753,99 +986,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
       </div>
 
-      {/* Regular Season Standings Preview */}
-      <div className="glass rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-white">Regular Season Standings</h2>
-            <p className="text-sm text-purple-400">
-              {completedRegularRaces === totalRegularRaces && totalRegularRaces > 0
-                ? 'Final'
-                : `${completedRegularRaces} of ${totalRegularRaces} races`}
-            </p>
-          </div>
-          <Link
-            href="/standings"
-            className="text-amber-400 hover:text-amber-300 text-sm"
-          >
-            View Full Standings →
-          </Link>
-        </div>
-
-        {standings && standings.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-purple-400 text-sm border-b border-purple-700/30">
-                  <th className="pb-3 pr-4">Rank</th>
-                  <th className="pb-3 pr-4">Team</th>
-                  <th className="pb-3 pr-4 text-right">Points</th>
-                  <th className="pb-3 text-right">Wins</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((standing: any, index: number) => {
-                  const rank = standing.rank || index + 1;
-
-                  // Determine rank color and status label
-                  let rankColor = 'text-purple-400';
-                  let statusLabel = '';
-
-                  if (rank <= 2) {
-                    rankColor = 'text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300';
-                    statusLabel = '🐱';
-                  } else if (rank <= 6) {
-                    rankColor = 'text-emerald-400';
-                  } else if (rank === 7) {
-                    rankColor = 'text-amber-400';
-                    statusLabel = '🐶';
-                  } else if (rank >= 16) {
-                    rankColor = 'text-red-400';
-                    statusLabel = '💩';
-                  }
-
-                  return (
-                    <tr
-                      key={standing.id}
-                      className={`border-b border-purple-800/20 ${
-                        standing.team?.id === userTeam?.id ? 'bg-amber-500/10' : ''
-                      }`}
-                    >
-                      <td className="py-3 pr-4">
-                        <span className={`font-bold ${rankColor}`}>
-                          {rank}
-                        </span>
-                        {statusLabel && <span className="ml-1">{statusLabel}</span>}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <Link
-                          href={`/teams/${standing.team?.id}`}
-                          className="flex items-center hover:text-amber-400 transition-colors"
-                        >
-                          <span className="text-amber-400 font-bold mr-2">
-                            #{standing.team?.car_number}
-                          </span>
-                          {/* Show abbreviation on mobile, full name on larger screens */}
-                          <span className="text-white hover:text-amber-300 hidden sm:inline">{standing.team?.name}</span>
-                          <span className="text-white hover:text-amber-300 sm:hidden">{standing.team?.abbreviation || standing.team?.name}</span>
-                        </Link>
-                      </td>
-                      <td className="py-3 pr-4 text-right text-white font-medium">
-                        {standing.total_points}
-                      </td>
-                      <td className="py-3 text-right text-purple-300">
-                        {standing.race_wins}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-purple-400">No standings data available yet.</p>
-        )}
-      </div>
 
       {/* Playoff Standings Preview */}
       {showPlayoffSection && playoffStandings && (

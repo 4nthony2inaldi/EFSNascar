@@ -67,14 +67,16 @@ export default function PicksPage() {
           return;
         }
 
-        // Get upcoming races
+        // Get only the next upcoming race (not all future races)
+        // Users can only submit picks for the immediate next race
         const { data: upcomingRaces } = await supabase
           .from('races')
           .select('*')
           .eq('season_id', season.id)
           .eq('status', 'upcoming')
           .gt('deadline_datetime', new Date().toISOString())
-          .order('scheduled_datetime', { ascending: true });
+          .order('scheduled_datetime', { ascending: true })
+          .limit(1);
 
         setRaces(upcomingRaces || []);
 
@@ -356,36 +358,34 @@ export default function PicksPage() {
         <p className="text-purple-400 mt-1">Select 3 drivers for the upcoming race</p>
       </div>
 
-      {/* Race Selector */}
+      {/* Race Info */}
       <div className="glass rounded-xl p-6">
-        <label className="block text-sm font-medium text-purple-200 mb-2">
-          Select Race
-        </label>
-        <select
-          value={selectedRace?.id || ''}
-          onChange={(e) => handleRaceChange(e.target.value)}
-          className="w-full px-4 py-3 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          {races.length === 0 && <option value="">No upcoming races</option>}
-          {races.map((race) => (
-            <option key={race.id} value={race.id}>
-              Race {race.race_number}: {race.name} - {race.track}
-            </option>
-          ))}
-        </select>
-
-        {selectedRace && (
-          <div className="mt-4 text-sm text-purple-300">
-            <p>
-              <span className="text-purple-500">Deadline:</span>{' '}
-              <LocalTime dateStr={selectedRace.deadline_datetime} format="datetime" />
-            </p>
-            <p>
-              <span className="text-purple-500">Race Time:</span>{' '}
-              <LocalTime dateStr={selectedRace.scheduled_datetime} format="datetime" />
+        {races.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-purple-300 text-lg">No upcoming races available for picks</p>
+            <p className="text-purple-500 text-sm mt-2">
+              Check back after the current race results are finalized.
             </p>
           </div>
-        )}
+        ) : selectedRace ? (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-amber-400 font-bold text-lg">Race {selectedRace.race_number}</span>
+              <span className="text-white text-xl font-semibold">{selectedRace.name}</span>
+            </div>
+            <p className="text-purple-300 mb-2">{selectedRace.track}</p>
+            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+              <div>
+                <span className="text-purple-500">Deadline:</span>{' '}
+                <span className="text-purple-200"><LocalTime dateStr={selectedRace.deadline_datetime} format="datetime" /></span>
+              </div>
+              <div>
+                <span className="text-purple-500">Race Time:</span>{' '}
+                <span className="text-purple-200"><LocalTime dateStr={selectedRace.scheduled_datetime} format="datetime" /></span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {selectedRace && (

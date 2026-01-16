@@ -130,10 +130,14 @@ export async function calculateTeamTitsStats(
 
 /**
  * Calculate TITS stats for all teams (optimized batch query)
+ * @param revealedOnly - If true, only count picks from races where deadline has passed
+ * @param excludeTeamId - Optional team ID to exclude from revealedOnly filter (for showing own team's full stats)
  */
 export async function calculateAllTeamsTitsStats(
   supabase: SupabaseClient,
-  seasonId: string
+  seasonId: string,
+  revealedOnly: boolean = false,
+  excludeTeamId?: string
 ): Promise<Map<string, TitsStats>> {
   const results = new Map<string, TitsStats>();
 
@@ -161,15 +165,34 @@ export async function calculateAllTeamsTitsStats(
     .from('teams')
     .select('id');
 
+  // Get revealed races if needed (deadline passed or race completed)
+  let revealedRaceIds: Set<string> | null = null;
+  if (revealedOnly) {
+    const now = new Date().toISOString();
+    const { data: revealedRaces } = await supabase
+      .from('races')
+      .select('id')
+      .eq('season_id', seasonId)
+      .or(`deadline_datetime.lt.${now},status.eq.in_progress,status.eq.final`);
+    revealedRaceIds = new Set((revealedRaces || []).map(r => r.id));
+  }
+
   // Get all picks for the season
   const { data: allPicks } = await supabase
     .from('picks')
-    .select('team_id, driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
+    .select('team_id, race_id, driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
     .eq('races.season_id', seasonId);
 
-  // Build usage map per team
+  // Build usage map per team (respecting revealedOnly filter)
   const usageByTeam: Record<string, Record<string, number>> = {};
   for (const pick of allPicks || []) {
+    // If revealedOnly mode, skip unrevealed picks (unless it's the excluded team's own picks)
+    if (revealedOnly && revealedRaceIds && pick.team_id !== excludeTeamId) {
+      if (!revealedRaceIds.has(pick.race_id)) {
+        continue;
+      }
+    }
+
     if (!usageByTeam[pick.team_id]) {
       usageByTeam[pick.team_id] = {};
     }

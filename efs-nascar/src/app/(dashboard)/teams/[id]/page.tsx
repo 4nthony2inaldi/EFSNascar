@@ -60,6 +60,16 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       m.user_id === user?.id && m.role === 'owner'
   );
 
+  // Check if user is a member of this team (owner or member)
+  const isTeamMember = team.team_memberships?.some(
+    (m: TeamMembership & { profile: Profile }) =>
+      m.user_id === user?.id
+  );
+
+  // Determine if we should show all picks or only revealed picks
+  // Users can see their own team's unrevealed picks, but not other teams'
+  const showUnrevealedPicks = isTeamMember;
+
   // Get all seasons for the selector
   const { data: allSeasons } = await supabase
     .from('seasons')
@@ -218,6 +228,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   const races = (racesData || []) as (Race & { track_info: { track_type: string } | null })[];
 
+  // Determine which races have revealed picks (deadline passed or race completed)
+  const now = new Date();
+  const revealedRaceIds = new Set(
+    races
+      .filter(r => new Date(r.deadline_datetime) < now || r.status === 'in_progress' || r.status === 'final')
+      .map(r => r.id)
+  );
+
   // Get all tracks for fallback lookup (for older seasons without track_id)
   const { data: allTracksData } = await supabase
     .from('tracks')
@@ -276,9 +294,15 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         .in('race_id', raceIds)
     : { data: [] };
 
+  // Filter picks data based on visibility rules
+  // If not viewing own team, only show picks from revealed races
+  const filteredPicksData = showUnrevealedPicks
+    ? picksData
+    : (picksData || []).filter((pick: any) => revealedRaceIds.has(pick.race_id));
+
   // Build lookup maps
   const picksByRaceId = new Map<string, any>();
-  for (const pick of picksData || []) {
+  for (const pick of filteredPicksData || []) {
     picksByRaceId.set(pick.race_id, pick);
   }
 
@@ -331,7 +355,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   }
 
   // Now aggregate from picks
-  for (const pick of picksData || []) {
+  for (const pick of filteredPicksData || []) {
     const race = races.find(r => r.id === pick.race_id);
     if (!race || race.status !== 'final') continue;
 
@@ -650,7 +674,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     chalk: { totalPoints: 0, count: 0 },
   };
 
-  for (const pick of picksData || []) {
+  for (const pick of filteredPicksData || []) {
     const race = races.find(r => r.id === pick.race_id);
     if (!race || race.status !== 'final') continue;
 
@@ -865,7 +889,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     chalk: { 1: { totalPoints: 0, count: 0 }, 2: { totalPoints: 0, count: 0 }, 3: { totalPoints: 0, count: 0 } },
   };
 
-  for (const pick of picksData || []) {
+  for (const pick of filteredPicksData || []) {
     const race = races.find(r => r.id === pick.race_id);
     if (!race || race.status !== 'final') continue;
 
@@ -990,7 +1014,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     3: { totalPoints: 0, count: 0 },
   };
 
-  for (const pick of picksData || []) {
+  for (const pick of filteredPicksData || []) {
     const race = races.find(r => r.id === pick.race_id);
     if (!race || race.status !== 'final') continue;
 
@@ -1267,8 +1291,8 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           )}
         </div>
 
-        {/* TITS Remaining - Only show for active season */}
-        {selectedSeasonId === activeSeason?.id && (
+        {/* TITS Remaining - Only show for active season and team's own members */}
+        {selectedSeasonId === activeSeason?.id && isTeamMember && (
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-xl font-bold text-white mb-4">TITS Remaining</h2>
             {titsStats ? (
