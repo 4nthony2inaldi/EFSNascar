@@ -403,6 +403,7 @@ export default function AdminTeamsPage() {
                 <th className="pb-3">Email</th>
                 <th className="pb-3">Team</th>
                 <th className="pb-3">Admin</th>
+                <th className="pb-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -425,10 +426,22 @@ export default function AdminTeamsPage() {
                     </td>
                     <td className="py-3">
                       {user.is_commissioner ? (
-                        <span className="px-2 py-1 bg-red-500/20 text-red-500 text-xs rounded">Yes</span>
+                        <span className="px-2 py-1 bg-red-500/20 text-red-500 text-xs rounded">Commissioner</span>
                       ) : (
                         <span className="text-gray-500">No</span>
                       )}
+                    </td>
+                    <td className="py-3">
+                      <button
+                        onClick={() => handleToggleCommissioner(user.id, user.is_commissioner || false)}
+                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                          user.is_commissioner
+                            ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                        }`}
+                      >
+                        {user.is_commissioner ? 'Remove Admin' : 'Make Admin'}
+                      </button>
                     </td>
                   </tr>
                 );
