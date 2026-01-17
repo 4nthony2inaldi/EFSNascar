@@ -504,34 +504,6 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         )}
       </div>
 
-      {/* Standings Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        {playoffOpts.catbirdSeats > 0 && (
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full"></div>
-            <span className="text-purple-300">Catbird Seats (1-{playoffOpts.catbirdSeats}) - First Round Bye</span>
-          </div>
-        )}
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-          <span className="text-purple-300">Playoff Position ({playoffOpts.catbirdSeats + 1}-{playoffOpts.championshipBracketSize - 1})</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-amber-400 rounded-full"></div>
-          <span className="text-purple-300">Lucky Dog ({playoffOpts.championshipBracketSize}th)</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-          <span className="text-purple-300">Consolation ({playoffOpts.consolationStart}-{playoffOpts.consolationEnd})</span>
-        </div>
-        {playoffOpts.muddyMileStart > 0 && playoffOpts.muddyMileEnd > 0 && (
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <span className="text-purple-300">Muddy Mile ({playoffOpts.muddyMileStart}-{playoffOpts.muddyMileEnd})</span>
-          </div>
-        )}
-      </div>
-
       {/* Cumulative Points Chart (Regular Season Only) */}
       <div>
         <h2 className="text-lg font-bold text-white mb-3">Regular Season Progress</h2>
