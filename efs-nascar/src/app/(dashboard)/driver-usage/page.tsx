@@ -380,10 +380,11 @@ export default async function DriverUsagePage({ searchParams }: PageProps) {
   const revealedRaceCount = revealedRaceIds.size;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="hidden sm:block text-3xl font-bold text-white">Driver Usage</h1>
-        <p className="hidden sm:block text-purple-400 mt-1">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - hidden on mobile */}
+      <div className="hidden sm:block">
+        <h1 className="text-3xl font-bold text-white">Driver Usage</h1>
+        <p className="text-purple-400 mt-1">
           Driver usage across all teams ({revealedRaceCount} race{revealedRaceCount !== 1 ? 's' : ''} revealed)
         </p>
       </div>
@@ -434,10 +435,10 @@ function EmptyState({
   selectedSeasonId: string;
 }) {
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="hidden sm:block text-3xl font-bold text-white">Driver Usage</h1>
-        <p className="hidden sm:block text-purple-400 mt-1">Driver usage across all teams</p>
+    <div className="space-y-6 sm:space-y-8">
+      <div className="hidden sm:block">
+        <h1 className="text-3xl font-bold text-white">Driver Usage</h1>
+        <p className="text-purple-400 mt-1">Driver usage across all teams</p>
       </div>
 
       {/* Season Selector */}
@@ -472,9 +473,9 @@ function EmptyState({
 
 function ErrorDisplay({ message }: { message: string }) {
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="hidden sm:block text-3xl font-bold text-white">Driver Usage</h1>
+    <div className="space-y-6 sm:space-y-8">
+      <div className="hidden sm:block">
+        <h1 className="text-3xl font-bold text-white">Driver Usage</h1>
       </div>
       <div className="glass rounded-xl p-12 text-center border border-red-500/30">
         <p className="text-red-400">{message}</p>

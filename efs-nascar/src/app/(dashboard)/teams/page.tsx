@@ -163,10 +163,11 @@ export default async function TeamsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="hidden sm:block text-3xl font-bold text-white">Teams</h1>
-        <p className="hidden sm:block text-purple-400 mt-1">All 17 teams in the EFS NASCAR Fantasy League</p>
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - hidden on mobile */}
+      <div className="hidden sm:block">
+        <h1 className="text-3xl font-bold text-white">Teams</h1>
+        <p className="text-purple-400 mt-1">All 17 teams in the EFS NASCAR Fantasy League</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

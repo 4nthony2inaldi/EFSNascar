@@ -664,12 +664,12 @@ export default async function DashboardPage() {
   const isDeadlinePassed = nextRace ? new Date(nextRace.deadline_datetime).getTime() < Date.now() : false;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - hidden on mobile */}
+      <div className="hidden sm:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="hidden sm:block text-3xl font-bold text-white">Dashboard</h1>
-          <p className="hidden sm:block text-purple-400 mt-1">
+          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-purple-400 mt-1">
             {activeSeason ? `${activeSeason.name} Season` : 'No active season'}
           </p>
         </div>

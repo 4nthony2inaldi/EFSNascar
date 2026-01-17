@@ -486,11 +486,12 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - title hidden on mobile, season selector always visible */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="hidden sm:block text-3xl font-bold text-white">Standings</h1>
-          <p className="hidden sm:block text-purple-400 mt-1">
+        <div className="hidden sm:block">
+          <h1 className="text-3xl font-bold text-white">Standings</h1>
+          <p className="text-purple-400 mt-1">
             {selectedSeason?.name || 'No active season'} • {completedRegularRaces} of {totalRegularRaces} regular season races
           </p>
         </div>
