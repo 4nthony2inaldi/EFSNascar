@@ -54,8 +54,9 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   const allTeams = (allTeamsData || []) as { id: string; name: string; car_number: number }[];
 
-  // Check if current user is an owner of this team
-  const isOwner = team.team_memberships?.some(
+  // Check if current user is a manager of this team (owner role in DB = manager in UI)
+  // All managers have equal access to edit profile and submit picks
+  const isManager = team.team_memberships?.some(
     (m: TeamMembership & { profile: Profile }) =>
       m.user_id === user?.id && m.role === 'owner'
   );
@@ -1105,8 +1106,8 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     }))
     .sort((a, b) => a.tier - b.tier);
 
-  const owners = team.team_memberships?.filter((m: any) => m.role === 'owner') || [];
-  const members = team.team_memberships?.filter((m: any) => m.role === 'member') || [];
+  // Get all managers (owner role in DB = manager in UI)
+  const managers = team.team_memberships?.filter((m: any) => m.role === 'owner') || [];
   const bonusUses = bonus?.bonus_usages ?? 1;
   const favoriteDriver = team.favorite_driver as Driver | null;
 
@@ -1162,14 +1163,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">
                     <img
                       src={team.owner_headshot_url}
-                      alt="Owner"
+                      alt="Manager"
                       className="w-full h-full object-cover"
                     />
                   </div>
                 )}
                 <p className="text-gray-400">
-                  Owner{owners.length > 1 ? 's' : ''}:{' '}
-                  {owners.map((o: any) => o.profile?.name).join(', ') || 'None assigned'}
+                  Manager{managers.length > 1 ? 's' : ''}:{' '}
+                  {managers.map((m: any) => m.profile?.name).join(', ') || 'None assigned'}
                 </p>
               </div>
               {favoriteDriver && (
@@ -1180,14 +1181,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                   </span>
                 </div>
               )}
-              {isOwner && (
+              {isManager && (
                 <span className="inline-block mt-2 px-3 py-1 bg-green-500/20 text-green-500 text-sm rounded-full">
-                  You own this team
+                  You manage this team
                 </span>
               )}
             </div>
           </div>
-          {isOwner && (
+          {isManager && (
             <Link
               href={`/teams/${id}/edit`}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
@@ -1331,31 +1332,6 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           </div>
         )}
 
-        {/* Team Members */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Team Members</h2>
-          <div className="space-y-3">
-            {owners.map((membership: any) => (
-              <div key={membership.id} className="flex items-center justify-between">
-                <span className="text-white">{membership.profile?.name}</span>
-                <span className="px-2 py-1 bg-yellow-500/20 text-yellow-500 text-xs rounded">
-                  Owner
-                </span>
-              </div>
-            ))}
-            {members.map((membership: any) => (
-              <div key={membership.id} className="flex items-center justify-between">
-                <span className="text-white">{membership.profile?.name}</span>
-                <span className="px-2 py-1 bg-gray-600 text-gray-300 text-xs rounded">
-                  Member
-                </span>
-              </div>
-            ))}
-            {team.team_memberships?.length === 0 && (
-              <p className="text-gray-400 text-sm">No members assigned to this team.</p>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Performance Analytics */}
