@@ -113,14 +113,14 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
     const lastName = getLastName(result.driver?.name || '');
 
     return (
-      <div className={`inline-flex items-center gap-1 md:gap-2 px-1 md:px-2 py-0.5 md:py-1 rounded transition-all duration-200 text-xs md:text-sm ${getOverlapColor(pickCount, totalTeams)} ${
+      <div className={`inline-flex items-center justify-center gap-1 md:gap-2 px-1 md:px-2 py-0.5 md:py-1 rounded transition-all duration-200 text-xs md:text-sm w-full md:w-auto ${getOverlapColor(pickCount, totalTeams)} ${
         isHighlighted ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800 scale-105' : ''
       } ${isDimmed ? 'opacity-30' : ''}`}>
         {/* Car number hidden on mobile */}
         <span className="font-bold hidden md:inline">#{result.driver?.car_number}</span>
         {/* Full name on desktop, last name only on mobile with truncation */}
         <span className="hidden md:inline">{result.driver?.name}</span>
-        <span className="md:hidden max-w-[70px] truncate">{lastName}</span>
+        <span className="md:hidden truncate text-center">{lastName}</span>
       </div>
     );
   };
@@ -198,9 +198,9 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
             <tr className="text-left text-gray-400 text-xs md:text-sm border-b border-gray-700">
               <th className="pb-3 pr-2 md:pr-4">Team</th>
               <th className="pb-3 pr-1 md:pr-4 text-center"><span className="hidden md:inline">Points</span><span className="md:hidden">Pts</span></th>
-              <th className="pb-3 pr-1 md:pr-4"><span className="hidden md:inline">Driver 1</span><span className="md:hidden">D1</span></th>
-              <th className="pb-3 pr-1 md:pr-4"><span className="hidden md:inline">Driver 2</span><span className="md:hidden">D2</span></th>
-              <th className="pb-3"><span className="hidden md:inline">Driver 3</span><span className="md:hidden">D3</span></th>
+              <th className="pb-3 pr-1 md:pr-4 text-center w-[85px] md:w-auto"><span className="hidden md:inline">Driver 1</span><span className="md:hidden">D1</span></th>
+              <th className="pb-3 pr-1 md:pr-4 text-center w-[85px] md:w-auto"><span className="hidden md:inline">Driver 2</span><span className="md:hidden">D2</span></th>
+              <th className="pb-3 text-center w-[85px] md:w-auto"><span className="hidden md:inline">Driver 3</span><span className="md:hidden">D3</span></th>
             </tr>
           </thead>
           <tbody>
@@ -231,9 +231,9 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
                       {teamScore?.total_points ?? pick.calculatedTotal}
                     </span>
                   </td>
-                  <td className="py-2 md:py-3 pr-1 md:pr-4">{renderDriver(pick.driver_1_id)}</td>
-                  <td className="py-2 md:py-3 pr-1 md:pr-4">{renderDriver(pick.driver_2_id)}</td>
-                  <td className="py-2 md:py-3">{renderDriver(pick.driver_3_id)}</td>
+                  <td className="py-2 md:py-3 pr-1 md:pr-4 text-center">{renderDriver(pick.driver_1_id)}</td>
+                  <td className="py-2 md:py-3 pr-1 md:pr-4 text-center">{renderDriver(pick.driver_2_id)}</td>
+                  <td className="py-2 md:py-3 text-center">{renderDriver(pick.driver_3_id)}</td>
                 </tr>
               );
             })}
