@@ -505,6 +505,175 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         )}
       </div>
 
+      {/* Playoff Section - Shown FIRST when playoffs are active */}
+      {showPlayoffSection && playoffStandings && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+              Fantasy Playoffs
+            </h2>
+            <span className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-sm font-medium">
+              {getPlayoffRoundLabel(playoffStandings.playoffRound)} &bull; {completedPlayoffRaces} of {playoffRaces.length} races
+            </span>
+          </div>
+
+          {/* Playoff Bracket Component */}
+          <PlayoffBracket
+            playoffStandings={playoffStandings}
+            regularSeasonStandings={regularSeasonStandings}
+            userTeamId={userTeamId}
+            playoffOpts={playoffOpts}
+            completedPlayoffRaces={completedPlayoffRaces}
+            totalPlayoffRaces={playoffRaces.length}
+          />
+
+          {/* Consolation Bracket */}
+          <div className="glass rounded-xl overflow-hidden">
+            <div className="bg-purple-600/20 px-4 py-3 border-b border-purple-500/30">
+              <h3 className="text-lg font-bold text-purple-300">Consolation Bracket</h3>
+              <p className="text-sm text-purple-400">Teams {playoffOpts.consolationStart}-{playoffOpts.consolationEnd} + eliminated championship teams (cumulative scoring)</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">Team</th>
+                    <th className="px-4 py-3 text-right">Points</th>
+                    <th className="px-4 py-3 text-right">Race Wins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {playoffStandings.consolationBracket.map((standing) => {
+                    const isUserTeam = standing.team_id === userTeamId;
+                    const wasEliminated = playoffStandings.championshipBracket.eliminated.includes(standing.team_id);
+
+                    return (
+                      <tr
+                        key={standing.team_id}
+                        className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
+                          isUserTeam ? 'bg-amber-500/10' : ''
+                        }`}
+                      >
+                        <td className="px-4 py-4">
+                          <span className="font-bold text-lg text-purple-400">{standing.rank}</span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Link
+                            href={`/teams/${standing.team_id}`}
+                            className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
+                          >
+                            <span className="text-amber-400 font-bold">#{standing.team?.car_number}</span>
+                            <span className="text-white font-medium">{standing.team?.name}</span>
+                            {isUserTeam && (
+                              <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
+                                YOU
+                              </span>
+                            )}
+                            {wasEliminated && (
+                              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">
+                                from Champ
+                              </span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <span className="text-white font-bold">{standing.total_points}</span>
+                        </td>
+                        <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {playoffStandings.consolationBracket.length === 0 && (
+              <div className="p-4 text-center text-purple-400 text-sm">
+                Consolation bracket standings will appear when playoff races are complete.
+              </div>
+            )}
+          </div>
+
+          {/* Muddy Mile - only show if configured */}
+          {playoffOpts.muddyMileStart > 0 && playoffOpts.muddyMileEnd > 0 && (
+          <div className="glass rounded-xl overflow-hidden">
+            <div className="bg-red-500/20 px-4 py-3 border-b border-red-500/30">
+              <h3 className="text-lg font-bold text-red-400">The Muddy Mile</h3>
+              <p className="text-sm text-purple-400">Teams {playoffOpts.muddyMileStart}-{playoffOpts.muddyMileEnd} battle to avoid last place (cumulative scoring)</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">Team</th>
+                    <th className="px-4 py-3 text-right">Points</th>
+                    <th className="px-4 py-3 text-right">Race Wins</th>
+                    <th className="px-4 py-3 text-center">Stakes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {playoffStandings.muddyMile.map((standing, index) => {
+                    const isUserTeam = standing.team_id === userTeamId;
+                    const isLeading = index === 0 && standing.total_points > (playoffStandings.muddyMile[1]?.total_points || 0);
+
+                    return (
+                      <tr
+                        key={standing.team_id}
+                        className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
+                          isUserTeam ? 'bg-amber-500/10' : ''
+                        }`}
+                      >
+                        <td className="px-4 py-4">
+                          <span className="font-bold text-lg text-red-400">{standing.rank}</span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Link
+                            href={`/teams/${standing.team_id}`}
+                            className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
+                          >
+                            <span className="text-amber-400 font-bold">#{standing.team?.car_number}</span>
+                            <span className="text-white font-medium">{standing.team?.name}</span>
+                            {isUserTeam && (
+                              <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
+                                YOU
+                              </span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <span className="text-white font-bold">{standing.total_points}</span>
+                        </td>
+                        <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
+                        <td className="px-4 py-4 text-center">
+                          {playoffStandings.playoffRound === 'complete' ? (
+                            index === 0 ? (
+                              <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded">+1 Bonus Use</span>
+                            ) : (
+                              <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">-1 Use (4 max)</span>
+                            )
+                          ) : (
+                            <span className="text-purple-400 text-xs">
+                              {isLeading ? '→ +1 Bonus' : '→ Forfeit 5th'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {playoffStandings.muddyMile.length === 0 && (
+              <div className="p-4 text-center text-purple-400 text-sm">
+                Muddy Mile standings will appear when playoff races are complete.
+              </div>
+            )}
+          </div>
+          )}
+        </div>
+      )}
+
       {/* Cumulative Points Chart (Regular Season Only) */}
       <div>
         <h2 className="text-lg font-bold text-white mb-3">Regular Season Progress</h2>
@@ -619,344 +788,6 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           <p className="text-purple-500 text-sm mt-2">
             Standings will appear after the first race results are entered.
           </p>
-        </div>
-      )}
-
-      {/* Playoff Section */}
-      {showPlayoffSection && playoffStandings && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-              Fantasy Playoffs
-            </h2>
-            <span className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-sm font-medium">
-              {getPlayoffRoundLabel(playoffStandings.playoffRound)} • {completedPlayoffRaces} of {playoffRaces.length} races
-            </span>
-          </div>
-
-          {/* New Playoff Bracket Component */}
-          <PlayoffBracket
-            playoffStandings={playoffStandings}
-            regularSeasonStandings={regularSeasonStandings}
-            userTeamId={userTeamId}
-            playoffOpts={playoffOpts}
-            completedPlayoffRaces={completedPlayoffRaces}
-            totalPlayoffRaces={playoffRaces.length}
-          />
-
-          {/* OLD Championship Bracket - Commented out for potential revert
-          <div className="glass rounded-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 border-b border-amber-500/30">
-              <h3 className="text-lg font-bold text-amber-400">Championship Bracket</h3>
-              <p className="text-sm text-purple-300">Top {playoffOpts.championshipBracketSize} teams competing for the championship (points reset each round)</p>
-            </div>
-
-            {playoffStandings.playoffRound === 'not_started' && (
-              <div className="p-6 text-center text-purple-400">
-                <p>Playoffs begin after the regular season. Top 2 seeds will have a first round bye.</p>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-                  {playoffStandings.championshipBracket.catbirdSeats.map((teamId) => {
-                    const team = regularSeasonStandings.find(s => s.team_id === teamId);
-                    return team ? (
-                      <div key={teamId} className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                        <span className="text-xs text-amber-400">🐱 Catbird Seat</span>
-                        <div className="text-white font-medium">#{team.team?.car_number} {team.team?.name}</div>
-                      </div>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-            )}
-
-            {playoffStandings.playoffRound !== 'not_started' && (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
-                      <th className="px-4 py-3">#</th>
-                      <th className="px-4 py-3">Team</th>
-                      <th className="px-4 py-3 text-right">Points</th>
-                      <th className="px-4 py-3 text-right">Race Wins</th>
-                      <th className="px-4 py-3 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      let currentStandings: PlayoffTeamStanding[] = [];
-                      let roundLabel = '';
-
-                      if (playoffStandings.playoffRound === 'round1' || playoffStandings.playoffRound === 'round2') {
-                        if (playoffStandings.championshipBracket.round2.length > 0) {
-                          currentStandings = playoffStandings.championshipBracket.round2;
-                          roundLabel = 'Round 2';
-                        } else {
-                          currentStandings = playoffStandings.championshipBracket.round1;
-                          roundLabel = 'Round 1';
-                        }
-                      } else if (playoffStandings.playoffRound === 'finals' || playoffStandings.playoffRound === 'complete') {
-                        currentStandings = playoffStandings.championshipBracket.finals;
-                        roundLabel = 'Finals';
-                      }
-
-                      if (roundLabel === 'Round 1') {
-                        const catbirdTeams = playoffStandings.championshipBracket.catbirdSeats.map(teamId => {
-                          const team = regularSeasonStandings.find(s => s.team_id === teamId);
-                          return team ? {
-                            team_id: teamId,
-                            team: team.team,
-                            total_points: 0,
-                            race_wins: 0,
-                            stage_wins: 0,
-                            top_10_bonuses: 0,
-                            rank: 0,
-                          } as PlayoffTeamStanding : null;
-                        }).filter(Boolean) as PlayoffTeamStanding[];
-
-                        return [...catbirdTeams, ...currentStandings].map((standing, index) => {
-                          const isUserTeam = standing.team_id === userTeamId;
-                          const isCatbird = playoffStandings.championshipBracket.catbirdSeats.includes(standing.team_id);
-                          const isEliminated = playoffStandings.championshipBracket.eliminated.includes(standing.team_id);
-
-                          return (
-                            <tr
-                              key={standing.team_id}
-                              className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
-                                isUserTeam ? 'bg-amber-500/10' : ''
-                              } ${isEliminated ? 'opacity-50' : ''}`}
-                            >
-                              <td className="px-4 py-4">
-                                <span className="font-bold text-lg text-purple-400">
-                                  {isCatbird ? '-' : standing.rank}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4">
-                                <Link
-                                  href={`/teams/${standing.team_id}`}
-                                  className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
-                                >
-                                  <span className="text-amber-400 font-bold">#{standing.team?.car_number}</span>
-                                  <span className="text-white font-medium">{standing.team?.name}</span>
-                                  {isUserTeam && (
-                                    <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
-                                      YOU
-                                    </span>
-                                  )}
-                                </Link>
-                              </td>
-                              <td className="px-4 py-4 text-right">
-                                <span className="text-white font-bold">{isCatbird ? '-' : standing.total_points}</span>
-                              </td>
-                              <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
-                              <td className="px-4 py-4 text-center">
-                                {isCatbird ? (
-                                  <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">🐱 BYE</span>
-                                ) : isEliminated ? (
-                                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">ELIMINATED</span>
-                                ) : (
-                                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded">ACTIVE</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        });
-                      }
-
-                      return currentStandings.map((standing) => {
-                        const isUserTeam = standing.team_id === userTeamId;
-                        const isEliminated = playoffStandings.championshipBracket.eliminated.includes(standing.team_id);
-
-                        return (
-                          <tr
-                            key={standing.team_id}
-                            className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
-                              isUserTeam ? 'bg-amber-500/10' : ''
-                            } ${isEliminated ? 'opacity-50' : ''}`}
-                          >
-                            <td className="px-4 py-4">
-                              <span className="font-bold text-lg text-purple-400">{standing.rank}</span>
-                            </td>
-                            <td className="px-4 py-4">
-                              <Link
-                                href={`/teams/${standing.team_id}`}
-                                className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
-                              >
-                                <span className="text-amber-400 font-bold">#{standing.team?.car_number}</span>
-                                <span className="text-white font-medium">{standing.team?.name}</span>
-                                {isUserTeam && (
-                                  <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
-                                    YOU
-                                  </span>
-                                )}
-                              </Link>
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <span className="text-white font-bold">{standing.total_points}</span>
-                            </td>
-                            <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
-                            <td className="px-4 py-4 text-center">
-                              {isEliminated ? (
-                                <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">ELIMINATED</span>
-                              ) : playoffStandings.playoffRound === 'complete' && standing.rank === 1 ? (
-                                <span className="px-2 py-1 bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 text-xs rounded font-bold">🏆 CHAMPION</span>
-                              ) : (
-                                <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded">ACTIVE</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          END OLD Championship Bracket */}
-
-          {/* Consolation Bracket */}
-          <div className="glass rounded-xl overflow-hidden">
-            <div className="bg-purple-600/20 px-4 py-3 border-b border-purple-500/30">
-              <h3 className="text-lg font-bold text-purple-300">Consolation Bracket</h3>
-              <p className="text-sm text-purple-400">Teams {playoffOpts.consolationStart}-{playoffOpts.consolationEnd} + eliminated championship teams (cumulative scoring)</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-4 py-3">Team</th>
-                    <th className="px-4 py-3 text-right">Points</th>
-                    <th className="px-4 py-3 text-right">Race Wins</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {playoffStandings.consolationBracket.map((standing) => {
-                    const isUserTeam = standing.team_id === userTeamId;
-                    const wasEliminated = playoffStandings.championshipBracket.eliminated.includes(standing.team_id);
-
-                    return (
-                      <tr
-                        key={standing.team_id}
-                        className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
-                          isUserTeam ? 'bg-amber-500/10' : ''
-                        }`}
-                      >
-                        <td className="px-4 py-4">
-                          <span className="font-bold text-lg text-purple-400">{standing.rank}</span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <Link
-                            href={`/teams/${standing.team_id}`}
-                            className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
-                          >
-                            <span className="text-amber-400 font-bold">#{standing.team?.car_number}</span>
-                            <span className="text-white font-medium">{standing.team?.name}</span>
-                            {isUserTeam && (
-                              <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
-                                YOU
-                              </span>
-                            )}
-                            {wasEliminated && (
-                              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">
-                                from Champ
-                              </span>
-                            )}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <span className="text-white font-bold">{standing.total_points}</span>
-                        </td>
-                        <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {playoffStandings.consolationBracket.length === 0 && (
-              <div className="p-4 text-center text-purple-400 text-sm">
-                Consolation bracket standings will appear when playoff races are complete.
-              </div>
-            )}
-          </div>
-
-          {/* Muddy Mile - only show if configured */}
-          {playoffOpts.muddyMileStart > 0 && playoffOpts.muddyMileEnd > 0 && (
-          <div className="glass rounded-xl overflow-hidden">
-            <div className="bg-red-500/20 px-4 py-3 border-b border-red-500/30">
-              <h3 className="text-lg font-bold text-red-400">💩 The Muddy Mile</h3>
-              <p className="text-sm text-purple-400">Teams {playoffOpts.muddyMileStart}-{playoffOpts.muddyMileEnd} battle to avoid last place (cumulative scoring)</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-4 py-3">Team</th>
-                    <th className="px-4 py-3 text-right">Points</th>
-                    <th className="px-4 py-3 text-right">Race Wins</th>
-                    <th className="px-4 py-3 text-center">Stakes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {playoffStandings.muddyMile.map((standing, index) => {
-                    const isUserTeam = standing.team_id === userTeamId;
-                    const isLeading = index === 0 && standing.total_points > (playoffStandings.muddyMile[1]?.total_points || 0);
-
-                    return (
-                      <tr
-                        key={standing.team_id}
-                        className={`border-b border-purple-800/30 hover:bg-purple-800/20 transition-colors ${
-                          isUserTeam ? 'bg-amber-500/10' : ''
-                        }`}
-                      >
-                        <td className="px-4 py-4">
-                          <span className="font-bold text-lg text-red-400">{standing.rank}</span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <Link
-                            href={`/teams/${standing.team_id}`}
-                            className="flex items-center space-x-3 hover:text-amber-400 transition-colors"
-                          >
-                            <span className="text-amber-400 font-bold">#{standing.team?.car_number}</span>
-                            <span className="text-white font-medium">{standing.team?.name}</span>
-                            {isUserTeam && (
-                              <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 px-2 py-0.5 rounded font-bold">
-                                YOU
-                              </span>
-                            )}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <span className="text-white font-bold">{standing.total_points}</span>
-                        </td>
-                        <td className="px-4 py-4 text-right text-purple-200">{standing.race_wins}</td>
-                        <td className="px-4 py-4 text-center">
-                          {playoffStandings.playoffRound === 'complete' ? (
-                            index === 0 ? (
-                              <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded">+1 Bonus Use</span>
-                            ) : (
-                              <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">-1 Use (4 max)</span>
-                            )
-                          ) : (
-                            <span className="text-purple-400 text-xs">
-                              {isLeading ? '→ +1 Bonus' : '→ Forfeit 5th'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {playoffStandings.muddyMile.length === 0 && (
-              <div className="p-4 text-center text-purple-400 text-sm">
-                Muddy Mile standings will appear when playoff races are complete.
-              </div>
-            )}
-          </div>
-          )}
         </div>
       )}
 
