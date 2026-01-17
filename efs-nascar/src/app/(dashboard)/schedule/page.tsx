@@ -130,6 +130,12 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     return acc;
   }, {} as Record<string, RaceWithTrack[]>) || {};
 
+  // Create a map of race IDs to their fantasy league position (1-based index)
+  const fantasyRaceNumbers: Record<string, number> = {};
+  races?.forEach((race, index) => {
+    fantasyRaceNumbers[race.id] = index + 1;
+  });
+
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* Header - title hidden on mobile, season selector always visible */}
@@ -248,7 +254,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                         ) : (
                           <div className="text-center">
                             <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-                              {race.race_number}
+                              {fantasyRaceNumbers[race.id]}
                             </div>
                             <div className="text-xs text-purple-500">Race</div>
                           </div>

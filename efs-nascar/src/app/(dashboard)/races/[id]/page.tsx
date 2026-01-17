@@ -36,6 +36,16 @@ export default async function RaceResultsPage({ params }: PageProps) {
     notFound();
   }
 
+  // Get all races for the season to calculate fantasy race number
+  const { data: seasonRaces } = await supabase
+    .from('races')
+    .select('id')
+    .eq('season_id', race.season_id)
+    .order('race_number', { ascending: true });
+
+  // Fantasy race number is the 1-based index in the season
+  const fantasyRaceNumber = seasonRaces ? seasonRaces.findIndex(r => r.id === id) + 1 : race.race_number;
+
   // Get scoring config for this season
   const { data: scoringConfig } = await supabase
     .from('scoring_configs')
@@ -128,7 +138,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
       <div className="bg-gray-800 rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-gray-400 text-sm">Race #{race.race_number}</p>
+            <p className="text-gray-400 text-sm">Race #{fantasyRaceNumber}</p>
             <h1 className="text-3xl font-bold text-white">{race.name}</h1>
             <p className="text-gray-400">{race.track}</p>
             <p className="text-sm text-gray-500 mt-2">

@@ -77,6 +77,16 @@ export default async function PicksRevealPage({ params }: PageProps) {
     notFound();
   }
 
+  // Get all races for the season to calculate fantasy race number
+  const { data: seasonRaces } = await supabase
+    .from('races')
+    .select('id')
+    .eq('season_id', race.season_id)
+    .order('race_number', { ascending: true });
+
+  // Fantasy race number is the 1-based index in the season
+  const fantasyRaceNumber = seasonRaces ? seasonRaces.findIndex(r => r.id === id) + 1 : race.race_number;
+
   // Check if deadline has passed
   const now = new Date();
   const deadline = new Date(race.deadline_datetime);
@@ -217,7 +227,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
                 &larr; Back to Race
               </Link>
             </div>
-            <p className="text-purple-400 text-sm">Race #{race.race_number}</p>
+            <p className="text-purple-400 text-sm">Race #{fantasyRaceNumber}</p>
             <h1 className="text-3xl font-bold text-white">{race.name}</h1>
             <p className="text-purple-300">{race.track}</p>
             <p className="text-sm text-purple-500 mt-2">

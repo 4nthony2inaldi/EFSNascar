@@ -138,7 +138,14 @@ export default async function DashboardPage() {
   const { data: allRaces } = await supabase
     .from('races')
     .select('id, race_type, status, race_number')
-    .eq('season_id', selectedSeasonId);
+    .eq('season_id', selectedSeasonId)
+    .order('race_number', { ascending: true });
+
+  // Create a map of race IDs to their fantasy league position (1-based index)
+  const fantasyRaceNumbers: Record<string, number> = {};
+  allRaces?.forEach((race, index) => {
+    fantasyRaceNumbers[race.id] = index + 1;
+  });
 
   // Treat null/undefined race_type as regular (for backwards compatibility with older seasons)
   const regularRaceIds = (allRaces || [])
@@ -704,7 +711,7 @@ export default async function DashboardPage() {
                     ) : (
                       <div className="text-center">
                         <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-                          {nextRace.race_number}
+                          {fantasyRaceNumbers[nextRace.id] || nextRace.race_number}
                         </div>
                       </div>
                     )}
@@ -734,7 +741,7 @@ export default async function DashboardPage() {
 
               <div className="flex items-center justify-between text-sm text-purple-400 mb-6">
                 <span>
-                  Race #{nextRace.race_number} •{' '}
+                  Race #{fantasyRaceNumbers[nextRace.id] || nextRace.race_number} •{' '}
                   <LocalTime dateStr={nextRace.scheduled_datetime} format="long" />
                 </span>
               </div>

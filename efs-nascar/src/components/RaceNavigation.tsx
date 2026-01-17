@@ -11,21 +11,31 @@ interface RaceNavigationProps {
 export async function RaceNavigation({ currentRace, basePath = 'results' }: RaceNavigationProps) {
   const supabase = await createClient();
 
-  // Fetch previous and next races in the same season
-  const [{ data: prevRace }, { data: nextRace }] = await Promise.all([
-    supabase
-      .from('races')
-      .select('id, race_number, name, track')
-      .eq('season_id', currentRace.season_id)
-      .eq('race_number', currentRace.race_number - 1)
-      .single(),
-    supabase
-      .from('races')
-      .select('id, race_number, name, track')
-      .eq('season_id', currentRace.season_id)
-      .eq('race_number', currentRace.race_number + 1)
-      .single(),
-  ]);
+  // Fetch all races for the season ordered by race_number
+  const { data: seasonRaces } = await supabase
+    .from('races')
+    .select('id, name, track')
+    .eq('season_id', currentRace.season_id)
+    .order('race_number', { ascending: true });
+
+  if (!seasonRaces || seasonRaces.length === 0) {
+    return null;
+  }
+
+  // Find current race position in the season
+  const currentIndex = seasonRaces.findIndex(r => r.id === currentRace.id);
+
+  if (currentIndex === -1) {
+    return null;
+  }
+
+  // Get prev/next races based on position
+  const prevRace = currentIndex > 0 ? seasonRaces[currentIndex - 1] : null;
+  const nextRace = currentIndex < seasonRaces.length - 1 ? seasonRaces[currentIndex + 1] : null;
+
+  // Fantasy race numbers (1-based index)
+  const prevFantasyNumber = currentIndex; // prev is currentIndex (which is 0-indexed, so this is the 1-based number for prev)
+  const nextFantasyNumber = currentIndex + 2; // next is currentIndex + 1 + 1 (convert to 1-based)
 
   // Don't render anything if there's no navigation available
   if (!prevRace && !nextRace) {
@@ -63,7 +73,7 @@ export async function RaceNavigation({ currentRace, basePath = 'results' }: Race
             <div className="text-left">
               <div className="text-xs text-gray-500">Previous Race</div>
               <div className="text-sm font-medium">
-                <span className="text-gray-500">#{prevRace.race_number}</span>{' '}
+                <span className="text-gray-500">#{prevFantasyNumber}</span>{' '}
                 {prevRace.name}
               </div>
             </div>
@@ -82,7 +92,7 @@ export async function RaceNavigation({ currentRace, basePath = 'results' }: Race
             <div className="text-right">
               <div className="text-xs text-gray-500">Next Race</div>
               <div className="text-sm font-medium">
-                <span className="text-gray-500">#{nextRace.race_number}</span>{' '}
+                <span className="text-gray-500">#{nextFantasyNumber}</span>{' '}
                 {nextRace.name}
               </div>
             </div>

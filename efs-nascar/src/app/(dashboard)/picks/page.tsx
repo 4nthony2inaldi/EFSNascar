@@ -27,6 +27,7 @@ export default function PicksPage() {
 
   const [selectedDrivers, setSelectedDrivers] = useState<(string | null)[]>([null, null, null]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fantasyRaceNumbers, setFantasyRaceNumbers] = useState<Record<string, number>>({});
 
   // Load initial data
   useEffect(() => {
@@ -79,6 +80,20 @@ export default function PicksPage() {
           .limit(1);
 
         setRaces(upcomingRaces || []);
+
+        // Get all races for the season to calculate fantasy race numbers
+        const { data: allSeasonRaces } = await supabase
+          .from('races')
+          .select('id')
+          .eq('season_id', season.id)
+          .order('race_number', { ascending: true });
+
+        // Create a map of race IDs to their fantasy league position (1-based index)
+        const fantasyNumbers: Record<string, number> = {};
+        allSeasonRaces?.forEach((race, index) => {
+          fantasyNumbers[race.id] = index + 1;
+        });
+        setFantasyRaceNumbers(fantasyNumbers);
 
         // Get all active drivers
         const { data: allDrivers } = await supabase
@@ -371,7 +386,7 @@ export default function PicksPage() {
         ) : selectedRace ? (
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-amber-400 font-bold text-lg">Race {selectedRace.race_number}</span>
+              <span className="text-amber-400 font-bold text-lg">Race {fantasyRaceNumbers[selectedRace.id] || selectedRace.race_number}</span>
               <span className="text-white text-xl font-semibold">{selectedRace.name}</span>
             </div>
             <p className="text-purple-300 mb-2">{selectedRace.track}</p>
