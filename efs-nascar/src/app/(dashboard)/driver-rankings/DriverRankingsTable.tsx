@@ -184,10 +184,10 @@ export default function DriverRankingsTable({ rankings }: Props) {
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
         <table className="w-full">
-          <thead>
-            <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-[#1a1225] text-left text-purple-300 text-sm">
               <th className="px-4 py-3">#</th>
               <SortableHeader columnKey="tier">
                 <span className="text-fuchsia-400">Tier</span>

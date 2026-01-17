@@ -214,7 +214,12 @@ export default async function SchedulePage({ searchParams }: PageProps) {
               const trackType = getTrackTypeInfo(race.track_info?.track_type);
               const status = getStatusBadge(race);
               const hasPicked = !!userPicks[race.id];
-              const isPastDeadline = new Date(race.deadline_datetime) < new Date();
+              const now = new Date();
+              const deadlineDate = new Date(race.deadline_datetime);
+              const isPastDeadline = deadlineDate < now;
+              // Only allow picks within 7 days of deadline
+              const daysUntilDeadline = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+              const isPickWindowOpen = daysUntilDeadline <= 7 && daysUntilDeadline >= 0;
 
               return (
                 <div
@@ -279,7 +284,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      {race.status === 'upcoming' && !isPastDeadline && (
+                      {race.status === 'upcoming' && isPickWindowOpen && (
                         <div className="text-right">
                           <div className="text-xs text-purple-500">Deadline</div>
                           <div className="text-sm text-purple-200">
@@ -303,7 +308,7 @@ export default async function SchedulePage({ searchParams }: PageProps) {
 
                         {userTeamId && (
                           <>
-                            {race.status === 'upcoming' && !isPastDeadline ? (
+                            {race.status === 'upcoming' && isPickWindowOpen ? (
                               <Link
                                 href={`/picks?race=${race.id}`}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${

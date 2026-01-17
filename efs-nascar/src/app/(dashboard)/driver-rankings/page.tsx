@@ -258,7 +258,14 @@ export default async function DriverRankingsPage() {
 
   const recentRaceCountByDriver: Record<string, number> = {};
   for (const result of allResults) {
-    const driverName = result.api_driver_name;
+    // Get driver name - prefer api_driver_name, fall back to driver lookup
+    let driverName = result.api_driver_name;
+    if (!driverName && result.driver_id) {
+      const driver = driverMap.get(result.driver_id);
+      if (driver) {
+        driverName = driver.name;
+      }
+    }
     if (!driverName) continue;
     if (recentRaceIds.has(result.race_id)) {
       recentRaceCountByDriver[driverName] = (recentRaceCountByDriver[driverName] || 0) + 1;
