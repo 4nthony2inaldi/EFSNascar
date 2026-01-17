@@ -554,7 +554,7 @@ export default async function DashboardPage() {
       let rankChange = 0;
       const { data: previousRace } = await supabase
         .from('races')
-        .select('id')
+        .select('id, race_number')
         .eq('season_id', selectedSeasonId)
         .eq('status', 'final')
         .lt('race_number', lastCompletedRace.race_number)
