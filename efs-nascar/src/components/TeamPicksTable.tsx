@@ -16,6 +16,16 @@ interface TeamPicksTableProps {
   scoringConfig?: ScoringConfig | null;
 }
 
+// Get abbreviated driver name: "F. LastName"
+function getShortDriverName(fullName: string): string {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(' ');
+  if (parts.length < 2) return fullName;
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+  return `${firstName[0]}. ${lastName}`;
+}
+
 function getPopularityLevel(count: number, totalTeams: number): PopularityLevel {
   const percentage = (count / totalTeams) * 100;
 
@@ -102,16 +112,16 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
     const popularityLevel = getPopularityLevel(pickCount, totalTeams);
     const isHighlighted = activeFilter && popularityLevel === activeFilter;
     const isDimmed = activeFilter && popularityLevel !== activeFilter;
+    const shortName = getShortDriverName(result.driver?.name || '');
 
     return (
-      <div className={`inline-flex items-center space-x-2 px-2 py-1 rounded transition-all duration-200 ${getOverlapColor(pickCount, totalTeams)} ${
+      <div className={`inline-flex items-center gap-1 md:gap-2 px-1.5 md:px-2 py-1 rounded transition-all duration-200 text-xs md:text-sm ${getOverlapColor(pickCount, totalTeams)} ${
         isHighlighted ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800 scale-105' : ''
       } ${isDimmed ? 'opacity-30' : ''}`}>
         <span className="font-bold">#{result.driver?.car_number}</span>
-        <span>{result.driver?.name}</span>
-        <span className="text-xs opacity-75">
-          P{result.finish_position} ({totalPoints}pts{hasBonus && <span className="text-green-300"> +{totalPoints - posPoints}</span>})
-        </span>
+        {/* Full name on desktop, abbreviated on mobile */}
+        <span className="hidden md:inline">{result.driver?.name}</span>
+        <span className="md:hidden">{shortName}</span>
       </div>
     );
   };
@@ -186,12 +196,12 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
-              <th className="pb-3 pr-4">Team</th>
-              <th className="pb-3 pr-4 text-center">Points</th>
-              <th className="pb-3 pr-4">Driver 1</th>
-              <th className="pb-3 pr-4">Driver 2</th>
-              <th className="pb-3 pr-4">Driver 3</th>
+            <tr className="text-left text-gray-400 text-xs md:text-sm border-b border-gray-700">
+              <th className="pb-3 pr-2 md:pr-4">Team</th>
+              <th className="pb-3 pr-2 md:pr-4 text-center">Points</th>
+              <th className="pb-3 pr-1 md:pr-4">Driver 1</th>
+              <th className="pb-3 pr-1 md:pr-4">Driver 2</th>
+              <th className="pb-3">Driver 3</th>
             </tr>
           </thead>
           <tbody>
@@ -204,25 +214,27 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
                   key={pick.id}
                   className={`border-b border-gray-700/50 ${isUserTeam ? 'bg-yellow-500/10' : ''}`}
                 >
-                  <td className="py-3 pr-4">
+                  <td className="py-2 md:py-3 pr-2 md:pr-4">
                     <Link
                       href={`/teams/${pick.team_id}`}
-                      className="flex items-center space-x-2 hover:text-yellow-500"
+                      className="flex items-center gap-1 md:gap-2 hover:text-yellow-500"
                     >
-                      <span className="text-yellow-500 font-bold">
+                      <span className="text-yellow-500 font-bold text-xs md:text-base">
                         #{pick.team?.car_number}
                       </span>
-                      <span className="text-white">{pick.team?.name}</span>
+                      {/* Full name on desktop, abbreviated on mobile */}
+                      <span className="text-white text-xs md:text-base hidden md:inline">{pick.team?.name}</span>
+                      <span className="text-white text-xs md:hidden">{pick.team?.abbreviation || pick.team?.name?.split(' ')[0]}</span>
                     </Link>
                   </td>
-                  <td className="py-3 pr-4 text-center">
-                    <span className="text-white font-bold text-lg">
+                  <td className="py-2 md:py-3 pr-2 md:pr-4 text-center">
+                    <span className="text-white font-bold text-sm md:text-lg">
                       {teamScore?.total_points ?? pick.calculatedTotal}
                     </span>
                   </td>
-                  <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
-                  <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
-                  <td className="py-3 pr-4">{renderDriver(pick.driver_3_id)}</td>
+                  <td className="py-2 md:py-3 pr-1 md:pr-4">{renderDriver(pick.driver_1_id)}</td>
+                  <td className="py-2 md:py-3 pr-1 md:pr-4">{renderDriver(pick.driver_2_id)}</td>
+                  <td className="py-2 md:py-3">{renderDriver(pick.driver_3_id)}</td>
                 </tr>
               );
             })}

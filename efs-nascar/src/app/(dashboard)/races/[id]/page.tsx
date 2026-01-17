@@ -109,6 +109,16 @@ export default async function RaceResultsPage({ params }: PageProps) {
   const stage3Winner = results?.find((r: any) => r.stage_3_winner);
   const mostLapsLed = results?.find((r: any) => r.most_laps_led);
 
+  // Get abbreviated driver name: "F. LastName"
+  const getShortDriverName = (fullName: string): string => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(' ');
+    if (parts.length < 2) return fullName;
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ');
+    return `${firstName[0]}. ${lastName}`;
+  };
+
   // Check if deadline has passed for showing picks link
   const deadlinePassed = new Date() > new Date(race.deadline_datetime);
 
@@ -206,18 +216,18 @@ export default async function RaceResultsPage({ params }: PageProps) {
 
       {/* Race Results */}
       {results && results.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-gray-800 rounded-lg p-4 md:p-6">
           <h2 className="text-xl font-bold text-white mb-4">Full Race Results</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
-                  <th className="pb-3 pr-4">Pos</th>
-                  <th className="pb-3 pr-4">#</th>
-                  <th className="pb-3 pr-4">Driver</th>
-                  <th className="pb-3 pr-4">Team</th>
-                  <th className="pb-3 text-center">Points</th>
-                  <th className="pb-3 text-center">Picked By</th>
+                <tr className="text-left text-gray-400 text-xs md:text-sm border-b border-gray-700">
+                  <th className="pb-3 pr-2 md:pr-4">Pos</th>
+                  <th className="pb-3 pr-2 md:pr-4">#</th>
+                  <th className="pb-3 pr-2 md:pr-4">Driver</th>
+                  <th className="pb-3 pr-4 hidden md:table-cell">Team</th>
+                  <th className="pb-3 text-center">Pts</th>
+                  <th className="pb-3 text-center hidden sm:table-cell">Picked By</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,8 +236,8 @@ export default async function RaceResultsPage({ params }: PageProps) {
 
                   return (
                     <tr key={result.id} className="border-b border-gray-700/50">
-                      <td className="py-3 pr-4">
-                        <span className={`font-bold ${
+                      <td className="py-2 md:py-3 pr-2 md:pr-4">
+                        <span className={`font-bold text-sm md:text-base ${
                           result.finish_position === 1 ? 'text-yellow-500' :
                           result.finish_position <= 3 ? 'text-gray-300' :
                           result.finish_position <= 10 ? 'text-green-500' : 'text-gray-500'
@@ -235,37 +245,41 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           {result.finish_position}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-yellow-500 font-bold">
+                      <td className="py-2 md:py-3 pr-2 md:pr-4 text-yellow-500 font-bold text-sm md:text-base">
                         {result.driver?.car_number}
                       </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-white">{result.driver?.name}</span>
-                          {result.stage_1_winner && (
-                            <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded">S1</span>
-                          )}
-                          {result.stage_2_winner && (
-                            <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded">S2</span>
-                          )}
-                          {result.stage_3_winner && (
-                            <span className="px-1.5 py-0.5 bg-pink-500/20 text-pink-400 text-xs rounded">S3</span>
-                          )}
-                          {result.most_laps_led && (
-                            <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">ML</span>
-                          )}
+                      <td className="py-2 md:py-3 pr-2 md:pr-4">
+                        <div className="flex items-center gap-1 md:gap-2 flex-wrap">
+                          {/* Full name on desktop, abbreviated on mobile */}
+                          <span className="text-white text-sm md:text-base hidden md:inline">{result.driver?.name}</span>
+                          <span className="text-white text-sm md:hidden">{getShortDriverName(result.driver?.name || '')}</span>
+                          <div className="flex gap-0.5">
+                            {result.stage_1_winner && (
+                              <span className="px-1 md:px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] md:text-xs rounded">S1</span>
+                            )}
+                            {result.stage_2_winner && (
+                              <span className="px-1 md:px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] md:text-xs rounded">S2</span>
+                            )}
+                            {result.stage_3_winner && (
+                              <span className="px-1 md:px-1.5 py-0.5 bg-pink-500/20 text-pink-400 text-[10px] md:text-xs rounded">S3</span>
+                            )}
+                            {result.most_laps_led && (
+                              <span className="px-1 md:px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] md:text-xs rounded">ML</span>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="py-3 pr-4 text-gray-400">{result.driver?.team_name}</td>
-                      <td className="py-3 text-center">
+                      <td className="py-2 md:py-3 pr-4 text-gray-400 hidden md:table-cell">{result.driver?.team_name}</td>
+                      <td className="py-2 md:py-3 text-center">
                         {(() => {
                           const posPoints = formatPoints(result.finish_position);
                           const totalPoints = calculateDriverTotalPoints(result);
                           const hasBonus = totalPoints > posPoints;
                           return (
-                            <div className="flex items-center justify-center space-x-1">
-                              <span className="text-white font-medium">{totalPoints}</span>
+                            <div className="flex items-center justify-center gap-0.5 md:gap-1">
+                              <span className="text-white font-medium text-sm md:text-base">{totalPoints}</span>
                               {hasBonus && (
-                                <span className="text-green-400 text-xs">
+                                <span className="text-green-400 text-[10px] md:text-xs hidden sm:inline">
                                   (+{totalPoints - posPoints})
                                 </span>
                               )}
@@ -273,9 +287,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           );
                         })()}
                       </td>
-                      <td className="py-3 text-center">
-                        <span className={`px-2 py-1 rounded text-sm ${getOverlapColor(pickCount)}`}>
-                          {pickCount} team{pickCount !== 1 ? 's' : ''}
+                      <td className="py-2 md:py-3 text-center hidden sm:table-cell">
+                        <span className={`px-2 py-1 rounded text-xs md:text-sm ${getOverlapColor(pickCount)}`}>
+                          {pickCount}
                         </span>
                       </td>
                     </tr>
