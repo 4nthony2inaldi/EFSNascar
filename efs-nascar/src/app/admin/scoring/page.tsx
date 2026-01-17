@@ -2,16 +2,34 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Season, ScoringConfig } from '@/types';
+import type { Season, ScoringConfig, Team } from '@/types';
 
 interface ScoringConfigWithSeason extends ScoringConfig {
   season: Season;
 }
 
-const DEFAULT_POSITION_POINTS: Record<string, number> = {
-  '1': 10, '2': 9, '3': 8, '4': 7, '5': 6,
-  '6': 5, '7': 4, '8': 3, '9': 2, '10': 1,
+interface TeamBonus {
+  id?: string;
+  team_id: string;
+  season_id: string;
+  bonus_usages: number;
+  allstar_position: number | null;
+  allstar_points: number | null;
+  notes: string | null;
+  team?: Team;
+}
+
+// Generate default position points for P1-P40
+const generateDefaultPositionPoints = (): Record<string, number> => {
+  const points: Record<string, number> = {};
+  // Default: P1=10, P2=9, ..., P10=1, P11-P40=0
+  for (let i = 1; i <= 40; i++) {
+    points[i.toString()] = i <= 10 ? 11 - i : 0;
+  }
+  return points;
 };
+
+const DEFAULT_POSITION_POINTS = generateDefaultPositionPoints();
 
 export default function AdminScoringPage() {
   const supabase = createClient();
@@ -26,6 +44,13 @@ export default function AdminScoringPage() {
 
   const [recalculating, setRecalculating] = useState(false);
   const [recalculateResult, setRecalculateResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Team bonus management
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamBonuses, setTeamBonuses] = useState<TeamBonus[]>([]);
+  const [savingBonuses, setSavingBonuses] = useState(false);
+  const [bonusSuccess, setBonusSuccess] = useState<string | null>(null);
+  const [bonusError, setBonusError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     // Position points
@@ -86,13 +111,59 @@ export default function AdminScoringPage() {
       .order('season(year)', { ascending: false });
 
     setConfigs((configsData as ScoringConfigWithSeason[]) || []);
+
+    // Load all teams
+    const { data: teamsData } = await supabase
+      .from('teams')
+      .select('*')
+      .order('car_number', { ascending: true });
+
+    setTeams((teamsData as Team[]) || []);
     setLoading(false);
   };
 
-  const handleSelectSeason = (seasonId: string) => {
+  // Load team bonuses for selected season
+  const loadTeamBonuses = async (seasonId: string) => {
+    const { data: bonusesData } = await supabase
+      .from('team_season_bonuses')
+      .select('*, team:teams(*)')
+      .eq('season_id', seasonId);
+
+    // Create a map of existing bonuses by team_id
+    const bonusMap: Record<string, TeamBonus> = {};
+    (bonusesData || []).forEach((b: any) => {
+      bonusMap[b.team_id] = b;
+    });
+
+    // Create bonus entries for all teams (including those without records)
+    const allTeamBonuses: TeamBonus[] = teams.map(team => {
+      if (bonusMap[team.id]) {
+        return bonusMap[team.id];
+      }
+      // Default values for teams without bonus records
+      return {
+        team_id: team.id,
+        season_id: seasonId,
+        bonus_usages: 1, // Default bonus uses
+        allstar_position: null,
+        allstar_points: null,
+        notes: null,
+        team: team,
+      };
+    });
+
+    setTeamBonuses(allTeamBonuses);
+  };
+
+  const handleSelectSeason = async (seasonId: string) => {
     setSelectedSeasonId(seasonId);
     setError(null);
     setSuccess(null);
+    setBonusError(null);
+    setBonusSuccess(null);
+
+    // Load team bonuses for this season
+    await loadTeamBonuses(seasonId);
 
     // Find existing config for this season
     const existingConfig = configs.find(c => c.season_id === seasonId);
@@ -221,6 +292,60 @@ export default function AdminScoringPage() {
         [position]: value,
       },
     }));
+  };
+
+  // Team bonus management functions
+  const handleTeamBonusChange = (teamId: string, field: keyof TeamBonus, value: number | null) => {
+    setTeamBonuses(prev => prev.map(bonus => {
+      if (bonus.team_id === teamId) {
+        return { ...bonus, [field]: value };
+      }
+      return bonus;
+    }));
+  };
+
+  const saveTeamBonuses = async () => {
+    if (!selectedSeasonId) return;
+
+    setSavingBonuses(true);
+    setBonusError(null);
+    setBonusSuccess(null);
+
+    try {
+      for (const bonus of teamBonuses) {
+        const bonusData = {
+          team_id: bonus.team_id,
+          season_id: selectedSeasonId,
+          bonus_usages: bonus.bonus_usages,
+          allstar_position: bonus.allstar_position,
+          allstar_points: bonus.allstar_points,
+          notes: bonus.notes,
+        };
+
+        if (bonus.id) {
+          // Update existing
+          const { error } = await supabase
+            .from('team_season_bonuses')
+            .update(bonusData)
+            .eq('id', bonus.id);
+          if (error) throw error;
+        } else {
+          // Insert new
+          const { error } = await supabase
+            .from('team_season_bonuses')
+            .insert(bonusData);
+          if (error) throw error;
+        }
+      }
+
+      setBonusSuccess('Team bonuses saved successfully!');
+      // Reload to get IDs for new records
+      await loadTeamBonuses(selectedSeasonId);
+    } catch (err) {
+      setBonusError(err instanceof Error ? err.message : 'Failed to save team bonuses');
+    } finally {
+      setSavingBonuses(false);
+    }
   };
 
   const copyFromSeason = async (sourceSeasonId: string) => {
@@ -378,21 +503,86 @@ export default function AdminScoringPage() {
             {/* Position Points */}
             <div>
               <h4 className="text-md font-bold text-amber-400 mb-3">Position Points</h4>
-              <p className="text-sm text-purple-400 mb-4">Points awarded for each finishing position</p>
-              <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pos) => (
-                  <div key={pos} className="text-center">
-                    <div className="text-xs text-purple-400 mb-1">P{pos}</div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={formData.position_points[pos.toString()] || 0}
-                      onChange={(e) => handlePositionPointsChange(pos.toString(), parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-2 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                ))}
+              <p className="text-sm text-purple-400 mb-4">Points awarded for each finishing position (P1-P40)</p>
+
+              {/* P1-P10 */}
+              <div className="mb-3">
+                <div className="text-xs text-purple-500 mb-2">Positions 1-10</div>
+                <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((pos) => (
+                    <div key={pos} className="text-center">
+                      <div className="text-xs text-purple-400 mb-1">P{pos}</div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.position_points[pos.toString()] || 0}
+                        onChange={(e) => handlePositionPointsChange(pos.toString(), parseInt(e.target.value) || 0)}
+                        className="w-full px-1 py-1.5 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* P11-P20 */}
+              <div className="mb-3">
+                <div className="text-xs text-purple-500 mb-2">Positions 11-20</div>
+                <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                  {Array.from({ length: 10 }, (_, i) => i + 11).map((pos) => (
+                    <div key={pos} className="text-center">
+                      <div className="text-xs text-purple-400 mb-1">P{pos}</div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.position_points[pos.toString()] || 0}
+                        onChange={(e) => handlePositionPointsChange(pos.toString(), parseInt(e.target.value) || 0)}
+                        className="w-full px-1 py-1.5 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* P21-P30 */}
+              <div className="mb-3">
+                <div className="text-xs text-purple-500 mb-2">Positions 21-30</div>
+                <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                  {Array.from({ length: 10 }, (_, i) => i + 21).map((pos) => (
+                    <div key={pos} className="text-center">
+                      <div className="text-xs text-purple-400 mb-1">P{pos}</div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.position_points[pos.toString()] || 0}
+                        onChange={(e) => handlePositionPointsChange(pos.toString(), parseInt(e.target.value) || 0)}
+                        className="w-full px-1 py-1.5 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* P31-P40 */}
+              <div>
+                <div className="text-xs text-purple-500 mb-2">Positions 31-40</div>
+                <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                  {Array.from({ length: 10 }, (_, i) => i + 31).map((pos) => (
+                    <div key={pos} className="text-center">
+                      <div className="text-xs text-purple-400 mb-1">P{pos}</div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.position_points[pos.toString()] || 0}
+                        onChange={(e) => handlePositionPointsChange(pos.toString(), parseInt(e.target.value) || 0)}
+                        className="w-full px-1 py-1.5 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -753,6 +943,102 @@ export default function AdminScoringPage() {
               ) : (
                 'Recalculate All Scores for This Season'
               )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Team Bonus & All-Star Management */}
+      {showForm && selectedSeason && teamBonuses.length > 0 && (
+        <div className="glass rounded-xl p-6">
+          <h3 className="text-lg font-bold text-white mb-2">Team Bonus Picks & All-Star Results</h3>
+          <p className="text-sm text-purple-400 mb-4">
+            Manage bonus driver picks per team and record All-Star exhibition results (used for tiebreakers)
+          </p>
+
+          {bonusError && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-4">
+              {bonusError}
+            </div>
+          )}
+
+          {bonusSuccess && (
+            <div className="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg mb-4">
+              {bonusSuccess}
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-purple-900/30 text-left text-purple-300 text-sm">
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Team</th>
+                  <th className="px-3 py-2 text-center">Bonus Picks</th>
+                  <th className="px-3 py-2 text-center">All-Star Position</th>
+                  <th className="px-3 py-2 text-center">All-Star Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamBonuses
+                  .sort((a, b) => (a.team?.car_number || 0) - (b.team?.car_number || 0))
+                  .map((bonus) => (
+                  <tr key={bonus.team_id} className="border-b border-purple-800/30">
+                    <td className="px-3 py-2 text-amber-400 font-bold">
+                      {bonus.team?.car_number}
+                    </td>
+                    <td className="px-3 py-2 text-white">
+                      {bonus.team?.name || 'Unknown'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={bonus.bonus_usages}
+                        onChange={(e) => handleTeamBonusChange(bonus.team_id, 'bonus_usages', parseInt(e.target.value) || 0)}
+                        className="w-20 px-2 py-1 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={bonus.allstar_position || ''}
+                        placeholder="-"
+                        onChange={(e) => handleTeamBonusChange(bonus.team_id, 'allstar_position', e.target.value ? parseInt(e.target.value) : null)}
+                        className="w-20 px-2 py-1 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={bonus.allstar_points || ''}
+                        placeholder="-"
+                        onChange={(e) => handleTeamBonusChange(bonus.team_id, 'allstar_points', e.target.value ? parseInt(e.target.value) : null)}
+                        className="w-20 px-2 py-1 bg-[#1c1726] border border-purple-700/50 rounded text-white text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-purple-700/30 flex items-center justify-between">
+            <p className="text-xs text-purple-500">
+              All-Star position is the final tiebreaker. All-Star points are added to regular season total.
+            </p>
+            <button
+              type="button"
+              onClick={saveTeamBonuses}
+              disabled={savingBonuses}
+              className="px-6 py-2 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 transition-all disabled:opacity-50"
+            >
+              {savingBonuses ? 'Saving...' : 'Save Team Bonuses'}
             </button>
           </div>
         </div>

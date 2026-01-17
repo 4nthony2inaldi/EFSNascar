@@ -57,6 +57,8 @@ export interface TeamSeasonBonus {
   team_id: string;
   season_id: string;
   bonus_usages: number;
+  allstar_position: number | null;
+  allstar_points: number | null;
   notes: string | null;
 }
 
