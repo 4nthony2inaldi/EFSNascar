@@ -354,8 +354,8 @@ export default function PicksPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-white">Submit Picks</h1>
-        <p className="text-purple-400 mt-1">Select 3 drivers for the upcoming race</p>
+        <h1 className="hidden sm:block text-3xl font-bold text-white">Submit Picks</h1>
+        <p className="hidden sm:block text-purple-400 mt-1">Select 3 drivers for the upcoming race</p>
       </div>
 
       {/* Race Info */}

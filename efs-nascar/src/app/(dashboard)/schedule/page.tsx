@@ -134,8 +134,8 @@ export default async function SchedulePage({ searchParams }: PageProps) {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Schedule</h1>
-          <p className="text-purple-400 mt-1">
+          <h1 className="hidden sm:block text-3xl font-bold text-white">Schedule</h1>
+          <p className="hidden sm:block text-purple-400 mt-1">
             {selectedSeason?.name || 'No season selected'} • {races?.length || 0} races
           </p>
         </div>

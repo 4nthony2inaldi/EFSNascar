@@ -187,11 +187,11 @@ export default function DriverUsageTable({
 
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
           <table className="w-full border-collapse">
-            <thead>
+            <thead className="sticky top-0 z-30">
               {/* Header row 1: Owner names */}
-              <tr className="bg-purple-900/30 text-purple-300 text-xs">
+              <tr className="bg-[#1a1225] text-purple-300 text-xs">
                 <th className="px-2 md:px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 min-w-[140px] md:min-w-[200px]" colSpan={2}>
                   <span className="text-white font-bold">Standings</span>
                 </th>
@@ -209,7 +209,7 @@ export default function DriverUsageTable({
                 ))}
               </tr>
               {/* Header row 2: Team names */}
-              <tr className="bg-purple-900/20 text-purple-400 text-xs border-b border-purple-700/30">
+              <tr className="bg-[#1a1225] text-purple-400 text-xs border-b border-purple-700/30">
                 <th
                   className="px-2 md:px-3 py-2 text-left sticky left-0 bg-purple-900/90 z-20 cursor-pointer hover:bg-purple-800/50"
                   onClick={() => handleSort('weighted_fantasy_points')}

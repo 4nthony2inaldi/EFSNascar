@@ -3,8 +3,8 @@ export default function RulesPage() {
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">League Rules</h1>
-        <p className="text-purple-400 mt-1">EFS NASCAR Fantasy League Official Rulebook</p>
+        <h1 className="hidden sm:block text-3xl font-bold text-white">League Rules</h1>
+        <p className="hidden sm:block text-purple-400 mt-1">EFS NASCAR Fantasy League Official Rulebook</p>
       </div>
 
       {/* Quick Overview */}
