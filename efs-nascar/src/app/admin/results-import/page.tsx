@@ -33,12 +33,22 @@ interface Season {
   year: number;
 }
 
+interface Race {
+  id: string;
+  race_number: number;
+  name: string;
+  track: string;
+  status: string;
+}
+
 export default function ResultsImportPage() {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [races, setRaces] = useState<Race[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | ''>('');
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
-  const [raceNumber, setRaceNumber] = useState<number | ''>('');
+  const [selectedRaceNumber, setSelectedRaceNumber] = useState<number | ''>('');
+  const [loadingRaces, setLoadingRaces] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [result, setResult] = useState<ImportResponse | null>(null);
@@ -66,15 +76,37 @@ export default function ResultsImportPage() {
       .finally(() => setChecking(false));
   }, []);
 
-  // Auto-select season when year changes
+  // Auto-select season and load races when year changes
   useEffect(() => {
     if (selectedYear) {
       const matchingSeason = seasons.find(s => s.year === selectedYear);
       if (matchingSeason) {
         setSelectedSeasonId(matchingSeason.id);
+        // Load races for this season
+        loadRacesForSeason(matchingSeason.id);
       }
+    } else {
+      setRaces([]);
+      setSelectedRaceNumber('');
     }
   }, [selectedYear, seasons]);
+
+  const loadRacesForSeason = async (seasonId: string) => {
+    setLoadingRaces(true);
+    setSelectedRaceNumber('');
+    try {
+      const res = await fetch(`/api/admin/races?seasonId=${seasonId}`);
+      const data = await res.json();
+      if (data.races) {
+        setRaces(data.races);
+      }
+    } catch (err) {
+      console.error('Failed to load races:', err);
+      setRaces([]);
+    } finally {
+      setLoadingRaces(false);
+    }
+  };
 
   const handleSyncDrivers = async () => {
     setSyncingDrivers(true);
@@ -147,8 +179,8 @@ export default function ResultsImportPage() {
 
     try {
       const body: { year: number; raceNumber?: number } = { year: selectedYear };
-      if (raceNumber) {
-        body.raceNumber = raceNumber;
+      if (selectedRaceNumber) {
+        body.raceNumber = selectedRaceNumber;
       }
 
       const res = await fetch('/api/admin/results-import', {
@@ -256,19 +288,25 @@ export default function ResultsImportPage() {
 
           <div>
             <label className="block text-sm font-medium text-purple-300 mb-2">
-              Race Number (optional)
+              Select Race (optional)
             </label>
-            <input
-              type="number"
-              value={raceNumber}
-              onChange={(e) => setRaceNumber(e.target.value ? Number(e.target.value) : '')}
-              placeholder="Leave blank for all races"
-              min={1}
-              max={40}
-              className="w-full px-4 py-3 bg-purple-900/30 border border-purple-700/50 rounded-lg text-white placeholder-purple-600 focus:outline-none focus:border-amber-400"
-            />
+            <select
+              value={selectedRaceNumber}
+              onChange={(e) => setSelectedRaceNumber(e.target.value ? Number(e.target.value) : '')}
+              disabled={!selectedYear || loadingRaces}
+              className="w-full px-4 py-3 bg-purple-900/30 border border-purple-700/50 rounded-lg text-white focus:outline-none focus:border-amber-400 disabled:opacity-50"
+            >
+              <option value="">
+                {loadingRaces ? 'Loading races...' : 'All races (full season import)'}
+              </option>
+              {races.map((race) => (
+                <option key={race.id} value={race.race_number}>
+                  Race {race.race_number}: {race.name} {race.status === 'final' ? '✓' : ''}
+                </option>
+              ))}
+            </select>
             <p className="text-purple-500 text-xs mt-1">
-              Enter a specific race number to import just that race, or leave blank to import all races for the season.
+              Select a specific race to import, or leave as &quot;All races&quot; to import the entire season.
             </p>
           </div>
         </div>
@@ -301,7 +339,7 @@ export default function ResultsImportPage() {
             disabled={loading || !selectedYear}
             className="px-6 py-3 bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 font-bold rounded-lg hover:from-amber-300 hover:to-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {loading ? 'Importing...' : raceNumber ? 'Import Single Race' : 'Import Full Season'}
+            {loading ? 'Importing...' : selectedRaceNumber ? 'Import Single Race' : 'Import Full Season'}
           </button>
         </div>
       </div>
