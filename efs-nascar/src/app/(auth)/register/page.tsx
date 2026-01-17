@@ -99,7 +99,7 @@ export default function RegisterPage() {
       </div>
 
       <div className="max-w-md w-full space-y-8 relative z-10">
-        <div className="text-center mb-4">
+        <div className="flex justify-center mb-4">
           <Image
             src="/Logo.svg"
             alt="EFS NASCAR"
