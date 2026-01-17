@@ -16,14 +16,12 @@ interface TeamPicksTableProps {
   scoringConfig?: ScoringConfig | null;
 }
 
-// Get abbreviated driver name: "F. LastName"
-function getShortDriverName(fullName: string): string {
+// Get driver's last name only
+function getLastName(fullName: string): string {
   if (!fullName) return '';
   const parts = fullName.trim().split(' ');
   if (parts.length < 2) return fullName;
-  const firstName = parts[0];
-  const lastName = parts.slice(1).join(' ');
-  return `${firstName[0]}. ${lastName}`;
+  return parts.slice(1).join(' ');
 }
 
 function getPopularityLevel(count: number, totalTeams: number): PopularityLevel {
@@ -112,16 +110,16 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
     const popularityLevel = getPopularityLevel(pickCount, totalTeams);
     const isHighlighted = activeFilter && popularityLevel === activeFilter;
     const isDimmed = activeFilter && popularityLevel !== activeFilter;
-    const shortName = getShortDriverName(result.driver?.name || '');
+    const lastName = getLastName(result.driver?.name || '');
 
     return (
-      <div className={`inline-flex items-center gap-1 md:gap-2 px-1.5 md:px-2 py-1 rounded transition-all duration-200 text-xs md:text-sm ${getOverlapColor(pickCount, totalTeams)} ${
+      <div className={`inline-flex items-center gap-1 md:gap-2 px-1 md:px-2 py-0.5 md:py-1 rounded transition-all duration-200 text-xs md:text-sm ${getOverlapColor(pickCount, totalTeams)} ${
         isHighlighted ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800 scale-105' : ''
       } ${isDimmed ? 'opacity-30' : ''}`}>
         <span className="font-bold">#{result.driver?.car_number}</span>
-        {/* Full name on desktop, abbreviated on mobile */}
+        {/* Full name on desktop, last name only on mobile with truncation */}
         <span className="hidden md:inline">{result.driver?.name}</span>
-        <span className="md:hidden">{shortName}</span>
+        <span className="md:hidden max-w-[60px] truncate">{lastName}</span>
       </div>
     );
   };

@@ -227,7 +227,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
                   <th className="pb-3 pr-2 md:pr-4">Driver</th>
                   <th className="pb-3 pr-4 hidden md:table-cell">Team</th>
                   <th className="pb-3 text-center">Pts</th>
-                  <th className="pb-3 text-center hidden sm:table-cell">Picked By</th>
+                  <th className="pb-3 text-center">Picked</th>
                 </tr>
               </thead>
               <tbody>
@@ -287,8 +287,8 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           );
                         })()}
                       </td>
-                      <td className="py-2 md:py-3 text-center hidden sm:table-cell">
-                        <span className={`px-2 py-1 rounded text-xs md:text-sm ${getOverlapColor(pickCount)}`}>
+                      <td className="py-2 md:py-3 text-center">
+                        <span className={`px-1.5 md:px-2 py-0.5 md:py-1 rounded text-xs md:text-sm ${getOverlapColor(pickCount)}`}>
                           {pickCount}
                         </span>
                       </td>
