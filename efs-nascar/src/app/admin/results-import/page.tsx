@@ -88,21 +88,31 @@ export default function ResultsImportPage() {
         setSelectedSeasonId(matchingSeason.id);
         // Load races for this season
         loadRacesForSeason(matchingSeason.id);
+      } else {
+        // No matching season in database
+        setSelectedSeasonId('');
+        setRaces([]);
+        setError(`No season found in database for year ${selectedYear}. Create a ${selectedYear} season in Admin → Seasons first.`);
       }
     } else {
       setRaces([]);
       setSelectedRaceNumber('');
+      setSelectedSeasonId('');
     }
   }, [selectedYear, seasons]);
 
   const loadRacesForSeason = async (seasonId: string) => {
     setLoadingRaces(true);
     setSelectedRaceNumber('');
+    setError(null);
     try {
       const res = await fetch(`/api/admin/races?seasonId=${seasonId}`);
       const data = await res.json();
       if (data.races) {
         setRaces(data.races);
+        if (data.races.length === 0) {
+          setError(`No races found for this season. Add races in Admin → Schedule Mgmt or Admin → Races first.`);
+        }
       }
     } catch (err) {
       console.error('Failed to load races:', err);
