@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -47,18 +48,19 @@ export default function LoginPage() {
 
       <div className="max-w-md w-full space-y-8 relative z-10">
         <div className="text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <span className="text-yellow-400 font-black text-3xl tracking-tight bg-purple-700 px-3 py-1 rounded">EFS</span>
-            <span className="font-black text-3xl tracking-tight">
-              <span className="text-yellow-400">N</span>
-              <span className="text-yellow-300">A</span>
-              <span className="text-yellow-400">S</span>
-              <span className="text-purple-400">C</span>
-              <span className="text-purple-300">A</span>
-              <span className="text-yellow-400">R</span>
-            </span>
+          <div className="flex items-center justify-center mb-4">
+            <Image
+              src="/Logo.svg"
+              alt="EFS NASCAR"
+              width={200}
+              height={60}
+              priority
+            />
           </div>
-          <p className="mt-2 text-purple-300 text-lg">Fantasy League</p>
+          <p className="flex items-center justify-center gap-2 text-purple-300 text-lg">
+            <span className="text-yellow-400">★</span>
+            Fantasy League
+          </p>
         </div>
 
         <div className="glass rounded-2xl shadow-2xl p-8 border border-purple-500/20">
