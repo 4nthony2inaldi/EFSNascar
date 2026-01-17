@@ -57,6 +57,10 @@ export default function ResultsImportPage() {
   const [deleteResult, setDeleteResult] = useState<{ message: string; deleted: number } | null>(null);
   const [syncingDrivers, setSyncingDrivers] = useState(false);
   const [syncResult, setSyncResult] = useState<{ message: string; added: number; drivers?: string[] } | null>(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalculateResult, setRecalculateResult] = useState<{ message: string; races_processed?: any[] } | null>(null);
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceResult, setAdvanceResult] = useState<{ message: string; nextRace?: any; seasonComplete?: boolean } | null>(null);
 
   useEffect(() => {
     // Fetch available years and seasons
@@ -196,10 +200,79 @@ export default function ResultsImportPage() {
       }
 
       setResult(data);
+      // Reset post-import results when new import completes
+      setRecalculateResult(null);
+      setAdvanceResult(null);
     } catch (err: any) {
       setError(err.message || 'Import failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecalculateScores = async () => {
+    if (!selectedSeasonId) {
+      setError('Please select a year first');
+      return;
+    }
+
+    setRecalculating(true);
+    setRecalculateResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/recalculate-season-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ season_id: selectedSeasonId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Recalculation failed');
+      }
+
+      setRecalculateResult(data);
+    } catch (err: any) {
+      setError(err.message || 'Recalculation failed');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
+  const handleAdvanceToNextRace = async () => {
+    if (!selectedSeasonId) {
+      setError('Please select a year first');
+      return;
+    }
+
+    setAdvancing(true);
+    setAdvanceResult(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/advance-race', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seasonId: selectedSeasonId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Advance failed');
+      }
+
+      setAdvanceResult(data);
+      // Reload races to show updated status
+      if (selectedSeasonId) {
+        loadRacesForSeason(selectedSeasonId);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Advance failed');
+    } finally {
+      setAdvancing(false);
     }
   };
 
@@ -374,6 +447,66 @@ export default function ResultsImportPage() {
                 <div className="text-3xl font-bold text-amber-400">{result.year}</div>
                 <div className="text-purple-300 text-sm">Season</div>
               </div>
+            </div>
+          </div>
+
+          {/* Post-Import Actions */}
+          <div className="glass rounded-xl p-6 border-2 border-amber-500/30">
+            <h2 className="text-lg font-semibold text-amber-400 mb-4">Next Steps</h2>
+            <div className="space-y-4">
+              {/* Step 2: Recalculate Scores */}
+              <div className="flex items-center justify-between p-4 bg-purple-900/30 rounded-lg">
+                <div>
+                  <h3 className="text-white font-medium">Step 2: Recalculate Scores</h3>
+                  <p className="text-purple-400 text-sm">Updates standings, driver usages, and all statistics</p>
+                </div>
+                <button
+                  onClick={handleRecalculateScores}
+                  disabled={recalculating || !selectedSeasonId}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {recalculating ? 'Recalculating...' : 'Recalculate All Scores'}
+                </button>
+              </div>
+
+              {recalculateResult && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                  <p className="text-emerald-400 font-medium">{recalculateResult.message}</p>
+                  {recalculateResult.races_processed && recalculateResult.races_processed.length > 0 && (
+                    <p className="text-emerald-300 text-sm mt-1">
+                      Processed: {recalculateResult.races_processed.map(r => `Race ${r.race_number}`).join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Advance to Next Race */}
+              <div className="flex items-center justify-between p-4 bg-purple-900/30 rounded-lg">
+                <div>
+                  <h3 className="text-white font-medium">Step 3: Advance to Next Race</h3>
+                  <p className="text-purple-400 text-sm">Opens the next race for pick submissions</p>
+                </div>
+                <button
+                  onClick={handleAdvanceToNextRace}
+                  disabled={advancing || !selectedSeasonId}
+                  className="px-4 py-2 bg-amber-500 text-purple-900 rounded-lg font-medium hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {advancing ? 'Advancing...' : 'Open Next Race for Picks'}
+                </button>
+              </div>
+
+              {advanceResult && (
+                <div className={`p-4 rounded-lg ${advanceResult.seasonComplete ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-emerald-500/10 border border-emerald-500/30'}`}>
+                  <p className={advanceResult.seasonComplete ? 'text-blue-400 font-medium' : 'text-emerald-400 font-medium'}>
+                    {advanceResult.message}
+                  </p>
+                  {advanceResult.nextRace && (
+                    <p className="text-emerald-300 text-sm mt-1">
+                      Race {advanceResult.nextRace.race_number}: {advanceResult.nextRace.name} is now open for picks
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
