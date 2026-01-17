@@ -116,10 +116,11 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
       <div className={`inline-flex items-center gap-1 md:gap-2 px-1 md:px-2 py-0.5 md:py-1 rounded transition-all duration-200 text-xs md:text-sm ${getOverlapColor(pickCount, totalTeams)} ${
         isHighlighted ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-800 scale-105' : ''
       } ${isDimmed ? 'opacity-30' : ''}`}>
-        <span className="font-bold">#{result.driver?.car_number}</span>
+        {/* Car number hidden on mobile */}
+        <span className="font-bold hidden md:inline">#{result.driver?.car_number}</span>
         {/* Full name on desktop, last name only on mobile with truncation */}
         <span className="hidden md:inline">{result.driver?.name}</span>
-        <span className="md:hidden max-w-[60px] truncate">{lastName}</span>
+        <span className="md:hidden max-w-[70px] truncate">{lastName}</span>
       </div>
     );
   };
@@ -196,10 +197,10 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
           <thead>
             <tr className="text-left text-gray-400 text-xs md:text-sm border-b border-gray-700">
               <th className="pb-3 pr-2 md:pr-4">Team</th>
-              <th className="pb-3 pr-2 md:pr-4 text-center">Points</th>
-              <th className="pb-3 pr-1 md:pr-4">Driver 1</th>
-              <th className="pb-3 pr-1 md:pr-4">Driver 2</th>
-              <th className="pb-3">Driver 3</th>
+              <th className="pb-3 pr-1 md:pr-4 text-center"><span className="hidden md:inline">Points</span><span className="md:hidden">Pts</span></th>
+              <th className="pb-3 pr-1 md:pr-4"><span className="hidden md:inline">Driver 1</span><span className="md:hidden">D1</span></th>
+              <th className="pb-3 pr-1 md:pr-4"><span className="hidden md:inline">Driver 2</span><span className="md:hidden">D2</span></th>
+              <th className="pb-3"><span className="hidden md:inline">Driver 3</span><span className="md:hidden">D3</span></th>
             </tr>
           </thead>
           <tbody>
