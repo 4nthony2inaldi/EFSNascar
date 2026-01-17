@@ -1157,10 +1157,29 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                   #{team.car_number}
                 </span>
               </div>
-              <p className="text-gray-400 mt-1">
-                Owner{owners.length > 1 ? 's' : ''}:{' '}
-                {owners.map((o: any) => o.profile?.name).join(', ') || 'None assigned'}
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                {team.owner_headshot_url && (
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-700 flex-shrink-0">
+                    <img
+                      src={team.owner_headshot_url}
+                      alt="Owner"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <p className="text-gray-400">
+                  Owner{owners.length > 1 ? 's' : ''}:{' '}
+                  {owners.map((o: any) => o.profile?.name).join(', ') || 'None assigned'}
+                </p>
+              </div>
+              {favoriteDriver && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-gray-500 text-sm">Favorite Driver:</span>
+                  <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-sm font-medium">
+                    #{favoriteDriver.car_number} {favoriteDriver.name}
+                  </span>
+                </div>
+              )}
               {isOwner && (
                 <span className="inline-block mt-2 px-3 py-1 bg-green-500/20 text-green-500 text-sm rounded-full">
                   You own this team
@@ -1186,36 +1205,11 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         )}
       </div>
 
-      {/* Owner Headshot & Bio */}
-      {(team.owner_headshot_url || team.bio || favoriteDriver) && (
+      {/* Bio - only show if there's a bio */}
+      {team.bio && (
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">About the Team</h2>
-          <div className="flex flex-col md:flex-row gap-6">
-            {team.owner_headshot_url && (
-              <div className="flex-shrink-0">
-                <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-700">
-                  <img
-                    src={team.owner_headshot_url}
-                    alt="Team Owner"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            )}
-            <div className="flex-1 space-y-4">
-              {team.bio && (
-                <p className="text-gray-300 whitespace-pre-wrap">{team.bio}</p>
-              )}
-              {favoriteDriver && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-400">Favorite Driver:</span>
-                  <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded font-medium">
-                    #{favoriteDriver.car_number} {favoriteDriver.name}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+          <p className="text-gray-300 whitespace-pre-wrap">{team.bio}</p>
         </div>
       )}
 
