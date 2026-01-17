@@ -47,20 +47,14 @@ export default function LoginPage() {
       </div>
 
       <div className="max-w-md w-full space-y-8 relative z-10">
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-4">
-            <Image
-              src="/Logo.svg"
-              alt="EFS NASCAR"
-              width={200}
-              height={60}
-              priority
-            />
-          </div>
-          <p className="flex items-center justify-center gap-2 text-purple-300 text-lg">
-            <span className="text-yellow-400">★</span>
-            Fantasy League
-          </p>
+        <div className="text-center mb-4">
+          <Image
+            src="/Logo.svg"
+            alt="EFS NASCAR"
+            width={200}
+            height={60}
+            priority
+          />
         </div>
 
         <div className="glass rounded-2xl shadow-2xl p-8 border border-purple-500/20">
