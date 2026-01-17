@@ -12,6 +12,7 @@ import {
   type RaceScore,
 } from '@/lib/playoff-standings';
 import { getPlayoffConfig } from '@/lib/scoring-config';
+import { PlayoffBracket } from '@/components/PlayoffBracket';
 
 // Force dynamic rendering to ensure cookies are read fresh
 export const dynamic = 'force-dynamic';
@@ -633,14 +634,23 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
             </span>
           </div>
 
-          {/* Championship Bracket */}
+          {/* New Playoff Bracket Component */}
+          <PlayoffBracket
+            playoffStandings={playoffStandings}
+            regularSeasonStandings={regularSeasonStandings}
+            userTeamId={userTeamId}
+            playoffOpts={playoffOpts}
+            completedPlayoffRaces={completedPlayoffRaces}
+            totalPlayoffRaces={playoffRaces.length}
+          />
+
+          {/* OLD Championship Bracket - Commented out for potential revert
           <div className="glass rounded-xl overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 border-b border-amber-500/30">
               <h3 className="text-lg font-bold text-amber-400">Championship Bracket</h3>
               <p className="text-sm text-purple-300">Top {playoffOpts.championshipBracketSize} teams competing for the championship (points reset each round)</p>
             </div>
 
-            {/* Show current round standings */}
             {playoffStandings.playoffRound === 'not_started' && (
               <div className="p-6 text-center text-purple-400">
                 <p>Playoffs begin after the regular season. Top 2 seeds will have a first round bye.</p>
@@ -672,7 +682,6 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                   </thead>
                   <tbody>
                     {(() => {
-                      // Determine which standings to show based on current round
                       let currentStandings: PlayoffTeamStanding[] = [];
                       let roundLabel = '';
 
@@ -689,7 +698,6 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                         roundLabel = 'Finals';
                       }
 
-                      // Also include catbird seats in round 1 display
                       if (roundLabel === 'Round 1') {
                         const catbirdTeams = playoffStandings.championshipBracket.catbirdSeats.map(teamId => {
                           const team = regularSeasonStandings.find(s => s.team_id === teamId);
@@ -704,7 +712,6 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                           } as PlayoffTeamStanding : null;
                         }).filter(Boolean) as PlayoffTeamStanding[];
 
-                        // Prepend catbird seats with "BYE" status
                         return [...catbirdTeams, ...currentStandings].map((standing, index) => {
                           const isUserTeam = standing.team_id === userTeamId;
                           const isCatbird = playoffStandings.championshipBracket.catbirdSeats.includes(standing.team_id);
@@ -804,6 +811,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
               </div>
             )}
           </div>
+          END OLD Championship Bracket */}
 
           {/* Consolation Bracket */}
           <div className="glass rounded-xl overflow-hidden">
