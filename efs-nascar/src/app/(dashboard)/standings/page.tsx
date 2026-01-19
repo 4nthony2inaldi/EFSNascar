@@ -65,6 +65,56 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   const config = scoringConfig as ScoringConfig | null;
   const playoffOpts = getPlayoffConfig(config);
 
+  // Get tiebreaker order from config, with fallback to default
+  const tiebreakerOrder = config?.tiebreaker_order || ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'];
+
+  // Tiebreaker labels for display
+  const tiebreakerLabels: Record<string, string> = {
+    race_wins: 'Most race winners picked',
+    stage_wins: 'Most stage winners picked',
+    laps_led: 'Most laps led picked',
+    top_10_bonuses: 'Most "all 3 in top 10" bonuses',
+    allstar_position: 'All-Star race finish position',
+  };
+
+  // Helper function for tiebreaker comparison
+  const compareTiebreakers = (a: any, b: any) => {
+    // Primary: Total points
+    if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+
+    // Apply tiebreakers in configured order
+    for (const tiebreaker of tiebreakerOrder) {
+      let aVal = 0, bVal = 0;
+      switch (tiebreaker) {
+        case 'race_wins':
+          aVal = a.race_wins || 0;
+          bVal = b.race_wins || 0;
+          break;
+        case 'stage_wins':
+          aVal = a.stage_wins || 0;
+          bVal = b.stage_wins || 0;
+          break;
+        case 'laps_led':
+          aVal = a.laps_led_bonuses || 0;
+          bVal = b.laps_led_bonuses || 0;
+          break;
+        case 'top_10_bonuses':
+          aVal = a.top_10_bonuses || 0;
+          bVal = b.top_10_bonuses || 0;
+          break;
+        case 'allstar_position':
+          // Lower position is better, so we flip the comparison
+          // 0 or null means no position, sort last
+          aVal = a.allstar_position || 999;
+          bVal = b.allstar_position || 999;
+          if (aVal !== bVal) return aVal - bVal; // Lower is better
+          continue;
+      }
+      if (bVal !== aVal) return bVal - aVal; // Higher is better (except allstar)
+    }
+    return 0;
+  };
+
   // Get race counts by type
   const { data: allRaces } = await supabase
     .from('races')
@@ -137,18 +187,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     }
 
     regularSeasonStandings = Object.values(regularSeasonTotals)
-      .sort((a, b) => {
-        // Primary: Total points
-        if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-        // Tiebreaker 1: Most race winners picked
-        if (b.race_wins !== a.race_wins) return b.race_wins - a.race_wins;
-        // Tiebreaker 2: Most stage winners picked
-        if (b.stage_wins !== a.stage_wins) return b.stage_wins - a.stage_wins;
-        // Tiebreaker 3: Most laps led picked
-        if (b.laps_led_bonuses !== a.laps_led_bonuses) return b.laps_led_bonuses - a.laps_led_bonuses;
-        // Tiebreaker 4: Most top 10 bonuses
-        return b.top_10_bonuses - a.top_10_bonuses;
-      })
+      .sort(compareTiebreakers)
       .map((team, index) => ({
         id: `reg-${team.team_id}`,
         team_id: team.team_id,
@@ -282,18 +321,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       }
 
       regularSeasonStandings = Object.values(teamTotals)
-        .sort((a, b) => {
-          // Primary: Total points
-          if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-          // Tiebreaker 1: Most race winners picked
-          if (b.race_wins !== a.race_wins) return b.race_wins - a.race_wins;
-          // Tiebreaker 2: Most stage winners picked
-          if (b.stage_wins !== a.stage_wins) return b.stage_wins - a.stage_wins;
-          // Tiebreaker 3: Most laps led picked
-          if (b.laps_led_bonuses !== a.laps_led_bonuses) return b.laps_led_bonuses - a.laps_led_bonuses;
-          // Tiebreaker 4: Most top 10 bonuses
-          return b.top_10_bonuses - a.top_10_bonuses;
-        })
+        .sort(compareTiebreakers)
         .map((team, index) => ({
           id: `calc-${team.team_id}`,
           team_id: team.team_id,
@@ -861,12 +889,9 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       <div className="glass rounded-xl p-6">
         <h2 className="text-lg font-bold text-white mb-3">Tiebreakers</h2>
         <ol className="list-decimal list-inside text-purple-300 space-y-1 text-sm">
-          <li>Most race winners picked</li>
-          <li>Most stage winners picked</li>
-          <li>Most laps led picked</li>
-          <li>Most &quot;all 3 in top 10&quot; bonuses</li>
-          <li>Head-to-head record</li>
-          <li>All-Star race finish position</li>
+          {tiebreakerOrder.map((tiebreaker, index) => (
+            <li key={tiebreaker}>{tiebreakerLabels[tiebreaker] || tiebreaker}</li>
+          ))}
         </ol>
       </div>
     </div>

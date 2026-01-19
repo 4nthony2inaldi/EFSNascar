@@ -87,6 +87,9 @@ export default function AdminScoringPage() {
     // Elimination rules
     round1_eliminations: 1,
     round2_eliminations: 2,
+
+    // Tiebreaker order
+    tiebreaker_order: ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'],
   });
 
   useEffect(() => {
@@ -192,6 +195,7 @@ export default function AdminScoringPage() {
         playoff_finals_races: existingConfig.playoff_finals_races,
         round1_eliminations: existingConfig.round1_eliminations,
         round2_eliminations: existingConfig.round2_eliminations,
+        tiebreaker_order: existingConfig.tiebreaker_order || ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'],
       });
     } else {
       setEditingConfig(null);
@@ -218,6 +222,7 @@ export default function AdminScoringPage() {
         playoff_finals_races: 2,
         round1_eliminations: 1,
         round2_eliminations: 2,
+        tiebreaker_order: ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'],
       });
     }
 
@@ -257,6 +262,7 @@ export default function AdminScoringPage() {
       playoff_finals_races: formData.playoff_finals_races,
       round1_eliminations: formData.round1_eliminations,
       round2_eliminations: formData.round2_eliminations,
+      tiebreaker_order: formData.tiebreaker_order,
     };
 
     if (editingConfig) {
@@ -373,6 +379,7 @@ export default function AdminScoringPage() {
         playoff_finals_races: sourceConfig.playoff_finals_races,
         round1_eliminations: sourceConfig.round1_eliminations,
         round2_eliminations: sourceConfig.round2_eliminations,
+        tiebreaker_order: sourceConfig.tiebreaker_order || ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'],
       });
       setSuccess('Configuration copied! Remember to save to apply changes.');
     }
@@ -884,6 +891,67 @@ export default function AdminScoringPage() {
                   </div>
                 </>
               )}
+            </div>
+
+            {/* Tiebreaker Order */}
+            <div>
+              <h4 className="text-md font-bold text-amber-400 mb-3">Tiebreaker Order</h4>
+              <p className="text-sm text-purple-400 mb-4">
+                Configure the order of tiebreakers used when teams have equal points. Use arrows to reorder.
+              </p>
+              <div className="space-y-2">
+                {formData.tiebreaker_order.map((tiebreaker, index) => {
+                  const labels: Record<string, string> = {
+                    race_wins: 'Most race winners picked',
+                    stage_wins: 'Most stage winners picked',
+                    laps_led: 'Most laps led picked',
+                    top_10_bonuses: 'Most "all 3 in top 10" bonuses',
+                    allstar_position: 'All-Star race finish position',
+                  };
+                  return (
+                    <div key={tiebreaker} className="flex items-center gap-3 p-3 bg-purple-900/30 rounded-lg border border-purple-700/30">
+                      <span className="text-amber-400 font-bold w-6">{index + 1}.</span>
+                      <span className="flex-1 text-purple-200">{labels[tiebreaker] || tiebreaker}</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (index > 0) {
+                              const newOrder = [...formData.tiebreaker_order];
+                              [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                              setFormData({ ...formData, tiebreaker_order: newOrder });
+                            }
+                          }}
+                          disabled={index === 0}
+                          className="p-1.5 rounded bg-purple-700/30 text-purple-300 hover:bg-purple-700/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (index < formData.tiebreaker_order.length - 1) {
+                              const newOrder = [...formData.tiebreaker_order];
+                              [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                              setFormData({ ...formData, tiebreaker_order: newOrder });
+                            }
+                          }}
+                          disabled={index === formData.tiebreaker_order.length - 1}
+                          className="p-1.5 rounded bg-purple-700/30 text-purple-300 hover:bg-purple-700/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Submit Buttons */}

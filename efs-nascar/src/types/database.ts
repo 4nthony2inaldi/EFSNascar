@@ -208,6 +208,9 @@ export interface ScoringConfig {
   round1_eliminations: number;
   round2_eliminations: number;
 
+  // Tiebreaker order (array of: race_wins, stage_wins, laps_led, top_10_bonuses, allstar_position)
+  tiebreaker_order: string[];
+
   created_at: string;
   updated_at: string;
 }

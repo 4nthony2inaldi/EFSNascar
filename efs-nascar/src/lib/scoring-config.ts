@@ -25,6 +25,7 @@ export const DEFAULT_SCORING_CONFIG: Omit<ScoringConfig, 'id' | 'season_id' | 'c
   playoff_finals_races: 2,
   round1_eliminations: 1,
   round2_eliminations: 2,
+  tiebreaker_order: ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'],
 };
 
 // Convert position points from Record<string, number> to Record<number, number>
