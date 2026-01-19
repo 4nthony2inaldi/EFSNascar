@@ -44,57 +44,6 @@ export default async function TeamsPage() {
     `)
     .order('car_number', { ascending: true });
 
-  // Get standings data for all teams (race wins, stage wins, laps led)
-  interface TeamStandings {
-    race_wins: number;
-    stage_wins: number;
-    laps_led_bonuses: number;
-  }
-  const standingsByTeam = new Map<string, TeamStandings>();
-
-  if (activeSeason) {
-    // First try standings table
-    const { data: standingsData } = await supabase
-      .from('standings')
-      .select('team_id, race_wins, stage_wins, laps_led_bonuses')
-      .eq('season_id', activeSeason.id)
-      .is('race_id', null);
-
-    const hasStandingsData = standingsData && standingsData.length > 0 &&
-      standingsData.some((s: any) => (s.race_wins || 0) + (s.stage_wins || 0) + (s.laps_led_bonuses || 0) > 0);
-
-    if (hasStandingsData) {
-      for (const s of standingsData || []) {
-        standingsByTeam.set(s.team_id, {
-          race_wins: s.race_wins || 0,
-          stage_wins: s.stage_wins || 0,
-          laps_led_bonuses: s.laps_led_bonuses || 0,
-        });
-      }
-    } else {
-      // Fallback: Calculate from race_scores
-      const { data: raceScores } = await supabase
-        .from('race_scores')
-        .select('team_id, driver_1_points, driver_2_points, driver_3_points, stage_bonus, laps_led_bonus, race:races!inner(season_id)')
-        .eq('race.season_id', activeSeason.id);
-
-      if (raceScores && raceScores.length > 0) {
-        for (const score of raceScores) {
-          if (!standingsByTeam.has(score.team_id)) {
-            standingsByTeam.set(score.team_id, { race_wins: 0, stage_wins: 0, laps_led_bonuses: 0 });
-          }
-          const stats = standingsByTeam.get(score.team_id)!;
-          // Count race wins (any driver with 10 points = P1)
-          if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
-            stats.race_wins += 1;
-          }
-          stats.stage_wins += score.stage_bonus || 0;
-          stats.laps_led_bonuses += score.laps_led_bonus || 0;
-        }
-      }
-    }
-  }
-
   // Calculate TITS stats for all teams
   // Use revealedOnly=true so other teams' unrevealed picks aren't exposed
   // Pass userTeamId so the logged-in user can see their own full stats
@@ -228,7 +177,6 @@ export default async function TeamsPage() {
           const zigPercent = zigPercentByTeam.get(team.id);
           const hasSubmittedPicks = picksSubmittedByTeam.has(team.id);
           const favoriteDriver = team.favorite_driver;
-          const standings = standingsByTeam.get(team.id);
 
           return (
             <Link
@@ -273,19 +221,6 @@ export default async function TeamsPage() {
                   )}
                   {/* Stats row */}
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {standings && (
-                      <>
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs font-semibold rounded" title="Race winners picked">
-                          W: {standings.race_wins}
-                        </span>
-                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded" title="Stage winners picked">
-                          SW: {standings.stage_wins}
-                        </span>
-                        <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs font-semibold rounded" title="Laps led picked">
-                          LL: {standings.laps_led_bonuses}
-                        </span>
-                      </>
-                    )}
                     {titsStats && (
                       <>
                         <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded">
