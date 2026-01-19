@@ -863,7 +863,9 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         <ol className="list-decimal list-inside text-purple-300 space-y-1 text-sm">
           <li>Most race winners picked</li>
           <li>Most stage winners picked</li>
+          <li>Most laps led picked</li>
           <li>Most &quot;all 3 in top 10&quot; bonuses</li>
+          <li>Head-to-head record</li>
           <li>All-Star race finish position</li>
         </ol>
       </div>
