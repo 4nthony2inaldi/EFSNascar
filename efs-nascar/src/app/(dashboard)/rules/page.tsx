@@ -283,6 +283,7 @@ export default function RulesPage() {
             <ol className="text-purple-300 text-sm space-y-1 list-decimal list-inside">
               <li>Most race winners picked</li>
               <li>Most stage winners picked</li>
+              <li>Most laps led picked</li>
               <li>Most &quot;all 3 in top 10&quot; bonuses</li>
               <li>Head-to-head record</li>
               <li>All-Star race finish position</li>

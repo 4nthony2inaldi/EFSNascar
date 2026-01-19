@@ -137,7 +137,18 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     }
 
     regularSeasonStandings = Object.values(regularSeasonTotals)
-      .sort((a, b) => b.total_points - a.total_points)
+      .sort((a, b) => {
+        // Primary: Total points
+        if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+        // Tiebreaker 1: Most race winners picked
+        if (b.race_wins !== a.race_wins) return b.race_wins - a.race_wins;
+        // Tiebreaker 2: Most stage winners picked
+        if (b.stage_wins !== a.stage_wins) return b.stage_wins - a.stage_wins;
+        // Tiebreaker 3: Most laps led picked
+        if (b.laps_led_bonuses !== a.laps_led_bonuses) return b.laps_led_bonuses - a.laps_led_bonuses;
+        // Tiebreaker 4: Most top 10 bonuses
+        return b.top_10_bonuses - a.top_10_bonuses;
+      })
       .map((team, index) => ({
         id: `reg-${team.team_id}`,
         team_id: team.team_id,
@@ -202,6 +213,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         race_wins: number;
         stage_wins: number;
         top_10_bonuses: number;
+        laps_led_bonuses: number;
       }> = {};
 
       for (const pick of regularPicks) {
@@ -213,6 +225,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
             race_wins: 0,
             stage_wins: 0,
             top_10_bonuses: 0,
+            laps_led_bonuses: 0,
           };
         }
 
@@ -249,6 +262,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
 
             if (result.most_laps_led && lapsLedBonus === 0) {
               lapsLedBonus = 1;
+              teamTotals[pick.team_id].laps_led_bonuses += 1;
             }
 
             if (result.finish_position > 10) {
@@ -268,7 +282,18 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       }
 
       regularSeasonStandings = Object.values(teamTotals)
-        .sort((a, b) => b.total_points - a.total_points)
+        .sort((a, b) => {
+          // Primary: Total points
+          if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+          // Tiebreaker 1: Most race winners picked
+          if (b.race_wins !== a.race_wins) return b.race_wins - a.race_wins;
+          // Tiebreaker 2: Most stage winners picked
+          if (b.stage_wins !== a.stage_wins) return b.stage_wins - a.stage_wins;
+          // Tiebreaker 3: Most laps led picked
+          if (b.laps_led_bonuses !== a.laps_led_bonuses) return b.laps_led_bonuses - a.laps_led_bonuses;
+          // Tiebreaker 4: Most top 10 bonuses
+          return b.top_10_bonuses - a.top_10_bonuses;
+        })
         .map((team, index) => ({
           id: `calc-${team.team_id}`,
           team_id: team.team_id,
