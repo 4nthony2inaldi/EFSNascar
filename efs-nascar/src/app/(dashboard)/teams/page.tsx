@@ -235,6 +235,13 @@ export default async function TeamsPage() {
                         }`}>
                           TITS%: {titsStats.titsPercent.toFixed(0)}%
                         </span>
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                          titsStats.bonusRemaining > 0
+                            ? 'bg-purple-500/20 text-purple-400'
+                            : 'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          Bonus: {titsStats.bonusRemaining}
+                        </span>
                       </>
                     )}
                     {zigPercent !== undefined && (

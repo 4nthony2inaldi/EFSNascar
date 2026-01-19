@@ -11,7 +11,10 @@ export interface TitsStats {
   titsRemaining: number;  // Total T1 + T2 + bonus remaining
   totalPicksRemaining: number;  // 3 picks × remaining races
   titsPercent: number;  // (titsRemaining / totalPicksRemaining) × 100
-  bonusUsed: boolean;  // Whether the bonus 5th use has been consumed
+  bonusUsed: boolean;  // Whether any bonus 5th use has been consumed
+  bonusTotal: number;  // Total bonus uses available for this team
+  bonusUsedCount: number;  // Number of bonus uses consumed
+  bonusRemaining: number;  // Bonus uses still available
 }
 
 export interface TeamTitsStats extends TitsStats {
@@ -84,17 +87,18 @@ export async function calculateTeamTitsStats(
     t2Remaining += Math.max(0, BASE_DRIVER_USES - used);
   }
 
-  // Check if bonus has been consumed (any driver used 5+ times)
-  let bonusUsed = false;
+  // Count bonus uses consumed (each use beyond BASE_DRIVER_USES per driver)
+  let bonusUsedCount = 0;
   for (const used of Object.values(usageMap)) {
-    if (used >= BASE_DRIVER_USES + 1) {
-      bonusUsed = true;
-      break;
+    if (used > BASE_DRIVER_USES) {
+      bonusUsedCount += used - BASE_DRIVER_USES;
     }
   }
+  const bonusUsed = bonusUsedCount > 0;
+  const bonusRemaining = Math.max(0, bonusUses - bonusUsedCount);
 
-  // TITS Remaining = T1 + T2 + bonus (if unused)
-  const titsRemaining = t1Remaining + t2Remaining + (bonusUsed ? 0 : bonusUses);
+  // TITS Remaining = T1 + T2 + bonus remaining
+  const titsRemaining = t1Remaining + t2Remaining + bonusRemaining;
 
   // Get race counts for TITS %
   const { count: totalRaces } = await supabase
@@ -125,6 +129,9 @@ export async function calculateTeamTitsStats(
     totalPicksRemaining,
     titsPercent,
     bonusUsed,
+    bonusTotal: bonusUses,
+    bonusUsedCount,
+    bonusRemaining,
   };
 }
 
@@ -248,16 +255,17 @@ export async function calculateAllTeamsTitsStats(
       t2Remaining += Math.max(0, BASE_DRIVER_USES - used);
     }
 
-    // Check if bonus has been consumed
-    let bonusUsed = false;
+    // Count bonus uses consumed (each use beyond BASE_DRIVER_USES per driver)
+    let bonusUsedCount = 0;
     for (const used of Object.values(usageMap)) {
-      if (used >= BASE_DRIVER_USES + 1) {
-        bonusUsed = true;
-        break;
+      if (used > BASE_DRIVER_USES) {
+        bonusUsedCount += used - BASE_DRIVER_USES;
       }
     }
+    const bonusUsed = bonusUsedCount > 0;
+    const bonusRemaining = Math.max(0, bonusUses - bonusUsedCount);
 
-    const titsRemaining = t1Remaining + t2Remaining + (bonusUsed ? 0 : bonusUses);
+    const titsRemaining = t1Remaining + t2Remaining + bonusRemaining;
     const titsPercent = totalPicksRemaining > 0
       ? (titsRemaining / totalPicksRemaining) * 100
       : 0;
@@ -269,6 +277,9 @@ export async function calculateAllTeamsTitsStats(
       totalPicksRemaining,
       titsPercent,
       bonusUsed,
+      bonusTotal: bonusUses,
+      bonusUsedCount,
+      bonusRemaining,
     });
   }
 
