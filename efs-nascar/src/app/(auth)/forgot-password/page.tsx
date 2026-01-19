@@ -3,25 +3,22 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [success, setSuccess] = useState(false);
   const supabase = createClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
     });
 
     if (error) {
@@ -30,13 +27,45 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/');
-    router.refresh();
+    setSuccess(true);
+    setLoading(false);
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f0a1a] px-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-600/30 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-yellow-500/10 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="max-w-md w-full relative z-10">
+          <div className="glass rounded-2xl shadow-2xl p-8 text-center border border-purple-500/20">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-4">Check Your Email</h2>
+            <p className="text-purple-300 mb-6">
+              We&apos;ve sent a password reset link to <span className="text-yellow-400 font-medium">{email}</span>.
+              Click the link in the email to reset your password.
+            </p>
+            <Link
+              href="/login"
+              className="inline-block py-3 px-6 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 hover:from-yellow-300 hover:via-yellow-200 hover:to-yellow-300 shadow-lg shadow-yellow-500/25 transition-all"
+            >
+              Back to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f0a1a] px-4 relative overflow-hidden">
-      {/* Background decorations - stars pattern */}
+      {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-600/30 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-yellow-500/10 rounded-full blur-3xl"></div>
@@ -58,7 +87,10 @@ export default function LoginPage() {
         </div>
 
         <div className="glass rounded-2xl shadow-2xl p-8 border border-purple-500/20">
-          <h2 className="text-2xl font-bold text-white mb-6">Sign In</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Reset Password</h2>
+          <p className="text-purple-400 text-sm mb-6">
+            Enter your email and we&apos;ll send you a link to reset your password.
+          </p>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-4">
@@ -66,7 +98,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleResetPassword} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-purple-200">
                 Email
@@ -82,40 +114,19 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-purple-200">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 block w-full px-4 py-3 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white placeholder-purple-400/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
-
             <button
               type="submit"
               disabled={loading}
               className="w-full flex justify-center py-3 px-4 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400 hover:from-yellow-300 hover:via-yellow-200 hover:to-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 focus:ring-offset-[#1c1726] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-500/25 transition-all"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
           </form>
 
-          <div className="mt-4 text-center">
-            <Link href="/forgot-password" className="text-sm text-purple-400 hover:text-purple-300">
-              Forgot your password?
-            </Link>
-          </div>
-
-          <p className="mt-4 text-center text-sm text-purple-300">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-yellow-400 hover:text-yellow-300 font-medium">
-              Register
+          <p className="mt-6 text-center text-sm text-purple-300">
+            Remember your password?{' '}
+            <Link href="/login" className="text-yellow-400 hover:text-yellow-300 font-medium">
+              Sign In
             </Link>
           </p>
         </div>
