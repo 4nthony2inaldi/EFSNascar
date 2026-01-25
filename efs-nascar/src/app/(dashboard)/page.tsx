@@ -49,6 +49,8 @@ export default async function DashboardPage() {
   // Get championship prediction for user's team
   let championshipPrediction: ChampionshipPrediction | null = null;
   let championshipDriver: Driver | null = null;
+  let championshipPickStats: { submitted: number; total: number } | null = null;
+
   if (userTeam && selectedSeasonId) {
     const { data: prediction } = await supabase
       .from('championship_predictions')
@@ -61,6 +63,17 @@ export default async function DashboardPage() {
       championshipPrediction = prediction as ChampionshipPrediction;
       championshipDriver = (prediction as any).driver as Driver;
     }
+
+    // Get championship pick submission stats
+    const [{ count: totalTeams }, { count: submittedPicks }] = await Promise.all([
+      supabase.from('teams').select('*', { count: 'exact', head: true }),
+      supabase.from('championship_predictions').select('*', { count: 'exact', head: true }).eq('season_id', selectedSeasonId),
+    ]);
+
+    championshipPickStats = {
+      submitted: submittedPicks || 0,
+      total: totalTeams || 0,
+    };
   }
 
   // Get next upcoming race for the selected season with track info (only for active season)
@@ -716,6 +729,7 @@ export default async function DashboardPage() {
           revealed={false}
           initialPrediction={championshipPrediction}
           initialDriver={championshipDriver}
+          submissionStats={championshipPickStats}
         />
       )}
 

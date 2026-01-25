@@ -10,6 +10,7 @@ interface ChampionshipPickProps {
   revealed: boolean;
   initialPrediction: ChampionshipPrediction | null;
   initialDriver: Driver | null;
+  submissionStats?: { submitted: number; total: number } | null;
 }
 
 export function ChampionshipPick({
@@ -18,6 +19,7 @@ export function ChampionshipPick({
   revealed,
   initialPrediction,
   initialDriver,
+  submissionStats,
 }: ChampionshipPickProps) {
   const supabase = createClient();
 
@@ -127,6 +129,13 @@ export function ChampionshipPick({
             <span className="text-xl">🏆</span>
             <h3 className="text-lg font-bold text-white">Championship Pick</h3>
             <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">Hidden</span>
+            {submissionStats && (
+              <span className={`text-xs ${
+                submissionStats.submitted === submissionStats.total ? 'text-green-400' : 'text-purple-400'
+              }`}>
+                ({submissionStats.submitted} of {submissionStats.total} submitted)
+              </span>
+            )}
           </div>
           <button
             onClick={() => setIsEditing(true)}
@@ -159,6 +168,13 @@ export function ChampionshipPick({
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xl">🏆</span>
         <h3 className="text-lg font-bold text-white">Championship Pick</h3>
+        {submissionStats && (
+          <span className={`text-xs ${
+            submissionStats.submitted === submissionStats.total ? 'text-green-400' : 'text-purple-400'
+          }`}>
+            ({submissionStats.submitted} of {submissionStats.total} submitted)
+          </span>
+        )}
       </div>
       <p className="text-sm text-purple-300 mb-4">
         Pick which driver you think will win the real NASCAR Cup Championship.
