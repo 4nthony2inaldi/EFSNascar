@@ -708,6 +708,17 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* Championship Pick Section - Preseason only */}
+      {userTeam && selectedSeasonId && !activeSeason?.championship_predictions_revealed && (
+        <ChampionshipPick
+          teamId={userTeam.id}
+          seasonId={selectedSeasonId}
+          revealed={false}
+          initialPrediction={championshipPrediction}
+          initialDriver={championshipDriver}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Next Race Card */}
         <div className="lg:col-span-2 glass rounded-xl p-6 card-hover">
@@ -1010,17 +1021,6 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
-
-      {/* Championship Pick Section */}
-      {userTeam && selectedSeasonId && (
-        <ChampionshipPick
-          teamId={userTeam.id}
-          seasonId={selectedSeasonId}
-          revealed={activeSeason?.championship_predictions_revealed || false}
-          initialPrediction={championshipPrediction}
-          initialDriver={championshipDriver}
-        />
-      )}
 
       {/* Playoff Standings Preview */}
       {showPlayoffSection && playoffStandings && (
