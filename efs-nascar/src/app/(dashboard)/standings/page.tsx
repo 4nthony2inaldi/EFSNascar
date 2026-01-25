@@ -26,29 +26,26 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   const params = await searchParams;
   const cookieStore = await cookies();
 
-  // Get current user's team
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: membership } = await supabase
-    .from('team_memberships')
-    .select('team_id')
-    .eq('user_id', user?.id)
-    .single();
-  const userTeamId = membership?.team_id;
-
-  // Get all seasons for the selector
-  const { data: allSeasons } = await supabase
-    .from('seasons')
-    .select('*')
-    .order('year', { ascending: false });
+  // Parallelize initial queries that don't depend on each other
+  const [
+    { data: { user } },
+    { data: allSeasons },
+    { data: activeSeason },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('seasons').select('*').order('year', { ascending: false }),
+    supabase.from('seasons').select('*').eq('is_active', true).single(),
+  ]);
 
   const seasons = (allSeasons || []) as Season[];
 
-  // Get active season
-  const { data: activeSeason } = await supabase
-    .from('seasons')
-    .select('*')
-    .eq('is_active', true)
-    .single();
+  // Get user's team membership (depends on user)
+  const { data: membership } = user ? await supabase
+    .from('team_memberships')
+    .select('team_id')
+    .eq('user_id', user.id)
+    .single() : { data: null };
+  const userTeamId = membership?.team_id;
 
   // Determine which season to display (from URL param, then cookie, then default to active)
   const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;

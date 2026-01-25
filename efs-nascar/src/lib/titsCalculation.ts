@@ -3,6 +3,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { calculateDriverTiers } from './driverTiers';
+import { getDriverTiersFromCache } from './cachedData';
 import { BASE_DRIVER_USES, DEFAULT_BONUS_USES } from '@/types';
 
 export interface TitsStats {
@@ -29,8 +30,8 @@ export async function calculateTeamTitsStats(
   teamId: string,
   seasonId: string
 ): Promise<TitsStats> {
-  // Get driver tiers
-  const driverTiers = await calculateDriverTiers(supabase);
+  // Get driver tiers from cache
+  const driverTiers = await getDriverTiersFromCache();
 
   // Get all drivers
   const { data: allDrivers } = await supabase
@@ -148,8 +149,8 @@ export async function calculateAllTeamsTitsStats(
 ): Promise<Map<string, TitsStats>> {
   const results = new Map<string, TitsStats>();
 
-  // Get driver tiers
-  const driverTiers = await calculateDriverTiers(supabase);
+  // Get driver tiers from cache
+  const driverTiers = await getDriverTiersFromCache();
 
   // Get all active drivers
   const { data: allDrivers } = await supabase

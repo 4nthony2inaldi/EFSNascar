@@ -11,10 +11,26 @@ interface TeamWithOwners extends Team {
 export default async function TeamsPage() {
   const supabase = await createClient();
 
-  // Get current user and their team
-  const { data: { user } } = await supabase.auth.getUser();
-  let userTeamId: string | undefined;
+  // Parallelize initial queries that don't depend on each other
+  const [
+    { data: { user } },
+    { data: activeSeason },
+    { data: teams },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('seasons').select('id').eq('is_active', true).single(),
+    supabase.from('teams').select(`
+      *,
+      team_memberships(
+        *,
+        profile:profiles(*)
+      ),
+      favorite_driver:drivers(*)
+    `).order('car_number', { ascending: true }),
+  ]);
 
+  // Get user's team membership (depends on user)
+  let userTeamId: string | undefined;
   if (user) {
     const { data: membership } = await supabase
       .from('team_memberships')
@@ -24,47 +40,33 @@ export default async function TeamsPage() {
     userTeamId = membership?.team_id;
   }
 
-  // Get active season
-  const { data: activeSeason } = await supabase
-    .from('seasons')
-    .select('id')
-    .eq('is_active', true)
-    .single();
-
-  // Get all teams with their owners and favorite driver
-  const { data: teams } = await supabase
-    .from('teams')
-    .select(`
-      *,
-      team_memberships(
-        *,
-        profile:profiles(*)
-      ),
-      favorite_driver:drivers(*)
-    `)
-    .order('car_number', { ascending: true });
-
-  // Calculate TITS stats for all teams
-  // Use revealedOnly=true so other teams' unrevealed picks aren't exposed
-  // Pass userTeamId so the logged-in user can see their own full stats
+  // Parallelize TITS stats, next race, and revealed races queries
   let titsStatsByTeam = new Map<string, TitsStats>();
-  if (activeSeason) {
-    titsStatsByTeam = await calculateAllTeamsTitsStats(supabase, activeSeason.id, true, userTeamId);
-  }
-
-  // Get next upcoming race for pick submission check
   let nextRaceId: string | null = null;
+  let revealedRaceIds = new Set<string>();
+
   if (activeSeason) {
-    const { data: nextRace } = await supabase
-      .from('races')
-      .select('id')
-      .eq('season_id', activeSeason.id)
-      .eq('status', 'upcoming')
-      .gt('deadline_datetime', new Date().toISOString())
-      .order('scheduled_datetime', { ascending: true })
-      .limit(1)
-      .single();
-    nextRaceId = nextRace?.id || null;
+    const [titsStats, nextRaceResult, revealedRacesResult] = await Promise.all([
+      calculateAllTeamsTitsStats(supabase, activeSeason.id, true, userTeamId),
+      supabase
+        .from('races')
+        .select('id')
+        .eq('season_id', activeSeason.id)
+        .eq('status', 'upcoming')
+        .gt('deadline_datetime', new Date().toISOString())
+        .order('scheduled_datetime', { ascending: true })
+        .limit(1)
+        .single(),
+      supabase
+        .from('races')
+        .select('id')
+        .eq('season_id', activeSeason.id)
+        .or(`status.eq.in_progress,status.eq.final,deadline_datetime.lt.${new Date().toISOString()}`),
+    ]);
+
+    titsStatsByTeam = titsStats;
+    nextRaceId = nextRaceResult.data?.id || null;
+    revealedRaceIds = new Set((revealedRacesResult.data || []).map(r => r.id));
   }
 
   // Get pick submission status for the upcoming race
@@ -79,84 +81,73 @@ export default async function TeamsPage() {
 
   // Calculate Zig% (contrarian score) for all teams
   const zigPercentByTeam = new Map<string, number>();
-  if (activeSeason) {
-    // Get revealed races
-    const { data: revealedRaces } = await supabase
-      .from('races')
-      .select('id')
-      .eq('season_id', activeSeason.id)
-      .or(`status.eq.in_progress,status.eq.final,deadline_datetime.lt.${new Date().toISOString()}`);
+  if (revealedRaceIds.size > 0) {
+    // Get all picks from revealed races
+    const { data: allRevealedPicks } = await supabase
+      .from('picks')
+      .select('team_id, race_id, driver_1_id, driver_2_id, driver_3_id')
+      .in('race_id', Array.from(revealedRaceIds));
 
-    const revealedRaceIds = new Set((revealedRaces || []).map(r => r.id));
+    if (allRevealedPicks && allRevealedPicks.length > 0) {
+      // Count how many teams picked each driver per race
+      const driverPickCountsByRace: Record<string, Record<string, number>> = {};
+      const teamCountByRace: Record<string, number> = {};
 
-    if (revealedRaceIds.size > 0) {
-      // Get all picks from revealed races
-      const { data: allRevealedPicks } = await supabase
-        .from('picks')
-        .select('team_id, race_id, driver_1_id, driver_2_id, driver_3_id')
-        .in('race_id', Array.from(revealedRaceIds));
-
-      if (allRevealedPicks && allRevealedPicks.length > 0) {
-        // Count how many teams picked each driver per race
-        const driverPickCountsByRace: Record<string, Record<string, number>> = {};
-        const teamCountByRace: Record<string, number> = {};
-
-        for (const pick of allRevealedPicks) {
-          if (!driverPickCountsByRace[pick.race_id]) {
-            driverPickCountsByRace[pick.race_id] = {};
-            teamCountByRace[pick.race_id] = 0;
+      for (const pick of allRevealedPicks) {
+        if (!driverPickCountsByRace[pick.race_id]) {
+          driverPickCountsByRace[pick.race_id] = {};
+          teamCountByRace[pick.race_id] = 0;
+        }
+        teamCountByRace[pick.race_id]++;
+        [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach(driverId => {
+          if (driverId) {
+            driverPickCountsByRace[pick.race_id][driverId] = (driverPickCountsByRace[pick.race_id][driverId] || 0) + 1;
           }
-          teamCountByRace[pick.race_id]++;
+        });
+      }
+
+      // Calculate contrarian score for each team
+      const getPopularityLevel = (count: number, totalTeams: number): string => {
+        const percentage = (count / totalTeams) * 100;
+        if (count === 1) return 'unique';
+        if (percentage <= 20) return 'rare';
+        if (percentage <= 35) return 'uncommon';
+        if (percentage <= 50) return 'common';
+        if (percentage <= 70) return 'popular';
+        return 'chalk';
+      };
+
+      const contrarianWeights: Record<string, number> = {
+        unique: 100, rare: 80, uncommon: 60, common: 40, popular: 20, chalk: 0,
+      };
+
+      // Group picks by team
+      const picksByTeam: Record<string, typeof allRevealedPicks> = {};
+      for (const pick of allRevealedPicks) {
+        if (!picksByTeam[pick.team_id]) picksByTeam[pick.team_id] = [];
+        picksByTeam[pick.team_id].push(pick);
+      }
+
+      for (const [teamId, teamPicks] of Object.entries(picksByTeam)) {
+        let totalWeight = 0;
+        let pickCount = 0;
+
+        for (const pick of teamPicks) {
+          const totalTeams = teamCountByRace[pick.race_id] || 1;
+          const driverCounts = driverPickCountsByRace[pick.race_id] || {};
+
           [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach(driverId => {
             if (driverId) {
-              driverPickCountsByRace[pick.race_id][driverId] = (driverPickCountsByRace[pick.race_id][driverId] || 0) + 1;
+              const count = driverCounts[driverId] || 1;
+              const level = getPopularityLevel(count, totalTeams);
+              totalWeight += contrarianWeights[level];
+              pickCount++;
             }
           });
         }
 
-        // Calculate contrarian score for each team
-        const getPopularityLevel = (count: number, totalTeams: number): string => {
-          const percentage = (count / totalTeams) * 100;
-          if (count === 1) return 'unique';
-          if (percentage <= 20) return 'rare';
-          if (percentage <= 35) return 'uncommon';
-          if (percentage <= 50) return 'common';
-          if (percentage <= 70) return 'popular';
-          return 'chalk';
-        };
-
-        const contrarianWeights: Record<string, number> = {
-          unique: 100, rare: 80, uncommon: 60, common: 40, popular: 20, chalk: 0,
-        };
-
-        // Group picks by team
-        const picksByTeam: Record<string, typeof allRevealedPicks> = {};
-        for (const pick of allRevealedPicks) {
-          if (!picksByTeam[pick.team_id]) picksByTeam[pick.team_id] = [];
-          picksByTeam[pick.team_id].push(pick);
-        }
-
-        for (const [teamId, teamPicks] of Object.entries(picksByTeam)) {
-          let totalWeight = 0;
-          let pickCount = 0;
-
-          for (const pick of teamPicks) {
-            const totalTeams = teamCountByRace[pick.race_id] || 1;
-            const driverCounts = driverPickCountsByRace[pick.race_id] || {};
-
-            [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach(driverId => {
-              if (driverId) {
-                const count = driverCounts[driverId] || 1;
-                const level = getPopularityLevel(count, totalTeams);
-                totalWeight += contrarianWeights[level];
-                pickCount++;
-              }
-            });
-          }
-
-          if (pickCount > 0) {
-            zigPercentByTeam.set(teamId, Math.round(totalWeight / pickCount));
-          }
+        if (pickCount > 0) {
+          zigPercentByTeam.set(teamId, Math.round(totalWeight / pickCount));
         }
       }
     }

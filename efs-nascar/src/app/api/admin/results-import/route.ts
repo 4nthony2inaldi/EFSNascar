@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { refreshDriverTiersCache } from '@/lib/cachedData';
 
 // Import the static JSON data
 import results2020 from '@/data/results/nascar-results-2020.json';
@@ -309,6 +310,15 @@ export async function POST(request: NextRequest) {
         .from('races')
         .update({ status: 'final' })
         .in('id', raceIds);
+
+      // Refresh driver tiers cache since race results changed
+      try {
+        await refreshDriverTiersCache();
+        console.log('[Results Import] Driver tiers cache refreshed');
+      } catch (cacheError) {
+        console.error('[Results Import] Failed to refresh cache:', cacheError);
+        // Don't fail the import if cache refresh fails
+      }
     }
 
     return NextResponse.json({
