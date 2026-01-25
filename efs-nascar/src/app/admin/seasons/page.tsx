@@ -10,6 +10,7 @@ export default function AdminSeasonsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingSeason, setEditingSeason] = useState<Season | null>(null);
+  const [championshipPickCounts, setChampionshipPickCounts] = useState<Record<string, { submitted: number; total: number }>>({});
   const [formData, setFormData] = useState({
     year: new Date().getFullYear(),
     name: '',
@@ -33,6 +34,31 @@ export default function AdminSeasonsPage() {
       console.error('Error loading seasons:', error);
     } else {
       setSeasons(data || []);
+
+      // Load championship pick counts for each season
+      if (data && data.length > 0) {
+        const counts: Record<string, { submitted: number; total: number }> = {};
+
+        // Get total team count
+        const { count: totalTeams } = await supabase
+          .from('teams')
+          .select('*', { count: 'exact', head: true });
+
+        // Get prediction counts per season
+        for (const season of data) {
+          const { count: predictionCount } = await supabase
+            .from('championship_predictions')
+            .select('*', { count: 'exact', head: true })
+            .eq('season_id', season.id);
+
+          counts[season.id] = {
+            submitted: predictionCount || 0,
+            total: totalTeams || 0,
+          };
+        }
+
+        setChampionshipPickCounts(counts);
+      }
     }
     setLoading(false);
   };
@@ -276,16 +302,27 @@ export default function AdminSeasonsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => handleToggleChampionshipRevealed(season)}
-                    className={`px-2 py-1 text-xs rounded border transition-colors ${
-                      season.championship_predictions_revealed
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
-                        : 'bg-purple-700/30 text-purple-300 border-purple-600/30 hover:bg-purple-700/50'
-                    }`}
-                  >
-                    {season.championship_predictions_revealed ? '🏆 Revealed' : 'Hidden'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleChampionshipRevealed(season)}
+                      className={`px-2 py-1 text-xs rounded border transition-colors ${
+                        season.championship_predictions_revealed
+                          ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
+                          : 'bg-purple-700/30 text-purple-300 border-purple-600/30 hover:bg-purple-700/50'
+                      }`}
+                    >
+                      {season.championship_predictions_revealed ? '🏆 Revealed' : 'Hidden'}
+                    </button>
+                    {championshipPickCounts[season.id] && (
+                      <span className={`text-xs ${
+                        championshipPickCounts[season.id].submitted === championshipPickCounts[season.id].total
+                          ? 'text-green-400'
+                          : 'text-purple-400'
+                      }`}>
+                        {championshipPickCounts[season.id].submitted}/{championshipPickCounts[season.id].total}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex space-x-2">
