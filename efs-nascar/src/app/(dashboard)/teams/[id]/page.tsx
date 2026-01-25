@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import type { Team, TeamMembership, Profile, Driver, Season, Race } from '@/types';
+import type { Team, TeamMembership, Profile, Driver, Season, Race, ChampionshipPrediction } from '@/types';
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import { TeamSelector } from '@/components/TeamSelector';
@@ -82,9 +82,27 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   // Get active season
   const { data: activeSeason } = await supabase
     .from('seasons')
-    .select('*')
+    .select('*, championship_predictions_revealed')
     .eq('is_active', true)
     .single();
+
+  // Get championship prediction for this team (only visible if revealed or viewing own team)
+  let championshipPrediction: ChampionshipPrediction | null = null;
+  let championshipDriver: Driver | null = null;
+  if (activeSeason) {
+    // Query the prediction - RLS will handle visibility
+    const { data: prediction } = await supabase
+      .from('championship_predictions')
+      .select('*, driver:drivers(*)')
+      .eq('team_id', id)
+      .eq('season_id', activeSeason.id)
+      .single();
+
+    if (prediction) {
+      championshipPrediction = prediction as ChampionshipPrediction;
+      championshipDriver = (prediction as any).driver as Driver;
+    }
+  }
 
   // Determine which season to display (from URL param, then cookie, then default to active)
   const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
@@ -1178,6 +1196,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
                   <span className="text-gray-500 text-sm">Favorite Driver:</span>
                   <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-sm font-medium">
                     #{favoriteDriver.car_number} {favoriteDriver.name}
+                  </span>
+                </div>
+              )}
+              {championshipDriver && activeSeason?.championship_predictions_revealed && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-gray-500 text-sm">🏆 Championship Pick:</span>
+                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-sm font-medium">
+                    #{championshipDriver.car_number} {championshipDriver.name}
                   </span>
                 </div>
               )}

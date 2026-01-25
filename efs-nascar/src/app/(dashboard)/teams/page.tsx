@@ -1,11 +1,15 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import type { Team, TeamMembership, Profile, Driver } from '@/types';
+import type { Team, TeamMembership, Profile, Driver, ChampionshipPrediction } from '@/types';
 import { calculateAllTeamsTitsStats, TitsStats } from '@/lib/titsCalculation';
 
 interface TeamWithOwners extends Team {
   team_memberships: (TeamMembership & { profile: Profile })[];
   favorite_driver?: Driver | null;
+}
+
+interface ChampionshipPredictionWithDriver extends ChampionshipPrediction {
+  driver: Driver;
 }
 
 export default async function TeamsPage() {
@@ -18,7 +22,7 @@ export default async function TeamsPage() {
     { data: teams },
   ] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from('seasons').select('id').eq('is_active', true).single(),
+    supabase.from('seasons').select('id, championship_predictions_revealed').eq('is_active', true).single(),
     supabase.from('teams').select(`
       *,
       team_memberships(
@@ -28,6 +32,19 @@ export default async function TeamsPage() {
       favorite_driver:drivers(*)
     `).order('car_number', { ascending: true }),
   ]);
+
+  // Fetch championship predictions if revealed
+  const championshipPredictionsByTeam = new Map<string, ChampionshipPredictionWithDriver>();
+  if (activeSeason?.championship_predictions_revealed) {
+    const { data: predictions } = await supabase
+      .from('championship_predictions')
+      .select('*, driver:drivers(*)')
+      .eq('season_id', activeSeason.id);
+
+    (predictions || []).forEach((p: any) => {
+      championshipPredictionsByTeam.set(p.team_id, p as ChampionshipPredictionWithDriver);
+    });
+  }
 
   // Get user's team membership (depends on user)
   let userTeamId: string | undefined;
@@ -168,6 +185,7 @@ export default async function TeamsPage() {
           const zigPercent = zigPercentByTeam.get(team.id);
           const hasSubmittedPicks = picksSubmittedByTeam.has(team.id);
           const favoriteDriver = team.favorite_driver;
+          const championshipPick = championshipPredictionsByTeam.get(team.id);
 
           return (
             <Link
@@ -208,6 +226,12 @@ export default async function TeamsPage() {
                   {favoriteDriver && (
                     <p className="text-xs text-purple-500 mt-1">
                       Favorite: #{favoriteDriver.car_number} {favoriteDriver.name.split(' ').slice(-1)[0]}
+                    </p>
+                  )}
+                  {/* Championship pick */}
+                  {championshipPick && (
+                    <p className="text-xs text-amber-500 mt-1">
+                      🏆 Champ Pick: #{championshipPick.driver.car_number} {championshipPick.driver.name.split(' ').slice(-1)[0]}
                     </p>
                   )}
                   {/* Stats row */}

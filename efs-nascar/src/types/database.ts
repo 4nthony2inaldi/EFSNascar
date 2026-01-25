@@ -49,7 +49,17 @@ export interface Season {
   start_date: string;
   end_date: string | null;
   is_active: boolean;
+  championship_predictions_revealed: boolean;
   created_at: string;
+}
+
+export interface ChampionshipPrediction {
+  id: string;
+  team_id: string;
+  season_id: string;
+  driver_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TeamSeasonBonus {

@@ -116,6 +116,22 @@ export default function AdminSeasonsPage() {
     loadSeasons();
   };
 
+  const handleToggleChampionshipRevealed = async (season: Season) => {
+    const newValue = !season.championship_predictions_revealed;
+    const confirmMsg = newValue
+      ? 'Are you sure you want to reveal all championship predictions? This will make them visible to all teams.'
+      : 'Are you sure you want to hide championship predictions? Teams will only see their own picks.';
+
+    if (!confirm(confirmMsg)) return;
+
+    await supabase
+      .from('seasons')
+      .update({ championship_predictions_revealed: newValue })
+      .eq('id', season.id);
+
+    loadSeasons();
+  };
+
   if (loading) {
     return <div className="text-purple-400">Loading...</div>;
   }
@@ -237,6 +253,7 @@ export default function AdminSeasonsPage() {
               <th className="px-4 py-3">Start Date</th>
               <th className="px-4 py-3">End Date</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Championship Picks</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
@@ -257,6 +274,18 @@ export default function AdminSeasonsPage() {
                       Inactive
                     </span>
                   )}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => handleToggleChampionshipRevealed(season)}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      season.championship_predictions_revealed
+                        ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
+                        : 'bg-purple-700/30 text-purple-300 border-purple-600/30 hover:bg-purple-700/50'
+                    }`}
+                  >
+                    {season.championship_predictions_revealed ? '🏆 Revealed' : 'Hidden'}
+                  </button>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex space-x-2">

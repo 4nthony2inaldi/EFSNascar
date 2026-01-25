@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, Team, Standing, Pick, Track, TrackType, Season } from '@/types';
+import type { Race, Team, Standing, Pick, Track, TrackType, Season, Driver, ChampionshipPrediction } from '@/types';
 import { LocalTime } from '@/components/LocalTime';
 import {
   calculatePlayoffStandings,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/playoff-standings';
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
 import { calculateDriverTiers } from '@/lib/driverTiers';
+import { ChampionshipPick } from '@/components/ChampionshipPick';
 
 // Force dynamic rendering to ensure cookies are read fresh
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,23 @@ export default async function DashboardPage() {
     .single();
 
   const userTeam = membership?.team as Team | null;
+
+  // Get championship prediction for user's team
+  let championshipPrediction: ChampionshipPrediction | null = null;
+  let championshipDriver: Driver | null = null;
+  if (userTeam && selectedSeasonId) {
+    const { data: prediction } = await supabase
+      .from('championship_predictions')
+      .select('*, driver:drivers(*)')
+      .eq('team_id', userTeam.id)
+      .eq('season_id', selectedSeasonId)
+      .single();
+
+    if (prediction) {
+      championshipPrediction = prediction as ChampionshipPrediction;
+      championshipDriver = (prediction as any).driver as Driver;
+    }
+  }
 
   // Get next upcoming race for the selected season with track info (only for active season)
   let nextRaceData = null;
@@ -993,6 +1011,16 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Championship Pick Section */}
+      {userTeam && selectedSeasonId && (
+        <ChampionshipPick
+          teamId={userTeam.id}
+          seasonId={selectedSeasonId}
+          revealed={activeSeason?.championship_predictions_revealed || false}
+          initialPrediction={championshipPrediction}
+          initialDriver={championshipDriver}
+        />
+      )}
 
       {/* Playoff Standings Preview */}
       {showPlayoffSection && playoffStandings && (
