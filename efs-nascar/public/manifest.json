@@ -1,0 +1,16 @@
+{
+  "name": "EFS NASCAR Fantasy League",
+  "short_name": "EFS NASCAR",
+  "description": "17-team fantasy NASCAR league with automated scoring and standings",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0a1a",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
