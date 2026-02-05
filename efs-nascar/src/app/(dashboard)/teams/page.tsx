@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { Team, TeamMembership, Profile } from '@/types';
+import { calculateAllTeamsTitsStats, TitsStats } from '@/lib/titsCalculation';
 
 interface TeamWithOwners extends Team {
   team_memberships: (TeamMembership & { profile: Profile })[];
@@ -8,6 +9,13 @@ interface TeamWithOwners extends Team {
 
 export default async function TeamsPage() {
   const supabase = await createClient();
+
+  // Get active season
+  const { data: activeSeason } = await supabase
+    .from('seasons')
+    .select('id')
+    .eq('is_active', true)
+    .single();
 
   // Get all teams with their owners
   const { data: teams } = await supabase
@@ -21,6 +29,12 @@ export default async function TeamsPage() {
     `)
     .order('car_number', { ascending: true });
 
+  // Calculate TITS stats for all teams
+  let titsStatsByTeam = new Map<string, TitsStats>();
+  if (activeSeason) {
+    titsStatsByTeam = await calculateAllTeamsTitsStats(supabase, activeSeason.id);
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -31,6 +45,7 @@ export default async function TeamsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {teams?.map((team: TeamWithOwners) => {
           const owners = team.team_memberships?.filter((m) => m.role === 'owner') || [];
+          const titsStats = titsStatsByTeam.get(team.id);
 
           return (
             <Link
@@ -52,13 +67,29 @@ export default async function TeamsPage() {
                     </span>
                   )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h2 className="text-lg font-bold text-white truncate">{team.name}</h2>
                   <p className="text-purple-400 text-sm">
                     {owners.length > 0
                       ? owners.map((o) => o.profile?.name).join(', ')
                       : 'No owner assigned'}
                   </p>
+                  {titsStats && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded">
+                        TITS: {titsStats.titsRemaining}
+                      </span>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                        titsStats.titsPercent >= 50
+                          ? 'bg-green-500/20 text-green-400'
+                          : titsStats.titsPercent >= 30
+                          ? 'bg-yellow-500/20 text-yellow-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        TITS%: {titsStats.titsPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </Link>

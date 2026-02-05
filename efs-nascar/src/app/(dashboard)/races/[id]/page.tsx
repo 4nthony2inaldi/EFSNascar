@@ -3,6 +3,11 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { Race, RaceResult, Driver, Pick, Team, RaceScore } from '@/types';
 import { POSITION_POINTS } from '@/types';
+import { calculateDriverTiers } from '@/lib/driverTiers';
+import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
+import { PickStrategyBadge } from '@/components/PickStrategyBadge';
+import { LocalTime } from '@/components/LocalTime';
+import { RaceNavigation } from '@/components/RaceNavigation';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -58,12 +63,24 @@ export default async function RaceResultsPage({ params }: PageProps) {
     resultsMap[r.driver_id] = r;
   });
 
-  // Count how many teams picked each driver
+  // Calculate driver tiers for strategy labels
+  const driverTiers = await calculateDriverTiers(supabase);
+
+  // Count how many teams picked each driver and calculate strategies
   const driverPickCounts: Record<string, number> = {};
+  const teamStrategies: Record<string, PickStrategy> = {};
   picks?.forEach((pick: any) => {
     [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
       driverPickCounts[driverId] = (driverPickCounts[driverId] || 0) + 1;
     });
+
+    // Calculate pick strategy for this team
+    const tiers = [
+      driverTiers.get(pick.driver_1_id) || 0,
+      driverTiers.get(pick.driver_2_id) || 0,
+      driverTiers.get(pick.driver_3_id) || 0,
+    ];
+    teamStrategies[pick.team_id] = getPickStrategy(tiers);
   });
 
   const getOverlapColor = (count: number) => {
@@ -81,10 +98,21 @@ export default async function RaceResultsPage({ params }: PageProps) {
     return POSITION_POINTS[position] || 0;
   };
 
+  // Calculate total points for a driver including bonuses
+  const calculateDriverTotalPoints = (result: any) => {
+    const positionPoints = POSITION_POINTS[result.finish_position] || 0;
+    const stageBonus = (result.stage_1_winner ? 1 : 0) + (result.stage_2_winner ? 1 : 0);
+    const lapsLedBonus = result.most_laps_led ? 1 : 0;
+    return positionPoints + stageBonus + lapsLedBonus;
+  };
+
   // Find stage winners and most laps led
   const stage1Winner = results?.find((r: any) => r.stage_1_winner);
   const stage2Winner = results?.find((r: any) => r.stage_2_winner);
   const mostLapsLed = results?.find((r: any) => r.most_laps_led);
+
+  // Check if deadline has passed for showing picks link
+  const deadlinePassed = new Date() > new Date(race.deadline_datetime);
 
   return (
     <div className="space-y-8">
@@ -96,15 +124,10 @@ export default async function RaceResultsPage({ params }: PageProps) {
             <h1 className="text-3xl font-bold text-white">{race.name}</h1>
             <p className="text-gray-400">{race.track}</p>
             <p className="text-sm text-gray-500 mt-2">
-              {new Date(race.scheduled_datetime).toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              <LocalTime dateStr={race.scheduled_datetime} format="longDate" />
             </p>
           </div>
-          <div>
+          <div className="flex flex-col items-end space-y-2">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
               race.status === 'final' ? 'bg-green-500/20 text-green-500' :
               race.status === 'in_progress' ? 'bg-red-500/20 text-red-500' :
@@ -112,6 +135,14 @@ export default async function RaceResultsPage({ params }: PageProps) {
             }`}>
               {race.status.charAt(0).toUpperCase() + race.status.slice(1)}
             </span>
+            {deadlinePassed && (
+              <Link
+                href={`/races/${id}/picks`}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                View All Picks
+              </Link>
+            )}
           </div>
         </div>
 
@@ -152,6 +183,9 @@ export default async function RaceResultsPage({ params }: PageProps) {
         )}
       </div>
 
+      {/* Race Navigation */}
+      <RaceNavigation currentRace={race} basePath="results" />
+
       {/* Team Scores */}
       {scores && scores.length > 0 && (
         <div className="bg-gray-800 rounded-lg p-6">
@@ -162,6 +196,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">#</th>
                   <th className="pb-3 pr-4">Team</th>
+                  <th className="pb-3 pr-4 text-center">Strategy</th>
                   <th className="pb-3 pr-4 text-center">Driver 1</th>
                   <th className="pb-3 pr-4 text-center">Driver 2</th>
                   <th className="pb-3 pr-4 text-center">Driver 3</th>
@@ -196,6 +231,11 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           )}
                         </Link>
                       </td>
+                      <td className="py-3 pr-4 text-center">
+                        {teamStrategies[score.team_id] && (
+                          <PickStrategyBadge strategy={teamStrategies[score.team_id]} size="sm" />
+                        )}
+                      </td>
                       <td className="py-3 pr-4 text-center text-white">
                         {score.driver_1_points}
                       </td>
@@ -229,6 +269,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
               <thead>
                 <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
                   <th className="pb-3 pr-4">Team</th>
+                  <th className="pb-3 pr-4 text-center">Points</th>
                   <th className="pb-3 pr-4">Driver 1</th>
                   <th className="pb-3 pr-4">Driver 2</th>
                   <th className="pb-3 pr-4">Driver 3</th>
@@ -237,6 +278,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
               <tbody>
                 {picks.map((pick: any) => {
                   const isUserTeam = pick.team_id === userTeamId;
+                  const teamScore = scores?.find((s: any) => s.team_id === pick.team_id);
 
                   const renderDriver = (driverId: string) => {
                     const result = resultsMap[driverId];
@@ -244,12 +286,16 @@ export default async function RaceResultsPage({ params }: PageProps) {
 
                     if (!result) return <span className="text-gray-500">Unknown</span>;
 
+                    const totalPoints = calculateDriverTotalPoints(result);
+                    const posPoints = formatPoints(result.finish_position);
+                    const hasBonus = totalPoints > posPoints;
+
                     return (
                       <div className={`inline-flex items-center space-x-2 px-2 py-1 rounded ${getOverlapColor(pickCount)}`}>
                         <span className="font-bold">#{result.driver?.car_number}</span>
                         <span>{result.driver?.name}</span>
                         <span className="text-xs opacity-75">
-                          P{result.finish_position} ({formatPoints(result.finish_position)}pts)
+                          P{result.finish_position} ({totalPoints}pts{hasBonus && <span className="text-green-300"> +{totalPoints - posPoints}</span>})
                         </span>
                       </div>
                     );
@@ -270,6 +316,11 @@ export default async function RaceResultsPage({ params }: PageProps) {
                           </span>
                           <span className="text-white">{pick.team?.name}</span>
                         </Link>
+                      </td>
+                      <td className="py-3 pr-4 text-center">
+                        <span className="text-white font-bold text-lg">
+                          {teamScore?.total_points ?? '-'}
+                        </span>
                       </td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_1_id)}</td>
                       <td className="py-3 pr-4">{renderDriver(pick.driver_2_id)}</td>
@@ -342,8 +393,22 @@ export default async function RaceResultsPage({ params }: PageProps) {
                         </div>
                       </td>
                       <td className="py-3 pr-4 text-gray-400">{result.driver?.team_name}</td>
-                      <td className="py-3 text-center text-white font-medium">
-                        {formatPoints(result.finish_position)}
+                      <td className="py-3 text-center">
+                        {(() => {
+                          const posPoints = formatPoints(result.finish_position);
+                          const totalPoints = calculateDriverTotalPoints(result);
+                          const hasBonus = totalPoints > posPoints;
+                          return (
+                            <div className="flex items-center justify-center space-x-1">
+                              <span className="text-white font-medium">{totalPoints}</span>
+                              {hasBonus && (
+                                <span className="text-green-400 text-xs">
+                                  (+{totalPoints - posPoints})
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 text-center">
                         <span className={`px-2 py-1 rounded text-sm ${getOverlapColor(pickCount)}`}>
@@ -364,6 +429,7 @@ export default async function RaceResultsPage({ params }: PageProps) {
           <p className="text-gray-400">Results will be available after the race is finalized.</p>
         </div>
       )}
+
     </div>
   );
 }

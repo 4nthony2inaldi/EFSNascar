@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -30,6 +29,8 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
     { href: '/standings', label: 'Standings' },
     { href: '/picks', label: 'Picks' },
     { href: '/schedule', label: 'Schedule' },
+    { href: '/driver-rankings', label: 'Drivers' },
+    { href: '/driver-usage', label: 'Usage' },
     { href: '/teams', label: 'Teams' },
     { href: '/rules', label: 'Rules' },
   ];
@@ -45,25 +46,16 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-3 group">
-              <Image
-                src="/logo.svg"
-                alt="EFS NASCAR"
-                width={44}
-                height={44}
-                className="rounded-full"
-              />
-              <div className="hidden sm:flex items-center space-x-1">
-                <span className="text-white font-black text-xl tracking-tight bg-red-600 px-2 py-0.5 rounded">EFS</span>
-                <span className="font-black text-xl tracking-tight">
-                  <span className="text-red-500">N</span>
-                  <span className="text-white">A</span>
-                  <span className="text-white">S</span>
-                  <span className="text-blue-500">C</span>
-                  <span className="text-blue-600">A</span>
-                  <span className="text-blue-700">R</span>
-                </span>
-              </div>
+            <Link href="/" className="flex items-center space-x-1 group">
+              <span className="text-yellow-400 font-black text-xl tracking-tight bg-purple-700 px-2 py-0.5 rounded">EFS</span>
+              <span className="font-black text-xl tracking-tight">
+                <span className="text-yellow-400">N</span>
+                <span className="text-yellow-300">A</span>
+                <span className="text-yellow-400">S</span>
+                <span className="text-purple-400">C</span>
+                <span className="text-purple-300">A</span>
+                <span className="text-yellow-400">R</span>
+              </span>
             </Link>
           </div>
 
