@@ -388,13 +388,57 @@ export default function AdminScoringPage() {
   const handleRecalculateScores = async () => {
     if (!selectedSeasonId) return;
 
-    const confirmMessage = 'This will recalculate all race scores for this season using the current scoring configuration. This may take a moment. Continue?';
+    const confirmMessage = 'This will save the current configuration and recalculate all race scores for this season. This may take a moment. Continue?';
     if (!confirm(confirmMessage)) return;
 
     setRecalculating(true);
     setRecalculateResult(null);
 
     try {
+      // Auto-save the current config before recalculating
+      const configData = {
+        season_id: selectedSeasonId,
+        position_points: formData.position_points,
+        stage_1_bonus: formData.stage_1_bonus,
+        stage_2_bonus: formData.stage_2_bonus,
+        stage_3_bonus: formData.stage_3_bonus,
+        laps_led_bonus: formData.laps_led_bonus,
+        top_10_all_drivers_bonus: formData.top_10_all_drivers_bonus,
+        base_driver_uses: formData.base_driver_uses,
+        bonus_uses_per_season: formData.bonus_uses_per_season,
+        regular_season_races: formData.regular_season_races,
+        playoff_enabled: formData.playoff_enabled,
+        championship_bracket_size: formData.championship_bracket_size,
+        catbird_seats: formData.catbird_seats,
+        consolation_bracket_start: formData.consolation_bracket_start,
+        consolation_bracket_end: formData.consolation_bracket_end,
+        muddy_mile_start: formData.muddy_mile_start,
+        muddy_mile_end: formData.muddy_mile_end,
+        playoff_round1_races: formData.playoff_round1_races,
+        playoff_round2_races: formData.playoff_round2_races,
+        playoff_finals_races: formData.playoff_finals_races,
+        round1_eliminations: formData.round1_eliminations,
+        round2_eliminations: formData.round2_eliminations,
+        tiebreaker_order: formData.tiebreaker_order,
+      };
+
+      if (editingConfig) {
+        const { error: saveError } = await supabase
+          .from('scoring_configs')
+          .update(configData)
+          .eq('id', editingConfig.id);
+        if (saveError) throw new Error(`Failed to save config: ${saveError.message}`);
+      } else {
+        const { error: saveError } = await supabase
+          .from('scoring_configs')
+          .insert(configData);
+        if (saveError) throw new Error(`Failed to save config: ${saveError.message}`);
+      }
+
+      // Reload configs so editingConfig is up to date
+      await loadData();
+
+      // Now recalculate using the saved config
       const response = await fetch('/api/recalculate-season-scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -411,6 +455,8 @@ export default function AdminScoringPage() {
         success: true,
         message: data.message,
       });
+      setSuccess('Configuration saved and scores recalculated!');
+      setError(null);
     } catch (error) {
       setRecalculateResult({
         success: false,

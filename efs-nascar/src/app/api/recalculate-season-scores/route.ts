@@ -229,6 +229,9 @@ export async function POST(request: Request) {
       };
     }
 
+    // Get the P1 point value from the scoring config for race win detection
+    const p1Points = getPointsForPosition(1, config);
+
     // Sum up all scores from the season
     for (const score of seasonScores || []) {
       if (teamTotals[score.team_id]) {
@@ -236,8 +239,8 @@ export async function POST(request: Request) {
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus;
         teamTotals[score.team_id].stage_wins += score.stage_bonus > 0 ? 1 : 0;
 
-        // Check for race win
-        if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
+        // Check for race win using the configured P1 points value
+        if (score.driver_1_points === p1Points || score.driver_2_points === p1Points || score.driver_3_points === p1Points) {
           teamTotals[score.team_id].race_wins += 1;
         }
       }
