@@ -9,6 +9,7 @@ import results2022 from '@/data/results/nascar-results-2022.json';
 import results2023 from '@/data/results/nascar-results-2023.json';
 import results2024 from '@/data/results/nascar-results-2024.json';
 import results2025 from '@/data/results/nascar-results-2025.json';
+import results2026 from '@/data/results/nascar-results-2026.json';
 
 interface RaceResult {
   finish: number | null;
@@ -38,6 +39,7 @@ const RESULTS_DATA: Record<number, RaceData[]> = {
   2023: results2023 as RaceData[],
   2024: results2024 as RaceData[],
   2025: results2025 as RaceData[],
+  2026: results2026 as RaceData[],
 };
 
 function normalizeDriverName(name: string): string {
