@@ -262,7 +262,6 @@ export default function AdminScoringPage() {
       playoff_finals_races: formData.playoff_finals_races,
       round1_eliminations: formData.round1_eliminations,
       round2_eliminations: formData.round2_eliminations,
-      tiebreaker_order: formData.tiebreaker_order,
     };
 
     if (editingConfig) {
@@ -419,7 +418,6 @@ export default function AdminScoringPage() {
         playoff_finals_races: formData.playoff_finals_races,
         round1_eliminations: formData.round1_eliminations,
         round2_eliminations: formData.round2_eliminations,
-        tiebreaker_order: formData.tiebreaker_order,
       };
 
       if (editingConfig) {
