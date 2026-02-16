@@ -2,8 +2,16 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import type { Team, TeamMembership, Profile, Driver, Season, Race, ChampionshipPrediction } from '@/types';
+import type { Team, TeamMembership, Profile, Driver, Season, Race, ChampionshipPrediction, ScoringConfig } from '@/types';
 import { calculateTeamTitsStats } from '@/lib/titsCalculation';
+import {
+  getPositionPoints,
+  getStage1BonusPoints,
+  getStage2BonusPoints,
+  getStage3BonusPoints,
+  getLapsLedBonusPoints,
+  getTop10AllDriversBonusPoints,
+} from '@/lib/scoring-config';
 import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 import { TeamSelector } from '@/components/TeamSelector';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
@@ -109,6 +117,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   const selectedSeasonId = seasonParam || seasonCookie || activeSeason?.id;
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || activeSeason;
 
+  // Get scoring configuration for this season
+  const { data: scoringConfigData } = await supabase
+    .from('scoring_configs')
+    .select('*')
+    .eq('season_id', selectedSeasonId)
+    .single();
+  const scoringConfig = scoringConfigData as ScoringConfig | null;
+
   // Get ALL teams' standings for this season (to calculate rankings)
   let { data: allStandingsData } = await supabase
     .from('standings')
@@ -188,7 +204,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           resultsByKey[`${result.race_id}-${result.driver_id}`] = result;
         }
 
-        const POS_POINTS: Record<number, number> = { 1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1 };
+        const POS_POINTS: Record<number, number> = getPositionPoints(scoringConfig);
         const teamTotals: Record<string, any> = {};
 
         for (const pick of fallbackPicks) {
@@ -214,16 +230,16 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             if (result) {
               racePoints += POS_POINTS[result.finish_position] || 0;
               if (result.finish_position === 1) teamTotals[pick.team_id].race_wins += 1;
-              if (result.stage_1_winner) { stageBonus++; teamTotals[pick.team_id].stage_wins++; }
-              if (result.stage_2_winner) { stageBonus++; teamTotals[pick.team_id].stage_wins++; }
-              if (result.most_laps_led && lapsLedBonus === 0) { lapsLedBonus = 1; teamTotals[pick.team_id].laps_led_bonuses++; }
+              if (result.stage_1_winner) { stageBonus += getStage1BonusPoints(scoringConfig); teamTotals[pick.team_id].stage_wins++; }
+              if (result.stage_2_winner) { stageBonus += getStage2BonusPoints(scoringConfig); teamTotals[pick.team_id].stage_wins++; }
+              if (result.most_laps_led && lapsLedBonus === 0) { lapsLedBonus = getLapsLedBonusPoints(scoringConfig); teamTotals[pick.team_id].laps_led_bonuses++; }
               if (result.finish_position > 10) allTop10 = false;
             } else {
               allTop10 = false;
             }
           }
 
-          if (allTop10) { racePoints += 1; teamTotals[pick.team_id].top_10_bonuses += 1; }
+          if (allTop10) { racePoints += getTop10AllDriversBonusPoints(scoringConfig); teamTotals[pick.team_id].top_10_bonuses += 1; }
           teamTotals[pick.team_id].total_points += racePoints + stageBonus + lapsLedBonus;
         }
         allStandingsData = Object.values(teamTotals);
@@ -353,10 +369,15 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   // Calculate driver tiers for pit strategy
   const driverTiers = await calculateDriverTiers(supabase);
 
-  // Position points lookup
-  const POSITION_POINTS: Record<number, number> = {
-    1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
-  };
+  // Position points lookup (from season scoring config, with defaults)
+  const POSITION_POINTS: Record<number, number> = getPositionPoints(scoringConfig);
+
+  // Bonus values from scoring config
+  const S1_BONUS = getStage1BonusPoints(scoringConfig);
+  const S2_BONUS = getStage2BonusPoints(scoringConfig);
+  const S3_BONUS = getStage3BonusPoints(scoringConfig);
+  const LL_BONUS = getLapsLedBonusPoints(scoringConfig);
+  const T10_BONUS = getTop10AllDriversBonusPoints(scoringConfig);
 
   // Calculate driver usage from picks (not driver_usages table)
   // This calculates: times used, total points, avg points, and max potential
@@ -378,11 +399,11 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     const points = POSITION_POINTS[result.finish_position] || 0;
     // Add stage and laps led bonuses for this driver
     let bonusPoints = 0;
-    if (result.stage_1_winner) bonusPoints += 1;
-    if (result.stage_2_winner) bonusPoints += 1;
-    if (result.stage_3_winner) bonusPoints += 1;
+    if (result.stage_1_winner) bonusPoints += S1_BONUS;
+    if (result.stage_2_winner) bonusPoints += S2_BONUS;
+    if (result.stage_3_winner) bonusPoints += S3_BONUS;
     // Note: laps led bonus is team-level (only 1 per team), but for max potential we include it
-    if (result.most_laps_led) bonusPoints += 1;
+    if (result.most_laps_led) bonusPoints += LL_BONUS;
 
     const totalDriverPoints = points + bonusPoints;
 
@@ -413,11 +434,11 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       if (result) {
         points = POSITION_POINTS[result.finish_position] || 0;
         // Add stage wins
-        if (result.stage_1_winner) points += 1;
-        if (result.stage_2_winner) points += 1;
-        if (result.stage_3_winner) points += 1;
+        if (result.stage_1_winner) points += S1_BONUS;
+        if (result.stage_2_winner) points += S2_BONUS;
+        if (result.stage_3_winner) points += S3_BONUS;
         // Add laps led (individual driver contribution)
-        if (result.most_laps_led) points += 1;
+        if (result.most_laps_led) points += LL_BONUS;
       }
 
       if (!driverUsageMap.has(id)) {
@@ -520,16 +541,20 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
           if (result.stage_1_winner) {
             stageWins++;
-            stageBonus++;
+            stageBonus += S1_BONUS;
           }
           if (result.stage_2_winner) {
             stageWins++;
-            stageBonus++;
+            stageBonus += S2_BONUS;
+          }
+          if (result.stage_3_winner) {
+            stageWins++;
+            stageBonus += S3_BONUS;
           }
           if (result.most_laps_led) {
             lapsLed = true;
             if (lapsLedBonus === 0) {
-              lapsLedBonus = 1;
+              lapsLedBonus = LL_BONUS;
             }
           }
           if (result.finish_position > 10) {
@@ -550,7 +575,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         };
       });
 
-      const top10Bonus = allTop10 && race.status === 'final' ? 1 : 0;
+      const top10Bonus = allTop10 && race.status === 'final' ? T10_BONUS : 0;
       totalPoints += stageBonus + lapsLedBonus + top10Bonus;
 
       // Calculate pit strategy
@@ -608,16 +633,17 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
       if (result) {
         totalPoints += POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) stageBonus++;
-        if (result.stage_2_winner) stageBonus++;
-        if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = 1;
+        if (result.stage_1_winner) stageBonus += S1_BONUS;
+        if (result.stage_2_winner) stageBonus += S2_BONUS;
+        if (result.stage_3_winner) stageBonus += S3_BONUS;
+        if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = LL_BONUS;
         if (result.finish_position > 10) allTop10 = false;
       } else {
         allTop10 = false;
       }
     }
 
-    const top10Bonus = allTop10 ? 1 : 0;
+    const top10Bonus = allTop10 ? T10_BONUS : 0;
     totalPoints += stageBonus + lapsLedBonus + top10Bonus;
 
     // Calculate strategy
@@ -728,10 +754,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       let points = 0;
       if (result) {
         points = POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) points += 1;
-        if (result.stage_2_winner) points += 1;
-        if (result.stage_3_winner) points += 1;
-        if (result.most_laps_led) points += 1;
+        if (result.stage_1_winner) points += S1_BONUS;
+        if (result.stage_2_winner) points += S2_BONUS;
+        if (result.stage_3_winner) points += S3_BONUS;
+        if (result.most_laps_led) points += LL_BONUS;
       }
 
       const pickCount = driverCounts[driverId] || 1;
@@ -786,10 +812,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       let points = 0;
       if (result) {
         points = POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) points += 1;
-        if (result.stage_2_winner) points += 1;
-        if (result.stage_3_winner) points += 1;
-        if (result.most_laps_led) points += 1;
+        if (result.stage_1_winner) points += S1_BONUS;
+        if (result.stage_2_winner) points += S2_BONUS;
+        if (result.stage_3_winner) points += S3_BONUS;
+        if (result.most_laps_led) points += LL_BONUS;
       }
 
       const pickCount = driverCounts[driverId] || 1;
@@ -943,10 +969,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       let points = 0;
       if (result) {
         points = POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) points += 1;
-        if (result.stage_2_winner) points += 1;
-        if (result.stage_3_winner) points += 1;
-        if (result.most_laps_led) points += 1;
+        if (result.stage_1_winner) points += S1_BONUS;
+        if (result.stage_2_winner) points += S2_BONUS;
+        if (result.stage_3_winner) points += S3_BONUS;
+        if (result.most_laps_led) points += LL_BONUS;
       }
 
       const pickCount = driverCounts[driverId] || 1;
@@ -1008,16 +1034,17 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
       if (result) {
         totalPoints += POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) stageBonus++;
-        if (result.stage_2_winner) stageBonus++;
-        if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = 1;
+        if (result.stage_1_winner) stageBonus += S1_BONUS;
+        if (result.stage_2_winner) stageBonus += S2_BONUS;
+        if (result.stage_3_winner) stageBonus += S3_BONUS;
+        if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = LL_BONUS;
         if (result.finish_position > 10) allTop10 = false;
       } else {
         allTop10 = false;
       }
     }
 
-    const top10Bonus = allTop10 ? 1 : 0;
+    const top10Bonus = allTop10 ? T10_BONUS : 0;
     totalPoints += stageBonus + lapsLedBonus + top10Bonus;
 
     if (!leagueTrackTypeStats[trackType]) {
@@ -1065,10 +1092,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       let points = 0;
       if (result) {
         points = POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) points += 1;
-        if (result.stage_2_winner) points += 1;
-        if (result.stage_3_winner) points += 1;
-        if (result.most_laps_led) points += 1;
+        if (result.stage_1_winner) points += S1_BONUS;
+        if (result.stage_2_winner) points += S2_BONUS;
+        if (result.stage_3_winner) points += S3_BONUS;
+        if (result.most_laps_led) points += LL_BONUS;
       }
 
       const rawTier = driverTiers.get(driverId) || 3;
@@ -1098,10 +1125,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       let points = 0;
       if (result) {
         points = POSITION_POINTS[result.finish_position] || 0;
-        if (result.stage_1_winner) points += 1;
-        if (result.stage_2_winner) points += 1;
-        if (result.stage_3_winner) points += 1;
-        if (result.most_laps_led) points += 1;
+        if (result.stage_1_winner) points += S1_BONUS;
+        if (result.stage_2_winner) points += S2_BONUS;
+        if (result.stage_3_winner) points += S3_BONUS;
+        if (result.most_laps_led) points += LL_BONUS;
       }
 
       const rawTier = driverTiers.get(driverId) || 3;

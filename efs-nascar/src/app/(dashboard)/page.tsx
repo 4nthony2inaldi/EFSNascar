@@ -1,7 +1,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, Team, Standing, Pick, Track, TrackType, Season, Driver, ChampionshipPrediction } from '@/types';
+import type { Race, Team, Standing, Pick, Track, TrackType, Season, Driver, ChampionshipPrediction, ScoringConfig } from '@/types';
+import {
+  getPositionPoints,
+  getStage1BonusPoints,
+  getStage2BonusPoints,
+  getStage3BonusPoints,
+  getLapsLedBonusPoints,
+  getTop10AllDriversBonusPoints,
+} from '@/lib/scoring-config';
 import { LocalTime } from '@/components/LocalTime';
 import {
   calculatePlayoffStandings,
@@ -36,6 +44,16 @@ export default async function DashboardPage() {
   // Dashboard only shows the active season (no season selection)
   const selectedSeasonId = activeSeason?.id;
   const isViewingActiveSeason = true;
+
+  // Get scoring configuration for this season
+  const { data: scoringConfigData } = selectedSeasonId
+    ? await supabase
+        .from('scoring_configs')
+        .select('*')
+        .eq('season_id', selectedSeasonId)
+        .single()
+    : { data: null };
+  const scoringConfig = scoringConfigData as ScoringConfig | null;
 
   // Get user's team
   const { data: membership } = await supabase
@@ -348,9 +366,7 @@ export default async function DashboardPage() {
         };
       }
 
-      const POSITION_POINTS: Record<number, number> = {
-        1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
-      };
+      const POSITION_POINTS: Record<number, number> = getPositionPoints(scoringConfig);
 
       const teamTotals: Record<string, {
         team_id: string;
@@ -394,16 +410,16 @@ export default async function DashboardPage() {
             }
 
             if (result.stage_1_winner) {
-              stageBonus += 1;
+              stageBonus += getStage1BonusPoints(scoringConfig);
               teamTotals[pick.team_id].stage_wins += 1;
             }
             if (result.stage_2_winner) {
-              stageBonus += 1;
+              stageBonus += getStage2BonusPoints(scoringConfig);
               teamTotals[pick.team_id].stage_wins += 1;
             }
 
             if (result.most_laps_led && lapsLedBonus === 0) {
-              lapsLedBonus = 1;
+              lapsLedBonus = getLapsLedBonusPoints(scoringConfig);
               teamTotals[pick.team_id].laps_led_bonuses += 1;
             }
 
@@ -416,7 +432,7 @@ export default async function DashboardPage() {
         }
 
         if (allTop10) {
-          racePoints += 1;
+          racePoints += getTop10AllDriversBonusPoints(scoringConfig);
           teamTotals[pick.team_id].top_10_bonuses += 1;
         }
 

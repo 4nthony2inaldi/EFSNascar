@@ -11,7 +11,15 @@ import {
   type PlayoffTeamStanding,
   type RaceScore,
 } from '@/lib/playoff-standings';
-import { getPlayoffConfig } from '@/lib/scoring-config';
+import {
+  getPlayoffConfig,
+  getPositionPoints,
+  getStage1BonusPoints,
+  getStage2BonusPoints,
+  getStage3BonusPoints,
+  getLapsLedBonusPoints,
+  getTop10AllDriversBonusPoints,
+} from '@/lib/scoring-config';
 import { PlayoffBracket } from '@/components/PlayoffBracket';
 
 // Force dynamic rendering to ensure cookies are read fresh
@@ -272,9 +280,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         };
       }
 
-      const POSITION_POINTS: Record<number, number> = {
-        1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
-      };
+      const POSITION_POINTS: Record<number, number> = getPositionPoints(config);
 
       const teamTotals: Record<string, {
         team_id: string;
@@ -318,20 +324,20 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
             }
 
             if (result.stage_1_winner) {
-              stageBonus += 1;
+              stageBonus += getStage1BonusPoints(config);
               teamTotals[pick.team_id].stage_wins += 1;
             }
             if (result.stage_2_winner) {
-              stageBonus += 1;
+              stageBonus += getStage2BonusPoints(config);
               teamTotals[pick.team_id].stage_wins += 1;
             }
             if (result.stage_3_winner) {
-              stageBonus += 1;
+              stageBonus += getStage3BonusPoints(config);
               teamTotals[pick.team_id].stage_wins += 1;
             }
 
             if (result.most_laps_led && lapsLedBonus === 0) {
-              lapsLedBonus = 1;
+              lapsLedBonus = getLapsLedBonusPoints(config);
               teamTotals[pick.team_id].laps_led_bonuses += 1;
             }
 
@@ -344,7 +350,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         }
 
         if (allTop10 && driverIds.every(id => id)) {
-          racePoints += 1;
+          racePoints += getTop10AllDriversBonusPoints(config);
           teamTotals[pick.team_id].top_10_bonuses += 1;
         }
 
@@ -476,9 +482,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         };
       }
 
-      const POSITION_POINTS: Record<number, number> = {
-        1: 10, 2: 9, 3: 8, 4: 7, 5: 6, 6: 5, 7: 4, 8: 3, 9: 2, 10: 1,
-      };
+      const CHART_POSITION_POINTS: Record<number, number> = getPositionPoints(config);
 
       // Group picks by race and calculate points
       const scoresByRace: Record<number, { raceName: string; raceId: string; scores: { teamId: string; points: number }[] }> = {};
@@ -504,18 +508,18 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           const result = resultsByRaceAndDriver[key];
 
           if (result) {
-            racePoints += POSITION_POINTS[result.finish_position] || 0;
-            if (result.stage_1_winner) stageBonus += 1;
-            if (result.stage_2_winner) stageBonus += 1;
-            if (result.stage_3_winner) stageBonus += 1;
-            if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = 1;
+            racePoints += CHART_POSITION_POINTS[result.finish_position] || 0;
+            if (result.stage_1_winner) stageBonus += getStage1BonusPoints(config);
+            if (result.stage_2_winner) stageBonus += getStage2BonusPoints(config);
+            if (result.stage_3_winner) stageBonus += getStage3BonusPoints(config);
+            if (result.most_laps_led && lapsLedBonus === 0) lapsLedBonus = getLapsLedBonusPoints(config);
             if (result.finish_position > 10) allTop10 = false;
           } else {
             allTop10 = false;
           }
         }
 
-        if (allTop10 && driverIds.every(id => id)) racePoints += 1;
+        if (allTop10 && driverIds.every(id => id)) racePoints += getTop10AllDriversBonusPoints(config);
         const totalPoints = racePoints + stageBonus + lapsLedBonus;
 
         scoresByRace[raceNum].scores.push({
