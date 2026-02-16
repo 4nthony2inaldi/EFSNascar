@@ -542,20 +542,24 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
           if (result.stage_1_winner) {
             stageWins++;
             stageBonus += S1_BONUS;
+            points += S1_BONUS;
           }
           if (result.stage_2_winner) {
             stageWins++;
             stageBonus += S2_BONUS;
+            points += S2_BONUS;
           }
           if (result.stage_3_winner) {
             stageWins++;
             stageBonus += S3_BONUS;
+            points += S3_BONUS;
           }
           if (result.most_laps_led) {
             lapsLed = true;
             if (lapsLedBonus === 0) {
               lapsLedBonus = LL_BONUS;
             }
+            points += LL_BONUS;
           }
           if (result.finish_position > 10) {
             allTop10 = false;
@@ -576,7 +580,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
       });
 
       const top10Bonus = allTop10 && race.status === 'final' ? T10_BONUS : 0;
-      totalPoints += stageBonus + lapsLedBonus + top10Bonus;
+      totalPoints += top10Bonus;
 
       // Calculate pit strategy
       const tierValues = driversList.map(({ id }) => driverTiers.get(id) || 3);
