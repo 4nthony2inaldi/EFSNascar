@@ -147,6 +147,34 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                s.race?.race_type === 'playoff_finals'
   ) as RaceScore[];
 
+  // Load race winners and picks to correctly determine race wins
+  // (instead of relying on point value matching which breaks with custom scoring configs)
+  const completedRaceIds = (allRaces || []).filter(r => r.status === 'final').map(r => r.id);
+  const [{ data: raceWinners }, { data: allSeasonPicks }] = await Promise.all([
+    supabase
+      .from('race_results')
+      .select('race_id, driver_id')
+      .eq('finish_position', 1)
+      .in('race_id', completedRaceIds.length > 0 ? completedRaceIds : ['none']),
+    supabase
+      .from('picks')
+      .select('race_id, team_id, driver_1_id, driver_2_id, driver_3_id')
+      .in('race_id', completedRaceIds.length > 0 ? completedRaceIds : ['none']),
+  ]);
+
+  // Build lookup: race_id -> winning driver_id
+  const raceWinnerMap = new Map<string, string>();
+  for (const winner of raceWinners || []) {
+    raceWinnerMap.set(winner.race_id, winner.driver_id);
+  }
+
+  // Build lookup: "race_id-team_id" -> Set of picked driver IDs
+  const picksLookup = new Map<string, Set<string>>();
+  for (const pick of allSeasonPicks || []) {
+    const drivers = new Set([pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].filter(Boolean));
+    picksLookup.set(`${pick.race_id}-${pick.team_id}`, drivers);
+  }
+
   // Calculate regular season standings
   let regularSeasonStandings: any[] = [];
 
@@ -178,8 +206,14 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       regularSeasonTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
       regularSeasonTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
       regularSeasonTotals[score.team_id].stage_wins += score.stage_bonus || 0;
-      if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
-        regularSeasonTotals[score.team_id].race_wins += 1;
+      // Check for race win by verifying team actually picked the race winner
+      const scoreRaceId = (score.race as any)?.id;
+      const winningDriverId = scoreRaceId ? raceWinnerMap.get(scoreRaceId) : null;
+      if (winningDriverId) {
+        const teamPickedDrivers = picksLookup.get(`${scoreRaceId}-${score.team_id}`);
+        if (teamPickedDrivers?.has(winningDriverId)) {
+          regularSeasonTotals[score.team_id].race_wins += 1;
+        }
       }
     }
 
@@ -353,7 +387,10 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       rank: s.rank,
     }));
 
-    playoffStandings = calculatePlayoffStandings(playoffTeamStandings, playoffRaceScores, config);
+    playoffStandings = calculatePlayoffStandings(playoffTeamStandings, playoffRaceScores, config, {
+      raceWinnerMap,
+      picksLookup,
+    });
   }
 
   // Build chart data using regular season scores only

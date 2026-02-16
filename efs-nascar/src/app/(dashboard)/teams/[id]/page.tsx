@@ -125,10 +125,23 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     // Try race_scores first
     const { data: raceScores } = await supabase
       .from('race_scores')
-      .select('*, race:races!inner(season_id)')
+      .select('*, race:races!inner(id, season_id)')
       .eq('race.season_id', selectedSeasonId);
 
     if (raceScores && raceScores.length > 0) {
+      // Load race winners and picks to correctly determine race wins
+      const raceIds = [...new Set(raceScores.map(s => (s.race as any)?.id).filter(Boolean))];
+      const [{ data: teamRaceWinners }, { data: teamSeasonPicks }] = await Promise.all([
+        supabase.from('race_results').select('race_id, driver_id').eq('finish_position', 1).in('race_id', raceIds),
+        supabase.from('picks').select('race_id, team_id, driver_1_id, driver_2_id, driver_3_id').in('race_id', raceIds),
+      ]);
+      const teamRaceWinnerMap = new Map<string, string>();
+      for (const w of teamRaceWinners || []) teamRaceWinnerMap.set(w.race_id, w.driver_id);
+      const teamPicksLookup = new Map<string, Set<string>>();
+      for (const p of teamSeasonPicks || []) {
+        teamPicksLookup.set(`${p.race_id}-${p.team_id}`, new Set([p.driver_1_id, p.driver_2_id, p.driver_3_id].filter(Boolean)));
+      }
+
       // Aggregate scores by team
       const teamTotals: Record<string, any> = {};
       for (const score of raceScores) {
@@ -146,8 +159,14 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
         teamTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
         teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
-        if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
-          teamTotals[score.team_id].race_wins += 1;
+        // Check for race win by verifying team actually picked the race winner
+        const scoreRaceId = (score.race as any)?.id;
+        const winnerId = scoreRaceId ? teamRaceWinnerMap.get(scoreRaceId) : null;
+        if (winnerId) {
+          const pickedDrivers = teamPicksLookup.get(`${scoreRaceId}-${score.team_id}`);
+          if (pickedDrivers?.has(winnerId)) {
+            teamTotals[score.team_id].race_wins += 1;
+          }
         }
       }
       allStandingsData = Object.values(teamTotals);

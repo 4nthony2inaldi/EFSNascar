@@ -113,11 +113,13 @@ export function getPlayoffRound(
 /**
  * Calculates playoff standings from race scores
  * @param scoringConfig Optional scoring configuration from the database
+ * @param raceWinnerLookup Map of race_id -> winning driver_id, and "race_id-team_id" -> Set of picked driver IDs
  */
 export function calculatePlayoffStandings(
   regularSeasonStandings: PlayoffTeamStanding[],
   playoffRaceScores: RaceScore[],
-  scoringConfig?: ScoringConfig | null
+  scoringConfig?: ScoringConfig | null,
+  raceWinnerLookup?: { raceWinnerMap: Map<string, string>; picksLookup: Map<string, Set<string>> } | null
 ): PlayoffStandings {
   // Get playoff config (uses defaults if scoringConfig is null)
   const playoffOpts = getPlayoffConfig(scoringConfig ?? null);
@@ -195,9 +197,16 @@ export function calculatePlayoffStandings(
       teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
       teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
 
-      // Check for race win (any driver with 10 points = P1)
-      if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
-        teamTotals[score.team_id].race_wins += 1;
+      // Check for race win by verifying team actually picked the race winner
+      if (raceWinnerLookup) {
+        const raceId = score.race?.id;
+        const winnerId = raceId ? raceWinnerLookup.raceWinnerMap.get(raceId) : null;
+        if (winnerId) {
+          const pickedDrivers = raceWinnerLookup.picksLookup.get(`${raceId}-${score.team_id}`);
+          if (pickedDrivers?.has(winnerId)) {
+            teamTotals[score.team_id].race_wins += 1;
+          }
+        }
       }
     }
 

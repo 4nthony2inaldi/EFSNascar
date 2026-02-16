@@ -278,14 +278,34 @@ export async function POST(request: Request) {
       if (teamTotals[score.team_id]) {
         teamTotals[score.team_id].total_points += score.total_points;
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus;
+        teamTotals[score.team_id].stage_wins += score.stage_bonus > 0 ? 1 : 0;
       }
     }
 
-    // Add stats from race results (race wins, stage wins)
-    for (const score of seasonScores || []) {
-      if (teamTotals[score.team_id]) {
-        // We need to recalculate race_wins and stage_wins from picks and results
-        // This is a simplified version - in production you'd want to track this more carefully
+    // Determine race wins by checking which teams picked the actual race winner
+    const completedRaces = await supabase
+      .from('races')
+      .select('id')
+      .eq('season_id', race.season_id)
+      .eq('status', 'final');
+
+    const completedRaceIds = (completedRaces.data || []).map(r => r.id);
+    if (completedRaceIds.length > 0) {
+      const [{ data: raceWinners }, { data: seasonPicks }] = await Promise.all([
+        supabase.from('race_results').select('race_id, driver_id').eq('finish_position', 1).in('race_id', completedRaceIds),
+        supabase.from('picks').select('race_id, team_id, driver_1_id, driver_2_id, driver_3_id').in('race_id', completedRaceIds),
+      ]);
+
+      const winnerMap = new Map<string, string>();
+      for (const w of raceWinners || []) winnerMap.set(w.race_id, w.driver_id);
+
+      for (const pick of seasonPicks || []) {
+        const winnerId = winnerMap.get(pick.race_id);
+        if (winnerId && [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].includes(winnerId)) {
+          if (teamTotals[pick.team_id]) {
+            teamTotals[pick.team_id].race_wins += 1;
+          }
+        }
       }
     }
 

@@ -210,6 +210,29 @@ export default async function DashboardPage() {
                s.race?.race_type === 'playoff_finals'
   ) as PlayoffRaceScore[];
 
+  // Load race winners and picks to correctly determine race wins
+  const completedRaceIds = (allRaces || []).filter(r => r.status === 'final').map(r => r.id);
+  const [{ data: dashRaceWinners }, { data: dashSeasonPicks }] = await Promise.all([
+    supabase
+      .from('race_results')
+      .select('race_id, driver_id')
+      .eq('finish_position', 1)
+      .in('race_id', completedRaceIds.length > 0 ? completedRaceIds : ['none']),
+    supabase
+      .from('picks')
+      .select('race_id, team_id, driver_1_id, driver_2_id, driver_3_id')
+      .in('race_id', completedRaceIds.length > 0 ? completedRaceIds : ['none']),
+  ]);
+
+  const dashRaceWinnerMap = new Map<string, string>();
+  for (const w of dashRaceWinners || []) {
+    dashRaceWinnerMap.set(w.race_id, w.driver_id);
+  }
+  const dashPicksLookup = new Map<string, Set<string>>();
+  for (const p of dashSeasonPicks || []) {
+    dashPicksLookup.set(`${p.race_id}-${p.team_id}`, new Set([p.driver_1_id, p.driver_2_id, p.driver_3_id].filter(Boolean)));
+  }
+
   // Get all standings for the selected season (legacy)
   let { data: standings } = await supabase
     .from('standings')
@@ -255,8 +278,14 @@ export default async function DashboardPage() {
       teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
       teamTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
       teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
-      if (score.driver_1_points === 10 || score.driver_2_points === 10 || score.driver_3_points === 10) {
-        teamTotals[score.team_id].race_wins += 1;
+      // Check for race win by verifying team actually picked the race winner
+      const dashScoreRaceId = (score.race as any)?.id;
+      const dashWinnerId = dashScoreRaceId ? dashRaceWinnerMap.get(dashScoreRaceId) : null;
+      if (dashWinnerId) {
+        const dashTeamPicks = dashPicksLookup.get(`${dashScoreRaceId}-${score.team_id}`);
+        if (dashTeamPicks?.has(dashWinnerId)) {
+          teamTotals[score.team_id].race_wins += 1;
+        }
       }
 
       // Also aggregate laps led

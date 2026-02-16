@@ -60,6 +60,9 @@ export async function POST(request: Request) {
     let totalScoresUpdated = 0;
     const raceResults: { race_number: number; name: string; teams_scored: number }[] = [];
 
+    // Track race wins by team (determined by whether team picked the actual race winner)
+    const raceWinsByTeam: Record<string, number> = {};
+
     // Process each race
     for (const race of races) {
       // Get race results
@@ -183,6 +186,17 @@ export async function POST(request: Request) {
         });
       }
 
+      // Track which teams picked the actual race winner
+      const raceWinnerResult = results.find(r => r.finish_position === 1);
+      if (raceWinnerResult) {
+        for (const pick of picks) {
+          const pickedDrivers = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
+          if (pickedDrivers.includes(raceWinnerResult.driver_id)) {
+            raceWinsByTeam[pick.team_id] = (raceWinsByTeam[pick.team_id] || 0) + 1;
+          }
+        }
+      }
+
       // Delete existing scores for this race
       await supabase.from('race_scores').delete().eq('race_id', race.id);
 
@@ -229,20 +243,19 @@ export async function POST(request: Request) {
       };
     }
 
-    // Get the P1 point value from the scoring config for race win detection
-    const p1Points = getPointsForPosition(1, config);
-
     // Sum up all scores from the season
     for (const score of seasonScores || []) {
       if (teamTotals[score.team_id]) {
         teamTotals[score.team_id].total_points += score.total_points;
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus;
         teamTotals[score.team_id].stage_wins += score.stage_bonus > 0 ? 1 : 0;
+      }
+    }
 
-        // Check for race win using the configured P1 points value
-        if (score.driver_1_points === p1Points || score.driver_2_points === p1Points || score.driver_3_points === p1Points) {
-          teamTotals[score.team_id].race_wins += 1;
-        }
+    // Use pre-computed race wins (determined by checking actual picks vs race winners)
+    for (const [teamId, wins] of Object.entries(raceWinsByTeam)) {
+      if (teamTotals[teamId]) {
+        teamTotals[teamId].race_wins = wins;
       }
     }
 
