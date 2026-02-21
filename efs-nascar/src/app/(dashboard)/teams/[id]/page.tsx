@@ -97,6 +97,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
   // Get championship prediction for this team (only visible if revealed or viewing own team)
   let championshipPrediction: ChampionshipPrediction | null = null;
   let championshipDriver: Driver | null = null;
+  let allChampionshipPicks: { team_name: string; team_id: string; car_number: number; driver_name: string; driver_number: number }[] = [];
   if (activeSeason) {
     // Query the prediction - RLS will handle visibility
     const { data: prediction } = await supabase
@@ -109,6 +110,26 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
     if (prediction) {
       championshipPrediction = prediction as ChampionshipPrediction;
       championshipDriver = (prediction as any).driver as Driver;
+    }
+
+    // Fetch all teams' championship predictions when revealed
+    if (activeSeason.championship_predictions_revealed) {
+      const { data: allPredictions } = await supabase
+        .from('championship_predictions')
+        .select('team_id, driver:drivers(name, car_number), team:teams(name, car_number)')
+        .eq('season_id', activeSeason.id);
+
+      if (allPredictions) {
+        allChampionshipPicks = allPredictions
+          .map((p: any) => ({
+            team_name: p.team?.name || 'Unknown',
+            team_id: p.team_id,
+            car_number: p.team?.car_number || 0,
+            driver_name: p.driver?.name || 'Unknown',
+            driver_number: p.driver?.car_number || 0,
+          }))
+          .sort((a, b) => a.car_number - b.car_number);
+      }
     }
   }
 
@@ -1287,6 +1308,36 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">About the Team</h2>
           <p className="text-gray-300 whitespace-pre-wrap">{team.bio}</p>
+        </div>
+      )}
+
+      {/* Championship Picks - All Teams (shown when revealed) */}
+      {activeSeason?.championship_predictions_revealed && allChampionshipPicks.length > 0 && (
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-white mb-4">Championship Picks</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {allChampionshipPicks.map((pick) => (
+              <Link
+                key={pick.team_id}
+                href={`/teams/${pick.team_id}`}
+                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  pick.team_id === id
+                    ? 'bg-amber-500/20 border border-amber-500/50'
+                    : 'bg-gray-900/50 hover:bg-gray-700/50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold text-sm">#{pick.car_number}</span>
+                  <span className={`text-sm ${pick.team_id === id ? 'text-white font-medium' : 'text-gray-300'}`}>
+                    {pick.team_name}
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-sm font-medium">
+                  #{pick.driver_number} {pick.driver_name.split(' ').pop()}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 

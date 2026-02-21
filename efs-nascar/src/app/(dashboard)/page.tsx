@@ -766,15 +766,15 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Championship Pick Section */}
-      {userTeam && selectedSeasonId && (
+      {/* Championship Pick Section - only show when picks are still open */}
+      {userTeam && selectedSeasonId && !activeSeason?.championship_predictions_revealed && (
         <ChampionshipPick
           teamId={userTeam.id}
           seasonId={selectedSeasonId}
-          revealed={activeSeason?.championship_predictions_revealed || false}
+          revealed={false}
           initialPrediction={championshipPrediction}
           initialDriver={championshipDriver}
-          submissionStats={!activeSeason?.championship_predictions_revealed ? championshipPickStats : undefined}
+          submissionStats={championshipPickStats}
         />
       )}
 

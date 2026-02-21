@@ -70,6 +70,27 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   const config = scoringConfig as ScoringConfig | null;
   const playoffOpts = getPlayoffConfig(config);
 
+  // Get all championship predictions when revealed
+  let allChampionshipPicks: { team_name: string; team_id: string; car_number: number; driver_name: string; driver_number: number }[] = [];
+  if (activeSeason?.championship_predictions_revealed) {
+    const { data: allPredictions } = await supabase
+      .from('championship_predictions')
+      .select('team_id, driver:drivers(name, car_number), team:teams(name, car_number)')
+      .eq('season_id', activeSeason.id);
+
+    if (allPredictions) {
+      allChampionshipPicks = allPredictions
+        .map((p: any) => ({
+          team_name: p.team?.name || 'Unknown',
+          team_id: p.team_id,
+          car_number: p.team?.car_number || 0,
+          driver_name: p.driver?.name || 'Unknown',
+          driver_number: p.driver?.car_number || 0,
+        }))
+        .sort((a, b) => a.car_number - b.car_number);
+    }
+  }
+
   // Get tiebreaker order from config, with fallback to default
   const tiebreakerOrder = config?.tiebreaker_order || ['race_wins', 'stage_wins', 'laps_led', 'top_10_bonuses', 'allstar_position'];
 
@@ -879,6 +900,36 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           <p className="text-purple-500 text-sm mt-2">
             Standings will appear after the first race results are entered.
           </p>
+        </div>
+      )}
+
+      {/* Championship Picks */}
+      {allChampionshipPicks.length > 0 && (
+        <div className="glass rounded-xl p-6">
+          <h2 className="text-lg font-bold text-white mb-3">Championship Picks</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {allChampionshipPicks.map((pick) => (
+              <Link
+                key={pick.team_id}
+                href={`/teams/${pick.team_id}`}
+                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  pick.team_id === userTeamId
+                    ? 'bg-amber-500/20 border border-amber-500/50'
+                    : 'bg-purple-900/30 hover:bg-purple-800/30'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold text-sm">#{pick.car_number}</span>
+                  <span className={`text-sm ${pick.team_id === userTeamId ? 'text-white font-medium' : 'text-purple-200'}`}>
+                    {pick.team_name}
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-sm font-medium">
+                  #{pick.driver_number} {pick.driver_name.split(' ').pop()}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
