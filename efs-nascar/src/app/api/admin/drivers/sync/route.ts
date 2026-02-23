@@ -8,6 +8,7 @@ import results2022 from '@/data/results/nascar-results-2022.json';
 import results2023 from '@/data/results/nascar-results-2023.json';
 import results2024 from '@/data/results/nascar-results-2024.json';
 import results2025 from '@/data/results/nascar-results-2025.json';
+import results2026 from '@/data/results/nascar-results-2026.json';
 
 interface RaceResult {
   driver: string;
@@ -31,6 +32,7 @@ interface DriverInfo {
 function getAllDriversWithInfo(): DriverInfo[] {
   // Process in reverse chronological order so most recent info wins
   const allResults = [
+    ...(results2026 as RaceData[]),
     ...(results2025 as RaceData[]),
     ...(results2024 as RaceData[]),
     ...(results2023 as RaceData[]),
@@ -57,6 +59,20 @@ function getAllDriversWithInfo(): DriverInfo[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Get drivers who appear in the most recent season's results
+function getCurrentSeasonDriverNames(): Set<string> {
+  const currentSeasonResults = results2026 as RaceData[];
+  const names = new Set<string>();
+  for (const race of currentSeasonResults) {
+    for (const result of race.results) {
+      if (result.driver) {
+        names.add(normalizeDriverName(result.driver));
+      }
+    }
+  }
+  return names;
+}
+
 function normalizeDriverName(name: string): string {
   return name.toLowerCase().replace(/[^a-z]/g, '');
 }
@@ -72,7 +88,7 @@ export async function POST() {
     // Get all existing drivers with their current info
     const { data: existingDrivers, error: fetchError } = await supabase
       .from('drivers')
-      .select('id, name, car_number, team_name');
+      .select('id, name, car_number, team_name, is_active');
 
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
@@ -116,14 +132,16 @@ export async function POST() {
     const addedNames: string[] = [];
     const updatedNames: string[] = [];
 
-    // Add missing drivers
+    // Add missing drivers (active if they appear in current season results)
     if (missingDrivers.length > 0) {
+      const currentSeasonNames = getCurrentSeasonDriverNames();
       const { data: insertedDrivers, error: insertError } = await supabase
         .from('drivers')
         .insert(missingDrivers.map(d => ({
           name: d.name,
           car_number: parseInt(d.car_number) || 0,
           team_name: d.team_name,
+          is_active: currentSeasonNames.has(normalizeDriverName(d.name)),
         })))
         .select('name');
 
@@ -151,6 +169,26 @@ export async function POST() {
       }
     }
 
+    // Activate drivers who appear in the current season's results
+    const currentSeasonDrivers = getCurrentSeasonDriverNames();
+    let activated = 0;
+    const activatedNames: string[] = [];
+
+    for (const existing of existingDrivers || []) {
+      const normalized = normalizeDriverName(existing.name);
+      if (currentSeasonDrivers.has(normalized) && !existing.is_active) {
+        const { error: activateError } = await supabase
+          .from('drivers')
+          .update({ is_active: true })
+          .eq('id', existing.id);
+
+        if (!activateError) {
+          activated++;
+          activatedNames.push(existing.name);
+        }
+      }
+    }
+
     // Sample for debugging
     const sampleJsonDrivers = allDrivers.slice(0, 5).map(d => ({
       name: d.name,
@@ -162,11 +200,13 @@ export async function POST() {
     }));
 
     return NextResponse.json({
-      message: `Added ${added} new drivers, updated ${updated} existing drivers`,
+      message: `Added ${added} new drivers, updated ${updated} existing drivers, activated ${activated} current season drivers`,
       added,
       updated,
+      activated,
       addedDrivers: addedNames,
       updatedDrivers: updatedNames.slice(0, 20), // Show first 20 updates
+      activatedDrivers: activatedNames,
       totalInJson: allDrivers.length,
       totalInDatabase: existingDrivers?.length || 0,
       sampleJsonDrivers,

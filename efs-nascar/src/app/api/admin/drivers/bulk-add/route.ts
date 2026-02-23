@@ -10,7 +10,7 @@ const HISTORICAL_DRIVERS = [
   { name: 'Daniel Hemric', car_number: 16, team_name: 'Kaulig Racing', is_active: false },
   { name: 'Aric Almirola', car_number: 10, team_name: 'Stewart-Haas Racing', is_active: false },
   { name: 'Kevin Harvick', car_number: 4, team_name: 'Stewart-Haas Racing', is_active: false },
-  { name: 'AJ Allmendinger', car_number: 16, team_name: 'Kaulig Racing', is_active: false },
+  { name: 'AJ Allmendinger', car_number: 16, team_name: 'Kaulig Racing', is_active: true },
   { name: 'Ty Dillon', car_number: 42, team_name: 'Petty GMS', is_active: false },
   { name: 'Quin Houff', car_number: 0, team_name: 'StarCom Racing', is_active: false },
   // Additional historical drivers that might be needed
