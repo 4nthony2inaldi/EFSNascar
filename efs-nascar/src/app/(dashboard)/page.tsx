@@ -516,8 +516,8 @@ export default async function DashboardPage() {
   const getUserDesignation = (rank: number | null) => {
     if (!rank) return null;
     if (rank <= 2) return { emoji: '🐱', label: 'Catbird Seat', color: 'text-amber-400' };
-    if (rank <= 5) return { emoji: '✅', label: 'Playoff Position', color: 'text-emerald-400' };
-    if (rank === 6) return { emoji: '🐕', label: 'Lucky Dog', color: 'text-amber-400' };
+    if (rank <= 6) return { emoji: '✅', label: 'Playoff Position', color: 'text-emerald-400' };
+    if (rank === 7) return { emoji: '🐕', label: 'Lucky Dog', color: 'text-amber-400' };
     if (rank >= 16) return { emoji: '💩', label: 'Muddy Mile', color: 'text-red-400' };
     return { emoji: '', label: 'Consolation', color: 'text-purple-400' };
   };
@@ -691,7 +691,7 @@ export default async function DashboardPage() {
   }
 
   const luckyDogEligible: LuckyDogStats[] = (standings || [])
-    .filter((s: any) => s.rank && s.rank > 5)
+    .filter((s: any) => s.rank && s.rank > 6)
     .map((s: any) => ({
       team_id: s.team_id,
       team_name: s.team?.name || 'Unknown',
@@ -712,7 +712,7 @@ export default async function DashboardPage() {
   });
 
   // Find user's lucky dog rank (1 = in lucky dog position)
-  const userLuckyDogRank = userRank && userRank > 5
+  const userLuckyDogRank = userRank && userRank > 6
     ? luckyDogEligible.findIndex((t) => t.team_id === userTeam?.id) + 1
     : null;
 
