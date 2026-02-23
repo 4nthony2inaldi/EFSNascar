@@ -656,6 +656,21 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     }
   };
 
+  // Build display-ordered standings: top 6 by points, Lucky Dog at 7, rest shifted
+  const displayStandings = (() => {
+    if (!luckyDogTeamId || regularSeasonStandings.length === 0) return regularSeasonStandings;
+    const luckyDogEntry = regularSeasonStandings.find((s: any) => s.team_id === luckyDogTeamId);
+    if (!luckyDogEntry || luckyDogEntry.rank <= 6) return regularSeasonStandings;
+
+    const top6 = regularSeasonStandings.filter((s: any) => s.rank <= 6);
+    const rest = regularSeasonStandings.filter((s: any) => s.rank > 6 && s.team_id !== luckyDogTeamId);
+    return [
+      ...top6,
+      { ...luckyDogEntry, rank: 7 },
+      ...rest.map((s: any, i: number) => ({ ...s, rank: 8 + i })),
+    ];
+  })();
+
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* Header - title hidden on mobile, season selector always visible */}
@@ -877,7 +892,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
               </tr>
             </thead>
             <tbody>
-              {regularSeasonStandings?.map((standing: any, index: number) => {
+              {displayStandings?.map((standing: any, index: number) => {
                 const rank = standing.rank || index + 1;
                 const isUserTeam = standing.team_id === userTeamId;
 
