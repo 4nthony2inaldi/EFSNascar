@@ -398,10 +398,10 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     }
   }
 
-  // Calculate Lucky Dog: team outside top 6 with best tiebreaker stats (ignoring points)
+  // Calculate Lucky Dog: team outside top 5 with best tiebreaker stats (ignoring points)
   // Lucky Dog is determined by: race wins, stage wins, laps led, top 10 bonuses (configurable order)
   const luckyDogTeamId = (() => {
-    const eligible = regularSeasonStandings.filter((s: any) => s.rank > 6);
+    const eligible = regularSeasonStandings.filter((s: any) => s.rank > 5);
     if (eligible.length === 0) return null;
 
     const sorted = [...eligible].sort((a: any, b: any) => {
@@ -446,8 +446,8 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   // Calculate playoff standings if playoffs have started
   let playoffStandings = null;
   if (showPlayoffSection && regularSeasonStandings.length > 0) {
-    // Build playoff-seeded standings with Lucky Dog correctly positioned at seed 7
-    // Top 6 by points stay the same, Lucky Dog (by tiebreaker stats) gets seed 7,
+    // Build playoff-seeded standings with Lucky Dog correctly positioned at seed 6
+    // Top 5 by points stay the same, Lucky Dog (by tiebreaker stats) gets seed 6,
     // remaining teams keep their relative points order
     let playoffTeamStandings: PlayoffTeamStanding[] = regularSeasonStandings.map(s => ({
       team_id: s.team_id,
@@ -460,14 +460,14 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     }));
 
     if (luckyDogTeamId) {
-      const top6 = playoffTeamStandings.filter(s => s.rank <= 6);
+      const top5 = playoffTeamStandings.filter(s => s.rank <= 5);
       const luckyDogTeam = playoffTeamStandings.find(s => s.team_id === luckyDogTeamId);
-      const rest = playoffTeamStandings.filter(s => s.rank > 6 && s.team_id !== luckyDogTeamId);
+      const rest = playoffTeamStandings.filter(s => s.rank > 5 && s.team_id !== luckyDogTeamId);
       if (luckyDogTeam) {
         playoffTeamStandings = [
-          ...top6,
-          { ...luckyDogTeam, rank: 7 },
-          ...rest.map((s, i) => ({ ...s, rank: 8 + i })),
+          ...top5,
+          { ...luckyDogTeam, rank: 6 },
+          ...rest.map((s, i) => ({ ...s, rank: 7 + i })),
         ];
       }
     }
@@ -656,18 +656,18 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
     }
   };
 
-  // Build display-ordered standings: top 6 by points, Lucky Dog at 7, rest shifted
+  // Build display-ordered standings: top 5 by points, Lucky Dog at 6, rest shifted
   const displayStandings = (() => {
     if (!luckyDogTeamId || regularSeasonStandings.length === 0) return regularSeasonStandings;
     const luckyDogEntry = regularSeasonStandings.find((s: any) => s.team_id === luckyDogTeamId);
-    if (!luckyDogEntry || luckyDogEntry.rank <= 6) return regularSeasonStandings;
+    if (!luckyDogEntry || luckyDogEntry.rank <= 5) return regularSeasonStandings;
 
-    const top6 = regularSeasonStandings.filter((s: any) => s.rank <= 6);
-    const rest = regularSeasonStandings.filter((s: any) => s.rank > 6 && s.team_id !== luckyDogTeamId);
+    const top5 = regularSeasonStandings.filter((s: any) => s.rank <= 5);
+    const rest = regularSeasonStandings.filter((s: any) => s.rank > 5 && s.team_id !== luckyDogTeamId);
     return [
-      ...top6,
-      { ...luckyDogEntry, rank: 7 },
-      ...rest.map((s: any, i: number) => ({ ...s, rank: 8 + i })),
+      ...top5,
+      { ...luckyDogEntry, rank: 6 },
+      ...rest.map((s: any, i: number) => ({ ...s, rank: 7 + i })),
     ];
   })();
 
@@ -906,13 +906,13 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
                   statusColor = 'border-amber-400 border-l-[6px]';
                   rankColor = 'text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300';
                   statusLabel = '🐱 Catbird Seat';
-                } else if (rank <= 6) {
-                  statusColor = 'border-emerald-500';
-                  rankColor = 'text-emerald-400';
                 } else if (isLuckyDog) {
                   statusColor = 'border-amber-400';
                   rankColor = 'text-amber-400';
                   statusLabel = '🐶 Lucky Dog';
+                } else if (rank <= 5) {
+                  statusColor = 'border-emerald-500';
+                  rankColor = 'text-emerald-400';
                 } else if (rank >= 16) {
                   statusColor = 'border-red-500';
                   rankColor = 'text-red-400';
