@@ -42,8 +42,17 @@ const RESULTS_DATA: Record<number, RaceData[]> = {
   2026: results2026 as RaceData[],
 };
 
+// Map alternate names in results data to the canonical database name
+const DRIVER_NAME_ALIASES: Record<string, string> = {
+  'darrell wallace jr': 'bubba wallace',
+  'darrell "bubba" wallace jr': 'bubba wallace',
+};
+
 function normalizeDriverName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z]/g, '');
+  const lower = name.toLowerCase().trim();
+  const alias = DRIVER_NAME_ALIASES[lower];
+  const canonical = alias || lower;
+  return canonical.replace(/[^a-z]/g, '');
 }
 
 function normalizeTrackName(name: string): string {
