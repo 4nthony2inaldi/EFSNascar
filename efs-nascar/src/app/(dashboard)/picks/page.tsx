@@ -343,11 +343,12 @@ export default function PicksPage() {
     }
   };
 
-  const filteredDrivers = drivers.filter((driver) =>
-    driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.car_number.toString().includes(searchTerm) ||
-    driver.team_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDrivers = drivers
+    .filter((driver) => driver.name.toLowerCase() !== 'darrell wallace jr')
+    .filter((driver) =>
+      driver.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   if (loading) {
     return (
@@ -427,11 +428,7 @@ export default function PicksPage() {
                     {driver ? (
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-amber-400 font-bold">#{driver.car_number}</span>
-                            <span className="text-white font-medium">{driver.name}</span>
-                          </div>
-                          <div className="text-sm text-purple-400">{driver.team_name}</div>
+                          <div className="text-white font-medium">{driver.name}</div>
                           <div className={`text-sm ${
                             usage >= maxUses - 1 ? 'text-red-400' : 'text-purple-500'
                           }`}>
@@ -497,9 +494,7 @@ export default function PicksPage() {
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-purple-400 text-sm border-b border-purple-700/30">
-                    <th className="pb-3 pr-4">#</th>
                     <th className="pb-3 pr-4">Driver</th>
-                    <th className="pb-3 pr-4">Team</th>
                     <th className="pb-3 text-center">Uses</th>
                     <th className="pb-3 text-center">Action</th>
                   </tr>
@@ -518,11 +513,7 @@ export default function PicksPage() {
                           selected ? 'bg-amber-500/10' : !available ? 'opacity-50' : ''
                         }`}
                       >
-                        <td className="py-3 pr-4 text-amber-400 font-bold">
-                          {driver.car_number}
-                        </td>
                         <td className="py-3 pr-4 text-white">{driver.name}</td>
-                        <td className="py-3 pr-4 text-purple-300">{driver.team_name}</td>
                         <td className="py-3 text-center">
                           <span className={`font-medium ${
                             usage >= maxUses ? 'text-red-400' :
