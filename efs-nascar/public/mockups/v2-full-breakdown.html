@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commissioner Report V2 — Full Breakdown</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .report {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    padding: 20px 24px;
+    border-bottom: 2px solid #e63946;
+  }
+  .header h1 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #e63946;
+    margin-bottom: 4px;
+  }
+  .header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .header .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+  }
+  thead th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid #2a2a2a;
+    white-space: nowrap;
+  }
+  thead th.team-col { text-align: left; padding-left: 16px; }
+  .col-group-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #e63946;
+    padding: 8px;
+    text-align: center;
+    border-bottom: 1px solid #2a2a2a;
+    background: #1a1018;
+  }
+  .col-group-label.season { color: #4ea8de; background: #101820; }
+  tbody td {
+    padding: 10px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #1e1e1e;
+    text-align: center;
+  }
+  tbody tr:hover { background: #1a1a1a; }
+  td.rank-cell {
+    font-size: 13px;
+    color: #888;
+    white-space: nowrap;
+    width: 90px;
+  }
+  .rank-arrow { font-weight: 600; }
+  .rank-arrow.up { color: #2ecc71; }
+  .rank-arrow.down { color: #e63946; }
+  .rank-arrow.flat { color: #555; }
+  td.team-cell {
+    text-align: left;
+    padding-left: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .car-num {
+    display: inline-block;
+    background: #e63946;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin-right: 6px;
+    min-width: 24px;
+    text-align: center;
+  }
+  .driver-pts { color: #ccc; }
+  .bonus-cell { color: #f0c040; font-weight: 600; }
+  .bonus-cell.active { color: #2ecc71; }
+  .bonus-cell.inactive { color: #333; }
+  .race-total {
+    font-weight: 700;
+    font-size: 15px;
+    color: #f0c040;
+    background: #1a1810;
+  }
+  .season-pts-cell {
+    font-weight: 700;
+    font-size: 15px;
+    color: #fff;
+  }
+  .season-stat { color: #4ea8de; font-weight: 600; }
+  .season-stat.zero { color: #333; }
+  .divider-cell {
+    padding: 4px 8px;
+    border-bottom: none;
+  }
+  .lucky-dog-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e6a23c;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+  .lucky-dog-divider::before,
+  .lucky-dog-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px);
+  }
+  .tiebreaker-note {
+    padding: 12px 24px;
+    font-size: 11px;
+    color: #555;
+    border-top: 1px solid #2a2a2a;
+  }
+  .tiebreaker-note strong { color: #888; }
+  .footer {
+    padding: 12px 24px;
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    border-top: 1px solid #1e1e1e;
+  }
+</style>
+</head>
+<body>
+<div class="report">
+  <div class="header">
+    <h1>Commissioner Report</h1>
+    <h2>Race 8: Coca-Cola 600</h2>
+    <div class="subtitle">Charlotte Motor Speedway &bull; May 25, 2026</div>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" class="team-col" style="min-width:60px">Rank</th>
+        <th rowspan="2" class="team-col" style="min-width:160px">Team</th>
+        <td class="col-group-label" colspan="7">This Race</td>
+        <td class="col-group-label season" colspan="5">Season Totals</td>
+      </tr>
+      <tr>
+        <th>D1</th>
+        <th>D2</th>
+        <th>D3</th>
+        <th>Stg</th>
+        <th>Led</th>
+        <th>FS</th>
+        <th>Total</th>
+        <th>Pts</th>
+        <th>Wins</th>
+        <th>Stg W</th>
+        <th>Led</th>
+        <th>FS</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rank-cell">1 &rarr; 1 <span class="rank-arrow flat">&mdash;</span></td>
+        <td class="team-cell"><span class="car-num">88</span>Shake &amp; Bake</td>
+        <td class="driver-pts">10</td>
+        <td class="driver-pts">8</td>
+        <td class="driver-pts">5</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">25</td>
+        <td class="season-pts-cell">187</td>
+        <td class="season-stat">2</td>
+        <td class="season-stat">4</td>
+        <td class="season-stat">3</td>
+        <td class="season-stat">2</td>
+      </tr>
+      <tr>
+        <td class="rank-cell">3 &rarr; 2 <span class="rank-arrow up">&#9650;1</span></td>
+        <td class="team-cell"><span class="car-num">14</span>Ricky Bobby Inc</td>
+        <td class="driver-pts">9</td>
+        <td class="driver-pts">7</td>
+        <td class="driver-pts">1</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">18</td>
+        <td class="season-pts-cell">181</td>
+        <td class="season-stat">2</td>
+        <td class="season-stat">3</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat">1</td>
+      </tr>
+      <tr>
+        <td class="rank-cell">2 &rarr; 3 <span class="rank-arrow down">&#9660;1</span></td>
+        <td class="team-cell"><span class="car-num">07</span>Magic Man Racing</td>
+        <td class="driver-pts">6</td>
+        <td class="driver-pts">4</td>
+        <td class="driver-pts">2</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">12</td>
+        <td class="season-pts-cell">179</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat">5</td>
+        <td class="season-stat">2</td>
+        <td class="season-stat">3</td>
+      </tr>
+      <tr>
+        <td class="rank-cell">4 &rarr; 4 <span class="rank-arrow flat">&mdash;</span></td>
+        <td class="team-cell"><span class="car-num">31</span>El Diablo</td>
+        <td class="driver-pts">10</td>
+        <td class="driver-pts">3</td>
+        <td class="driver-pts">3</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">17</td>
+        <td class="season-pts-cell">168</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat">2</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat zero">0</td>
+      </tr>
+      <tr>
+        <td class="rank-cell">6 &rarr; 5 <span class="rank-arrow up">&#9650;1</span></td>
+        <td class="team-cell"><span class="car-num">22</span>Highlander MC</td>
+        <td class="driver-pts">8</td>
+        <td class="driver-pts">6</td>
+        <td class="driver-pts">4</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="race-total">21</td>
+        <td class="season-pts-cell">162</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat">3</td>
+        <td class="season-stat">2</td>
+        <td class="season-stat">1</td>
+      </tr>
+      <tr>
+        <td class="rank-cell">5 &rarr; 6 <span class="rank-arrow down">&#9660;1</span></td>
+        <td class="team-cell"><span class="car-num">44</span>Cal Naughton Jr</td>
+        <td class="driver-pts">2</td>
+        <td class="driver-pts">3</td>
+        <td class="driver-pts">1</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">6</td>
+        <td class="season-pts-cell">160</td>
+        <td class="season-stat zero">0</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat zero">0</td>
+        <td class="season-stat zero">0</td>
+      </tr>
+      <!-- Lucky Dog -->
+      <tr>
+        <td class="divider-cell" colspan="14">
+          <div class="lucky-dog-divider">Lucky Dog Line</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="rank-cell">7 &rarr; 7 <span class="rank-arrow flat">&mdash;</span></td>
+        <td class="team-cell"><span class="car-num">61</span>Pit Stop Boys</td>
+        <td class="driver-pts">7</td>
+        <td class="driver-pts">5</td>
+        <td class="driver-pts">1</td>
+        <td class="bonus-cell active">+1</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">14</td>
+        <td class="season-pts-cell">148</td>
+        <td class="season-stat zero">0</td>
+        <td class="season-stat">2</td>
+        <td class="season-stat zero">0</td>
+        <td class="season-stat">1</td>
+      </tr>
+      <tr>
+        <td class="rank-cell">8 &rarr; 8 <span class="rank-arrow flat">&mdash;</span></td>
+        <td class="team-cell"><span class="car-num">03</span>Texas Thunder</td>
+        <td class="driver-pts">5</td>
+        <td class="driver-pts">4</td>
+        <td class="driver-pts">1</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="bonus-cell inactive">&mdash;</td>
+        <td class="race-total">10</td>
+        <td class="season-pts-cell">141</td>
+        <td class="season-stat zero">0</td>
+        <td class="season-stat">1</td>
+        <td class="season-stat zero">0</td>
+        <td class="season-stat zero">0</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="tiebreaker-note">
+    <strong>Tiebreaker Order:</strong> Wins &rarr; Stage Wins &rarr; Laps Led &rarr; Full Speed &rarr; All-Star Position
+    &nbsp;&bull;&nbsp;
+    <strong>Key:</strong> D1/D2/D3 = Driver finish pts &bull; Stg = Stage win bonus &bull; Led = Most laps led &bull; FS = Full Speed (all 3 top 10)
+  </div>
+  <div class="footer">EFS NASCAR &bull; Commissioner Eyes Only</div>
+</div>
+</body>
+</html>

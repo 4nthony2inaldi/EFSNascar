@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commissioner Report V1 — Clean Movement</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .report {
+    max-width: 640px;
+    margin: 0 auto;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    padding: 20px 24px;
+    border-bottom: 2px solid #e63946;
+  }
+  .header h1 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #e63946;
+    margin-bottom: 4px;
+  }
+  .header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .header .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-top: 2px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  thead th.num { text-align: center; }
+  thead th.pts { text-align: right; }
+  tbody td {
+    padding: 12px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  tbody tr:hover { background: #1a1a1a; }
+  td.rank { text-align: center; font-weight: 600; color: #888; width: 40px; }
+  td.post-rank { text-align: center; font-weight: 700; color: #fff; width: 40px; }
+  td.move {
+    text-align: center;
+    width: 50px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .move-up { color: #2ecc71; }
+  .move-down { color: #e63946; }
+  .move-flat { color: #555; }
+  td.team {
+    font-weight: 600;
+  }
+  .car-num {
+    display: inline-block;
+    background: #e63946;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+    min-width: 28px;
+    text-align: center;
+  }
+  td.race-pts {
+    text-align: right;
+    font-weight: 700;
+    color: #f0c040;
+    font-size: 16px;
+  }
+  td.season-pts {
+    text-align: right;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .lucky-dog-row td {
+    padding: 6px 16px;
+    border-bottom: none;
+    border-top: none;
+  }
+  .lucky-dog-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #e6a23c;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+  .lucky-dog-divider::before,
+  .lucky-dog-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px);
+  }
+  .footer {
+    padding: 16px 24px;
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    border-top: 1px solid #2a2a2a;
+  }
+</style>
+</head>
+<body>
+<div class="report">
+  <div class="header">
+    <h1>Commissioner Report</h1>
+    <h2>Race 8: Coca-Cola 600</h2>
+    <div class="subtitle">Charlotte Motor Speedway &bull; May 25, 2026</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="num">Pre</th>
+        <th class="num">Post</th>
+        <th class="num">Move</th>
+        <th>Team</th>
+        <th class="pts">Race Pts</th>
+        <th class="pts">Season Pts</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="rank">1</td>
+        <td class="post-rank">1</td>
+        <td class="move move-flat">&mdash;</td>
+        <td class="team"><span class="car-num">88</span>Shake &amp; Bake</td>
+        <td class="race-pts">+25</td>
+        <td class="season-pts">187</td>
+      </tr>
+      <tr>
+        <td class="rank">3</td>
+        <td class="post-rank">2</td>
+        <td class="move move-up">&#9650; 1</td>
+        <td class="team"><span class="car-num">14</span>Ricky Bobby Inc</td>
+        <td class="race-pts">+18</td>
+        <td class="season-pts">181</td>
+      </tr>
+      <tr>
+        <td class="rank">2</td>
+        <td class="post-rank">3</td>
+        <td class="move move-down">&#9660; 1</td>
+        <td class="team"><span class="car-num">07</span>Magic Man Racing</td>
+        <td class="race-pts">+12</td>
+        <td class="season-pts">179</td>
+      </tr>
+      <tr>
+        <td class="rank">4</td>
+        <td class="post-rank">4</td>
+        <td class="move move-flat">&mdash;</td>
+        <td class="team"><span class="car-num">31</span>El Diablo</td>
+        <td class="race-pts">+17</td>
+        <td class="season-pts">168</td>
+      </tr>
+      <tr>
+        <td class="rank">6</td>
+        <td class="post-rank">5</td>
+        <td class="move move-up">&#9650; 1</td>
+        <td class="team"><span class="car-num">22</span>Highlander MC</td>
+        <td class="race-pts">+21</td>
+        <td class="season-pts">162</td>
+      </tr>
+      <tr>
+        <td class="rank">5</td>
+        <td class="post-rank">6</td>
+        <td class="move move-down">&#9660; 1</td>
+        <td class="team"><span class="car-num">44</span>Cal Naughton Jr</td>
+        <td class="race-pts">+6</td>
+        <td class="season-pts">160</td>
+      </tr>
+      <!-- Lucky Dog Line -->
+      <tr class="lucky-dog-row">
+        <td colspan="6">
+          <div class="lucky-dog-divider">Lucky Dog Line</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="rank">7</td>
+        <td class="post-rank">7</td>
+        <td class="move move-flat">&mdash;</td>
+        <td class="team"><span class="car-num">61</span>Pit Stop Boys</td>
+        <td class="race-pts">+14</td>
+        <td class="season-pts">148</td>
+      </tr>
+      <tr>
+        <td class="rank">8</td>
+        <td class="post-rank">8</td>
+        <td class="move move-flat">&mdash;</td>
+        <td class="team"><span class="car-num">03</span>Texas Thunder</td>
+        <td class="race-pts">+10</td>
+        <td class="season-pts">141</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="footer">EFS NASCAR &bull; Commissioner Eyes Only</div>
+</div>
+</body>
+</html>

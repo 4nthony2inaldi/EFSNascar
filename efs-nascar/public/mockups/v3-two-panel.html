@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commissioner Report V3 — Two-Panel Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .report {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    padding: 20px 24px;
+    border-bottom: 2px solid #e63946;
+  }
+  .header h1 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #e63946;
+    margin-bottom: 4px;
+  }
+  .header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .header .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  /* Highlights Panel */
+  .highlights {
+    padding: 20px 24px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .highlights h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #e63946;
+    margin-bottom: 16px;
+  }
+  .highlight-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .highlight-item:last-child { margin-bottom: 0; }
+  .highlight-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .highlight-icon.trophy { background: #2a2206; }
+  .highlight-icon.stage { background: #1a2206; }
+  .highlight-icon.laps { background: #06222a; }
+  .highlight-icon.speed { background: #22061a; }
+  .highlight-icon.mover { background: #062a12; }
+  .highlight-icon.worst { background: #2a0606; }
+  .highlight-content { flex: 1; }
+  .highlight-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    margin-bottom: 2px;
+  }
+  .highlight-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .highlight-detail {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .car-num {
+    display: inline-block;
+    background: #e63946;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 4px;
+    min-width: 22px;
+    text-align: center;
+  }
+  .car-num.sm { font-size: 9px; padding: 1px 4px; }
+
+  /* Standings Panel */
+  .standings-panel {
+    padding: 0;
+  }
+  .standings-panel h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #4ea8de;
+    padding: 16px 24px 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #555;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  thead th.num { text-align: center; }
+  thead th.pts { text-align: right; }
+  tbody td {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  tbody tr:hover { background: #1a1a1a; }
+  td.rank { text-align: center; font-weight: 700; color: #fff; width: 36px; }
+  td.move {
+    text-align: center;
+    width: 44px;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .move-up { color: #2ecc71; }
+  .move-down { color: #e63946; }
+  .move-flat { color: #444; }
+  td.team { font-weight: 600; white-space: nowrap; }
+  td.pts-col { text-align: right; font-weight: 700; }
+  td.wins-col { text-align: center; color: #ccc; }
+  td.stg-col { text-align: center; color: #ccc; }
+  td.week-col {
+    text-align: right;
+    font-weight: 600;
+    color: #f0c040;
+  }
+  .divider-cell { padding: 4px 12px; border-bottom: none; }
+  .lucky-dog-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e6a23c;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+  .lucky-dog-divider::before,
+  .lucky-dog-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px);
+  }
+  .footer {
+    padding: 14px 24px;
+    text-align: center;
+    font-size: 11px;
+    color: #444;
+    border-top: 1px solid #2a2a2a;
+  }
+</style>
+</head>
+<body>
+<div class="report">
+  <div class="header">
+    <h1>Commissioner Report</h1>
+    <h2>Race 8: Coca-Cola 600</h2>
+    <div class="subtitle">Charlotte Motor Speedway &bull; May 25, 2026</div>
+  </div>
+
+  <!-- Highlights Panel -->
+  <div class="highlights">
+    <h3>Race Highlights</h3>
+
+    <div class="highlight-item">
+      <div class="highlight-icon trophy">&#127942;</div>
+      <div class="highlight-content">
+        <div class="highlight-label">Top Scorer</div>
+        <div class="highlight-value"><span class="car-num">88</span>Shake &amp; Bake &mdash; 25 pts</div>
+        <div class="highlight-detail">Larson (10), Blaney (8), Byron (5) + Stage Win + Most Laps Led</div>
+      </div>
+    </div>
+
+    <div class="highlight-item">
+      <div class="highlight-icon stage">&#127937;</div>
+      <div class="highlight-content">
+        <div class="highlight-label">Stage Winners</div>
+        <div class="highlight-value">
+          S1: <span class="car-num sm">88</span>Shake &amp; Bake &nbsp;
+          S2: <span class="car-num sm">22</span>Highlander MC &nbsp;
+          S3: <span class="car-num sm">14</span>Ricky Bobby
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-item">
+      <div class="highlight-icon speed">&#9889;</div>
+      <div class="highlight-content">
+        <div class="highlight-label">Full Speed Bonus (All 3 in Top 10)</div>
+        <div class="highlight-value"><span class="car-num">22</span>Highlander MC</div>
+      </div>
+    </div>
+
+    <div class="highlight-item">
+      <div class="highlight-icon mover">&#9650;</div>
+      <div class="highlight-content">
+        <div class="highlight-label">Biggest Mover</div>
+        <div class="highlight-value"><span class="car-num">14</span>Ricky Bobby Inc &nbsp; <span style="color:#2ecc71">3rd &rarr; 2nd</span></div>
+      </div>
+    </div>
+
+    <div class="highlight-item">
+      <div class="highlight-icon worst">&#9660;</div>
+      <div class="highlight-content">
+        <div class="highlight-label">Worst Week</div>
+        <div class="highlight-value"><span class="car-num">44</span>Cal Naughton Jr &mdash; 6 pts &nbsp; <span style="color:#e63946">5th &rarr; 6th</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standings Panel -->
+  <div class="standings-panel">
+    <h3>Updated Standings</h3>
+    <table>
+      <thead>
+        <tr>
+          <th class="num">Rk</th>
+          <th class="num">Move</th>
+          <th>Team</th>
+          <th class="pts">Pts</th>
+          <th class="num">W</th>
+          <th class="num">Stg</th>
+          <th class="pts">This Week</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="rank">1</td>
+          <td class="move move-flat">&mdash;</td>
+          <td class="team"><span class="car-num">88</span>Shake &amp; Bake</td>
+          <td class="pts-col">187</td>
+          <td class="wins-col">2</td>
+          <td class="stg-col">4</td>
+          <td class="week-col">+25</td>
+        </tr>
+        <tr>
+          <td class="rank">2</td>
+          <td class="move move-up">&#9650; 1</td>
+          <td class="team"><span class="car-num">14</span>Ricky Bobby Inc</td>
+          <td class="pts-col">181</td>
+          <td class="wins-col">2</td>
+          <td class="stg-col">3</td>
+          <td class="week-col">+18</td>
+        </tr>
+        <tr>
+          <td class="rank">3</td>
+          <td class="move move-down">&#9660; 1</td>
+          <td class="team"><span class="car-num">07</span>Magic Man Racing</td>
+          <td class="pts-col">179</td>
+          <td class="wins-col">1</td>
+          <td class="stg-col">5</td>
+          <td class="week-col">+12</td>
+        </tr>
+        <tr>
+          <td class="rank">4</td>
+          <td class="move move-flat">&mdash;</td>
+          <td class="team"><span class="car-num">31</span>El Diablo</td>
+          <td class="pts-col">168</td>
+          <td class="wins-col">1</td>
+          <td class="stg-col">2</td>
+          <td class="week-col">+17</td>
+        </tr>
+        <tr>
+          <td class="rank">5</td>
+          <td class="move move-up">&#9650; 1</td>
+          <td class="team"><span class="car-num">22</span>Highlander MC</td>
+          <td class="pts-col">162</td>
+          <td class="wins-col">1</td>
+          <td class="stg-col">3</td>
+          <td class="week-col">+21</td>
+        </tr>
+        <tr>
+          <td class="rank">6</td>
+          <td class="move move-down">&#9660; 1</td>
+          <td class="team"><span class="car-num">44</span>Cal Naughton Jr</td>
+          <td class="pts-col">160</td>
+          <td class="wins-col">0</td>
+          <td class="stg-col">1</td>
+          <td class="week-col">+6</td>
+        </tr>
+        <!-- Lucky Dog -->
+        <tr>
+          <td class="divider-cell" colspan="7">
+            <div class="lucky-dog-divider">Lucky Dog Line</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="rank">7</td>
+          <td class="move move-flat">&mdash;</td>
+          <td class="team"><span class="car-num">61</span>Pit Stop Boys</td>
+          <td class="pts-col">148</td>
+          <td class="wins-col">0</td>
+          <td class="stg-col">2</td>
+          <td class="week-col">+14</td>
+        </tr>
+        <tr>
+          <td class="rank">8</td>
+          <td class="move move-flat">&mdash;</td>
+          <td class="team"><span class="car-num">03</span>Texas Thunder</td>
+          <td class="pts-col">141</td>
+          <td class="wins-col">0</td>
+          <td class="stg-col">1</td>
+          <td class="week-col">+10</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="footer">EFS NASCAR &bull; Commissioner Eyes Only</div>
+</div>
+</body>
+</html>
