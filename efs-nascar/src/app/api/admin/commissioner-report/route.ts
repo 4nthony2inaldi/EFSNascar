@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { compareStandings } from '@/lib/scoring-config';
 
 export async function GET(request: NextRequest) {
   const raceId = request.nextUrl.searchParams.get('raceId');
@@ -87,19 +88,23 @@ export async function GET(request: NextRequest) {
       if (prevFinalRaces.length > 0) {
         const { data: prevScores } = await supabase
           .from('race_scores')
-          .select('team_id, total_points')
+          .select('team_id, total_points, stage_bonus, top_10_bonus')
           .in('race_id', prevFinalRaces);
 
         if (prevScores) {
           // Aggregate previous scores per team
-          const prevTotals = new Map<string, number>();
+          const prevTotals = new Map<string, { total_points: number; race_wins: number; stage_wins: number; top_10_bonuses: number }>();
           for (const s of prevScores) {
-            prevTotals.set(s.team_id, (prevTotals.get(s.team_id) || 0) + s.total_points);
+            const existing = prevTotals.get(s.team_id) || { total_points: 0, race_wins: 0, stage_wins: 0, top_10_bonuses: 0 };
+            existing.total_points += s.total_points;
+            existing.stage_wins += s.stage_bonus > 0 ? 1 : 0;
+            existing.top_10_bonuses += s.top_10_bonus > 0 ? 1 : 0;
+            prevTotals.set(s.team_id, existing);
           }
-          // Sort by points descending to get previous ranks
+          // Sort with tiebreakers to get previous ranks
           previousStandings = Array.from(prevTotals.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(([teamId, pts], idx) => ({ team_id: teamId, rank: idx + 1, total_points: pts }));
+            .sort(([, a], [, b]) => compareStandings(a, b))
+            .map(([teamId, stats], idx) => ({ team_id: teamId, rank: idx + 1, ...stats }));
         }
       }
     }
@@ -118,7 +123,10 @@ export async function GET(request: NextRequest) {
 
     // Build enriched standings with movement and weekly score
     const enrichedStandings = standings
-      .sort((a: any, b: any) => (b.total_points || 0) - (a.total_points || 0))
+      .sort((a: any, b: any) => compareStandings(
+        { total_points: a.total_points || 0, race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0 },
+        { total_points: b.total_points || 0, race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0 },
+      ))
       .map((s: any, idx: number) => {
         const currentRank = idx + 1;
         const prevRank = prevRankMap.get(s.team_id) || currentRank;

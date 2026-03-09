@@ -8,6 +8,7 @@ import {
   getStage3BonusPoints,
   getLapsLedBonusPoints,
   getTop10AllDriversBonusPoints,
+  compareStandings,
 } from '@/lib/scoring-config';
 
 export async function POST(request: Request) {
@@ -309,9 +310,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Sort teams by points to determine ranks
+    // Sort teams by points with tiebreakers to determine ranks
     const sortedTeams = Object.entries(teamTotals)
-      .sort(([, a], [, b]) => b.total_points - a.total_points);
+      .sort(([, a], [, b]) => compareStandings(a, b));
 
     // Update standings
     for (let i = 0; i < sortedTeams.length; i++) {

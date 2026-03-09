@@ -80,6 +80,36 @@ export function getBonusUsesPerSeason(config: ScoringConfig | null): number {
   return config?.bonus_uses_per_season ?? DEFAULT_SCORING_CONFIG.bonus_uses_per_season;
 }
 
+// Tiebreaker comparison for standings sorting
+// Teams must have: total_points, race_wins, stage_wins, top_10_bonuses (and optionally laps_led, allstar_position)
+export function compareStandings(
+  a: { total_points: number; race_wins: number; stage_wins: number; top_10_bonuses: number; laps_led?: number; allstar_position?: number },
+  b: { total_points: number; race_wins: number; stage_wins: number; top_10_bonuses: number; laps_led?: number; allstar_position?: number },
+  tiebreakerOrder: string[] = DEFAULT_SCORING_CONFIG.tiebreaker_order!,
+): number {
+  // Primary: total points descending
+  if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+
+  // Apply tiebreakers in order
+  const fieldMap: Record<string, (t: typeof a) => number> = {
+    race_wins: (t) => t.race_wins || 0,
+    stage_wins: (t) => t.stage_wins || 0,
+    laps_led: (t) => t.laps_led || 0,
+    top_10_bonuses: (t) => t.top_10_bonuses || 0,
+    allstar_position: (t) => -(t.allstar_position || 999), // lower position = better, so negate
+  };
+
+  for (const field of tiebreakerOrder) {
+    const getter = fieldMap[field];
+    if (getter) {
+      const diff = getter(b) - getter(a);
+      if (diff !== 0) return diff;
+    }
+  }
+
+  return 0;
+}
+
 // Get playoff configuration
 export function getPlayoffConfig(config: ScoringConfig | null) {
   return {
