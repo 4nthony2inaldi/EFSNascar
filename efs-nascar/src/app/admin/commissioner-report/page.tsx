@@ -203,7 +203,7 @@ export default function CommissionerReportPage() {
                   {report.highlights.topScorers.map((scorer, i) => (
                     <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
                       <div className="text-sm font-semibold text-white">
-                        <CarNum n={scorer.carNumber} />{scorer.teamName}
+                        {scorer.teamName}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">
                         {scorer.drivers.map((d, j) => (
@@ -230,7 +230,7 @@ export default function CommissionerReportPage() {
                   <div className="text-sm font-semibold text-white">
                     {report.highlights.biggestMoversUp.map((m, i) => (
                       <div key={i} className={i > 0 ? 'mt-0.5' : ''}>
-                        <CarNum n={m.carNumber} />{m.teamName}
+                        {m.teamName}
                         &nbsp;<span className="text-[#2ecc71]">
                           {getOrdinal(m.from)} &rarr; {getOrdinal(m.to)}
                         </span>
@@ -252,7 +252,7 @@ export default function CommissionerReportPage() {
                   <div className="text-sm font-semibold text-white">
                     {report.highlights.biggestMoversDown.map((m, i) => (
                       <div key={i} className={i > 0 ? 'mt-0.5' : ''}>
-                        <CarNum n={m.carNumber} />{m.teamName}
+                        {m.teamName}
                         &nbsp;<span className="text-[#e63946]">
                           {getOrdinal(m.from)} &rarr; {getOrdinal(m.to)}
                         </span>
@@ -308,7 +308,7 @@ export default function CommissionerReportPage() {
                         )}
                       </td>
                       <td className="px-2 py-2 text-sm font-semibold text-white whitespace-nowrap">
-                        <CarNum n={s.carNumber} />{s.teamName}
+                        {s.teamName}
                       </td>
                       <td className="px-2 py-2 text-right font-bold text-sm text-white">{s.totalPoints}</td>
                       <td className="px-1 py-2 text-center text-sm text-gray-300">{s.raceWins}</td>
@@ -341,14 +341,3 @@ export default function CommissionerReportPage() {
   );
 }
 
-function CarNum({ n, sm }: { n: number; sm?: boolean }) {
-  return (
-    <span
-      className={`inline-block bg-[#e63946] text-white font-bold rounded mr-1 min-w-[22px] text-center ${
-        sm ? 'text-[9px] px-1 py-px' : 'text-[10px] px-1.5 py-px'
-      }`}
-    >
-      {n}
-    </span>
-  );
-}
