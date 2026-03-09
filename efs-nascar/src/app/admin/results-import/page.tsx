@@ -330,6 +330,16 @@ export default function ResultsImportPage() {
       }
 
       setNascarRaces(data.races || []);
+
+      // Also load database races for this year so the "Import Into" dropdown works
+      const matchingSeason = seasons.find(s => s.year === scrapeYear);
+      if (matchingSeason) {
+        setSelectedSeasonId(matchingSeason.id);
+        setSelectedYear(scrapeYear);
+        loadRacesForSeason(matchingSeason.id);
+      } else {
+        setScrapeError(`NASCAR schedule loaded, but no ${scrapeYear} season found in the database. Create one in Admin → Seasons first.`);
+      }
     } catch (err: any) {
       setScrapeError(err.message);
     } finally {
@@ -461,7 +471,7 @@ export default function ResultsImportPage() {
                 </select>
                 {races.length === 0 && (
                   <p className="text-purple-500 text-xs mt-1">
-                    Select a year in the JSON import section below to load database races.
+                    Click &quot;Load NASCAR Schedule&quot; above to load database races for the selected year.
                   </p>
                 )}
               </div>
