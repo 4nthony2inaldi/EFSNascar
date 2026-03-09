@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { compareStandings } from '@/lib/scoring-config';
+import { compareStandings, compareTiebreakersOnly } from '@/lib/scoring-config';
 
 export async function GET(request: NextRequest) {
   const raceId = request.nextUrl.searchParams.get('raceId');
@@ -122,12 +122,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Build enriched standings with movement and weekly score
-    const enrichedStandings = standings
-      .sort((a: any, b: any) => compareStandings(
-        { total_points: a.total_points || 0, race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0 },
-        { total_points: b.total_points || 0, race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0 },
-      ))
-      .map((s: any, idx: number) => {
+    // Top 6 sorted by points (with tiebreakers for equal points)
+    // Positions 7+ sorted by tiebreakers only (race_wins, stage_wins, etc.) — Lucky Dog goes to the best tiebreaker team outside top 6
+    const LUCKY_DOG_CUTOFF = 6;
+
+    const sortedByPoints = [...standings].sort((a: any, b: any) => compareStandings(
+      { total_points: a.total_points || 0, race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0 },
+      { total_points: b.total_points || 0, race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0 },
+    ));
+
+    const top6 = sortedByPoints.slice(0, LUCKY_DOG_CUTOFF);
+    const rest = sortedByPoints.slice(LUCKY_DOG_CUTOFF).sort((a: any, b: any) => compareTiebreakersOnly(
+      { race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0 },
+      { race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0 },
+    ));
+
+    const finalOrder = [...top6, ...rest];
+
+    const enrichedStandings = finalOrder.map((s: any, idx: number) => {
         const currentRank = idx + 1;
         const prevRank = prevRankMap.get(s.team_id) || currentRank;
         const movement = prevRank - currentRank; // positive = moved up
@@ -217,7 +229,7 @@ export async function GET(request: NextRequest) {
         biggestMoversDown,
       },
       standings: enrichedStandings,
-      luckyDogPosition: 7, // 7th place is the Lucky Dog
+      luckyDogPosition: LUCKY_DOG_CUTOFF + 1, // Lucky Dog = best tiebreaker team outside top 6
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });

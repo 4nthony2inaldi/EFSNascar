@@ -110,6 +110,31 @@ export function compareStandings(
   return 0;
 }
 
+// Tiebreaker-only comparison (ignores total points) — used for Lucky Dog determination
+export function compareTiebreakersOnly(
+  a: { race_wins: number; stage_wins: number; top_10_bonuses: number; laps_led?: number; allstar_position?: number },
+  b: { race_wins: number; stage_wins: number; top_10_bonuses: number; laps_led?: number; allstar_position?: number },
+  tiebreakerOrder: string[] = DEFAULT_SCORING_CONFIG.tiebreaker_order!,
+): number {
+  const fieldMap: Record<string, (t: typeof a) => number> = {
+    race_wins: (t) => t.race_wins || 0,
+    stage_wins: (t) => t.stage_wins || 0,
+    laps_led: (t) => t.laps_led || 0,
+    top_10_bonuses: (t) => t.top_10_bonuses || 0,
+    allstar_position: (t) => -(t.allstar_position || 999),
+  };
+
+  for (const field of tiebreakerOrder) {
+    const getter = fieldMap[field];
+    if (getter) {
+      const diff = getter(b) - getter(a);
+      if (diff !== 0) return diff;
+    }
+  }
+
+  return 0;
+}
+
 // Get playoff configuration
 export function getPlayoffConfig(config: ScoringConfig | null) {
   return {
