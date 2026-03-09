@@ -132,12 +132,18 @@ export async function GET(request: NextRequest) {
     ));
 
     const top6 = sortedByPoints.slice(0, LUCKY_DOG_CUTOFF);
-    const rest = sortedByPoints.slice(LUCKY_DOG_CUTOFF).sort((a: any, b: any) => compareTiebreakersOnly(
+    const rest = sortedByPoints.slice(LUCKY_DOG_CUTOFF);
+
+    // Find the Lucky Dog: best tiebreaker team outside top 6 (ignoring points)
+    const luckyDogWinner = [...rest].sort((a: any, b: any) => compareTiebreakersOnly(
       { race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0 },
       { race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0 },
-    ));
+    ))[0];
 
-    const finalOrder = [...top6, ...rest];
+    // Remaining teams (excluding Lucky Dog) sorted by points
+    const remainingByPoints = rest.filter((s: any) => s.team_id !== luckyDogWinner?.team_id);
+
+    const finalOrder = [...top6, ...(luckyDogWinner ? [luckyDogWinner] : []), ...remainingByPoints];
 
     const enrichedStandings = finalOrder.map((s: any, idx: number) => {
         const currentRank = idx + 1;
