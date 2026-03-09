@@ -51,6 +51,7 @@ export default function AdminResultsPage() {
   const [success, setSuccess] = useState(false);
   const [fetchingFromApi, setFetchingFromApi] = useState(false);
   const [apiResult, setApiResult] = useState<ApiImportResult | null>(null);
+  const [newPosition, setNewPosition] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -173,17 +174,19 @@ export default function AdminResultsPage() {
     }
   };
 
-  const addResult = () => {
-    const nextPosition = results.length + 1;
-    setResults([...results, {
+  const addResult = (position: number) => {
+    if (position < 1 || position > 40) return;
+    if (results.find((r) => r.finish_position === position)) return;
+    const newResults = [...results, {
       driver_id: '',
-      finish_position: nextPosition,
+      finish_position: position,
       stage_1_winner: false,
       stage_2_winner: false,
       stage_3_winner: false,
       laps_led: 0,
       most_laps_led: false,
-    }]);
+    }].sort((a, b) => a.finish_position - b.finish_position);
+    setResults(newResults);
   };
 
   const updateResult = (index: number, field: keyof ResultEntry, value: any) => {
@@ -201,12 +204,7 @@ export default function AdminResultsPage() {
   };
 
   const removeResult = (index: number) => {
-    const newResults = results.filter((_, i) => i !== index);
-    // Renumber positions
-    newResults.forEach((r, i) => {
-      r.finish_position = i + 1;
-    });
-    setResults(newResults);
+    setResults(results.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
@@ -514,12 +512,35 @@ export default function AdminResultsPage() {
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Race Results</h3>
-              <button
-                onClick={addResult}
-                className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
-              >
-                Add Position
-              </button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={40}
+                  value={newPosition}
+                  onChange={(e) => setNewPosition(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newPosition) {
+                      addResult(parseInt(newPosition));
+                      setNewPosition('');
+                    }
+                  }}
+                  placeholder="Pos #"
+                  className="w-20 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-center placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                />
+                <button
+                  onClick={() => {
+                    if (newPosition) {
+                      addResult(parseInt(newPosition));
+                      setNewPosition('');
+                    }
+                  }}
+                  disabled={!newPosition || results.some((r) => r.finish_position === parseInt(newPosition))}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add Position
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -644,29 +665,6 @@ export default function AdminResultsPage() {
                   className="px-6 py-3 bg-yellow-500 text-black font-medium rounded-md hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {saving ? 'Saving...' : 'Save Results & Calculate Scores'}
-                </button>
-                <button
-                  onClick={() => {
-                    // Quick add top 10
-                    const newResults: ResultEntry[] = [];
-                    for (let i = 1; i <= 10; i++) {
-                      if (!results.find((r) => r.finish_position === i)) {
-                        newResults.push({
-                          driver_id: '',
-                          finish_position: i,
-                          stage_1_winner: false,
-                          stage_2_winner: false,
-                          stage_3_winner: false,
-                          laps_led: 0,
-                          most_laps_led: false,
-                        });
-                      }
-                    }
-                    setResults([...results, ...newResults].sort((a, b) => a.finish_position - b.finish_position));
-                  }}
-                  className="px-4 py-3 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
-                >
-                  Add Top 10 Positions
                 </button>
               </div>
             )}
