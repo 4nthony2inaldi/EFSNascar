@@ -331,19 +331,18 @@ export default function ResultsImportPage() {
 
       setNascarRaces(data.races || []);
 
-      // Fetch seasons fresh (don't rely on pre-loaded state which may be empty due to RLS)
-      let seasonsToSearch = seasons;
-      if (seasonsToSearch.length === 0) {
-        try {
-          const seasonsRes = await fetch('/api/admin/seasons');
-          const seasonsData = await seasonsRes.json();
-          if (seasonsData.seasons) {
-            seasonsToSearch = seasonsData.seasons;
-            setSeasons(seasonsData.seasons);
-          }
-        } catch {
-          // Fall through to the error below
+      // Fetch seasons fresh every time to ensure we have current data
+      let seasonsToSearch: Season[] = [];
+      try {
+        const seasonsRes = await fetch('/api/admin/seasons');
+        const seasonsData = await seasonsRes.json();
+        if (seasonsData.seasons) {
+          seasonsToSearch = seasonsData.seasons;
+          setSeasons(seasonsData.seasons);
         }
+      } catch {
+        // Fall back to pre-loaded state
+        seasonsToSearch = seasons;
       }
 
       // Also load database races for this year so the "Import Into" dropdown works
@@ -351,9 +350,21 @@ export default function ResultsImportPage() {
       if (matchingSeason) {
         setSelectedSeasonId(matchingSeason.id);
         setSelectedYear(scrapeYear);
-        loadRacesForSeason(matchingSeason.id);
+        // Load races directly here instead of relying on useEffect
+        try {
+          const racesRes = await fetch(`/api/admin/races?seasonId=${matchingSeason.id}`);
+          const racesData = await racesRes.json();
+          if (racesData.races && racesData.races.length > 0) {
+            setRaces(racesData.races);
+          } else {
+            setRaces([]);
+            setScrapeError(`Season "${matchingSeason.name}" found but has no races. Add races in Admin → Schedule Mgmt first.`);
+          }
+        } catch {
+          setScrapeError('Failed to load database races.');
+        }
       } else {
-        setScrapeError(`NASCAR schedule loaded, but no ${scrapeYear} season found in the database. Create one in Admin → Seasons first.`);
+        setScrapeError(`NASCAR schedule loaded (${seasonsToSearch.length} seasons found), but none match year ${scrapeYear}. Create a ${scrapeYear} season in Admin → Seasons first.`);
       }
     } catch (err: any) {
       setScrapeError(err.message);
