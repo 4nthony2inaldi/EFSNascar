@@ -268,13 +268,11 @@ export default function CommissionerReportPage() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-center border-b border-[#2a2a2a]">Rk</th>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-center border-b border-[#2a2a2a]">Move</th>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-left border-b border-[#2a2a2a]">Team</th>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-right border-b border-[#2a2a2a]">Pts</th>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-center border-b border-[#2a2a2a]">W</th>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-center border-b border-[#2a2a2a]">Stg</th>
-                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-3 py-2 text-right border-b border-[#2a2a2a]">This Week</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-center border-b border-[#2a2a2a] w-8">Rk</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-center border-b border-[#2a2a2a] w-10">Move</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-left border-b border-[#2a2a2a]">Team</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-right border-b border-[#2a2a2a] w-10">Pts</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-right border-b border-[#2a2a2a] w-16">This Wk</th>
                 </tr>
               </thead>
               <tbody>
@@ -283,7 +281,7 @@ export default function CommissionerReportPage() {
                     {/* Lucky Dog divider — after position 6, before position 7 (Lucky Dog) */}
                     {idx === report!.luckyDogPosition - 1 && (
                       <tr key="lucky-dog">
-                        <td colSpan={7} className="px-3 py-1">
+                        <td colSpan={5} className="px-3 py-1">
                           <div className="flex items-center gap-2.5 text-[#e6a23c] text-[10px] uppercase tracking-[2px] font-bold">
                             <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px)' }} />
                             Lucky Dog
@@ -293,8 +291,8 @@ export default function CommissionerReportPage() {
                       </tr>
                     )}
                     <tr key={s.teamId} className="hover:bg-[#1a1a1a]">
-                      <td className="px-3 py-2.5 text-center font-bold text-white text-sm">{s.rank}</td>
-                      <td className="px-3 py-2.5 text-center text-xs font-semibold">
+                      <td className="px-2 py-2 text-center font-bold text-white text-sm">{s.rank}</td>
+                      <td className="px-2 py-2 text-center text-xs font-semibold">
                         {s.movement > 0 ? (
                           <span className="text-[#2ecc71]">&#9650; {s.movement}</span>
                         ) : s.movement < 0 ? (
@@ -303,13 +301,11 @@ export default function CommissionerReportPage() {
                           <span className="text-gray-600">&mdash;</span>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-sm font-semibold text-white whitespace-nowrap">
+                      <td className="px-2 py-2 text-sm font-semibold text-white whitespace-nowrap">
                         <CarNum n={s.carNumber} />{s.teamName}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-bold text-sm text-white">{s.totalPoints}</td>
-                      <td className="px-3 py-2.5 text-center text-sm text-gray-300">{s.raceWins}</td>
-                      <td className="px-3 py-2.5 text-center text-sm text-gray-300">{s.stageWins}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-sm text-[#f0c040]">+{s.weeklyScore}</td>
+                      <td className="px-2 py-2 text-right font-bold text-sm text-white">{s.totalPoints}</td>
+                      <td className="px-2 py-2 text-right font-semibold text-sm text-[#f0c040]">+{s.weeklyScore}</td>
                     </tr>
                   </>
                 ))}
