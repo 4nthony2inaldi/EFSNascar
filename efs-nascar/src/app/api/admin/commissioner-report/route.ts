@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
       standingsRes,
       allRacesRes,
       picksRes,
-      resultsRes,
     ] = await Promise.all([
       // Current race info
       supabase.from('races').select('*').eq('id', raceId).single(),
@@ -62,12 +61,6 @@ export async function GET(request: NextRequest) {
         .from('picks')
         .select('*, team:teams(id, name, car_number), driver_1:drivers!picks_driver_1_id_fkey(id, name), driver_2:drivers!picks_driver_2_id_fkey(id, name), driver_3:drivers!picks_driver_3_id_fkey(id, name)')
         .eq('race_id', raceId),
-      // Race results for this race
-      supabase
-        .from('race_results')
-        .select('*, driver:drivers(id, name)')
-        .eq('race_id', raceId)
-        .order('finish_position', { ascending: true }),
     ]);
 
     if (raceRes.error) return NextResponse.json({ error: raceRes.error.message }, { status: 500 });
@@ -79,7 +72,6 @@ export async function GET(request: NextRequest) {
     const standings = standingsRes.data || [];
     const allRaces = allRacesRes.data || [];
     const picks = picksRes.data || [];
-    const results = resultsRes.data || [];
 
     // Find previous race to calculate rank movement
     const currentRaceIdx = allRaces.findIndex((r: any) => r.id === raceId);
@@ -124,43 +116,6 @@ export async function GET(request: NextRequest) {
       scoreMap.set(s.team_id, s);
     }
 
-    // Find race winner (finish_position = 1)
-    const raceWinner = results.find((r: any) => r.finish_position === 1);
-
-    // Find stage winners
-    const stageWinners: { stage: number; driver: string }[] = [];
-    for (const r of results) {
-      if (r.stage_1_winner) stageWinners.push({ stage: 1, driver: r.driver?.name || 'Unknown' });
-      if (r.stage_2_winner) stageWinners.push({ stage: 2, driver: r.driver?.name || 'Unknown' });
-      if (r.stage_3_winner) stageWinners.push({ stage: 3, driver: r.driver?.name || 'Unknown' });
-    }
-
-    // Find which teams picked stage winners
-    const stageWinnerTeams: { stage: number; teamName: string; carNumber: number; driverName: string }[] = [];
-    for (const sw of stageWinners) {
-      for (const pick of picks) {
-        const driverIds = [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id];
-        const matchResult = results.find((r: any) =>
-          r.driver?.name === sw.driver &&
-          driverIds.includes(r.driver_id) &&
-          ((sw.stage === 1 && r.stage_1_winner) ||
-           (sw.stage === 2 && r.stage_2_winner) ||
-           (sw.stage === 3 && r.stage_3_winner))
-        );
-        if (matchResult) {
-          stageWinnerTeams.push({
-            stage: sw.stage,
-            teamName: pick.team?.name || 'Unknown',
-            carNumber: pick.team?.car_number || 0,
-            driverName: sw.driver,
-          });
-        }
-      }
-    }
-
-    // Find most laps led driver
-    const mostLapsLed = results.find((r: any) => r.most_laps_led);
-
     // Build enriched standings with movement and weekly score
     const enrichedStandings = standings
       .sort((a: any, b: any) => (b.total_points || 0) - (a.total_points || 0))
@@ -193,44 +148,53 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    // Top scorer
-    const topScorer = enrichedStandings.length > 0
-      ? enrichedStandings.reduce((best: any, s: any) => s.weeklyScore > best.weeklyScore ? s : best, enrichedStandings[0])
-      : null;
+    // Top scorers (all teams tied for highest weekly score)
+    const maxWeeklyScore = Math.max(...enrichedStandings.map((s: any) => s.weeklyScore));
+    const topScorers = maxWeeklyScore > 0
+      ? enrichedStandings.filter((s: any) => s.weeklyScore === maxWeeklyScore).map((s: any) => {
+          const pick = picks.find((p: any) => p.team_id === s.teamId);
+          const drivers = (pick && s.weeklyBreakdown) ? [
+            { name: pick.driver_1?.name || 'D1', points: s.weeklyBreakdown.driver1 },
+            { name: pick.driver_2?.name || 'D2', points: s.weeklyBreakdown.driver2 },
+            { name: pick.driver_3?.name || 'D3', points: s.weeklyBreakdown.driver3 },
+          ].sort((a: any, b: any) => b.points - a.points) : [];
+          const bonuses: string[] = [];
+          if (s.weeklyBreakdown?.stageBonus > 0) bonuses.push('Stage Win');
+          if (s.weeklyBreakdown?.lapsLedBonus > 0) bonuses.push('Most Laps Led');
+          if (s.weeklyBreakdown?.top10Bonus > 0) bonuses.push('Full Speed');
+          return {
+            teamName: s.teamName,
+            carNumber: s.carNumber,
+            points: s.weeklyScore,
+            drivers,
+            bonuses,
+          };
+        })
+      : [];
 
-    // Find the top scorer's driver breakdown
-    let topScorerDrivers: { name: string; points: number }[] = [];
-    if (topScorer) {
-      const topPick = picks.find((p: any) => p.team_id === topScorer.teamId);
-      if (topPick && topScorer.weeklyBreakdown) {
-        topScorerDrivers = [
-          { name: topPick.driver_1?.name || 'D1', points: topScorer.weeklyBreakdown.driver1 },
-          { name: topPick.driver_2?.name || 'D2', points: topScorer.weeklyBreakdown.driver2 },
-          { name: topPick.driver_3?.name || 'D3', points: topScorer.weeklyBreakdown.driver3 },
-        ].sort((a, b) => b.points - a.points);
-      }
-    }
+    // Biggest movers up (all teams tied for most positive movement)
+    const maxUp = Math.max(...enrichedStandings.map((s: any) => s.movement));
+    const biggestMoversUp = maxUp > 0
+      ? enrichedStandings.filter((s: any) => s.movement === maxUp).map((s: any) => ({
+          teamName: s.teamName,
+          carNumber: s.carNumber,
+          spots: s.movement,
+          from: s.rank + s.movement,
+          to: s.rank,
+        }))
+      : [];
 
-    // Full Speed Bonus teams (top_10_bonus > 0)
-    const fullSpeedTeams = enrichedStandings.filter((s: any) => s.weeklyBreakdown?.top10Bonus > 0);
-
-    // Biggest mover (most positive movement)
-    const biggestMover = enrichedStandings.length > 0
-      ? enrichedStandings.reduce((best: any, s: any) => s.movement > best.movement ? s : best, enrichedStandings[0])
-      : null;
-
-    // Worst week (lowest weekly score, excluding 0 which means no pick)
-    const worstWeek = enrichedStandings.filter((s: any) => s.weeklyScore > 0).length > 0
-      ? enrichedStandings
-          .filter((s: any) => s.weeklyScore > 0)
-          .reduce((worst: any, s: any) => s.weeklyScore < worst.weeklyScore ? s : worst)
-      : null;
-
-    // Build bonuses string for top scorer
-    const topScorerBonuses: string[] = [];
-    if (topScorer?.weeklyBreakdown?.stageBonus > 0) topScorerBonuses.push('Stage Win');
-    if (topScorer?.weeklyBreakdown?.lapsLedBonus > 0) topScorerBonuses.push('Most Laps Led');
-    if (topScorer?.weeklyBreakdown?.top10Bonus > 0) topScorerBonuses.push('Full Speed');
+    // Biggest movers down (all teams tied for most negative movement)
+    const maxDown = Math.min(...enrichedStandings.map((s: any) => s.movement));
+    const biggestMoversDown = maxDown < 0
+      ? enrichedStandings.filter((s: any) => s.movement === maxDown).map((s: any) => ({
+          teamName: s.teamName,
+          carNumber: s.carNumber,
+          spots: Math.abs(s.movement),
+          from: s.rank + s.movement,
+          to: s.rank,
+        }))
+      : [];
 
     return NextResponse.json({
       race: {
@@ -240,43 +204,12 @@ export async function GET(request: NextRequest) {
         raceNumber: race.race_number,
       },
       highlights: {
-        topScorer: topScorer ? {
-          teamName: topScorer.teamName,
-          carNumber: topScorer.carNumber,
-          points: topScorer.weeklyScore,
-          drivers: topScorerDrivers,
-          bonuses: topScorerBonuses,
-        } : null,
-        stageWinners: stageWinnerTeams,
-        fullSpeedTeams: fullSpeedTeams.map((t: any) => ({
-          teamName: t.teamName,
-          carNumber: t.carNumber,
-        })),
-        biggestMover: biggestMover && biggestMover.movement > 0 ? {
-          teamName: biggestMover.teamName,
-          carNumber: biggestMover.carNumber,
-          from: biggestMover.rank + biggestMover.movement,
-          to: biggestMover.rank,
-        } : null,
-        worstWeek: worstWeek ? {
-          teamName: worstWeek.teamName,
-          carNumber: worstWeek.carNumber,
-          points: worstWeek.weeklyScore,
-          movement: worstWeek.movement,
-          from: worstWeek.rank - worstWeek.movement,
-          to: worstWeek.rank,
-        } : null,
-        raceWinner: raceWinner ? {
-          driverName: raceWinner.driver?.name || 'Unknown',
-          lapsLed: raceWinner.laps_led || 0,
-        } : null,
-        mostLapsLed: mostLapsLed ? {
-          driverName: mostLapsLed.driver?.name || 'Unknown',
-          lapsLed: mostLapsLed.laps_led || 0,
-        } : null,
+        topScorers,
+        biggestMoversUp,
+        biggestMoversDown,
       },
       standings: enrichedStandings,
-      luckyDogLine: 6, // Teams ranked > 6 are below the line
+      luckyDogPosition: 7, // 7th place is the Lucky Dog
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });

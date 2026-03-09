@@ -3,6 +3,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+interface TeamHighlight {
+  teamName: string;
+  carNumber: number;
+}
+
+interface TopScorer extends TeamHighlight {
+  points: number;
+  drivers: { name: string; points: number }[];
+  bonuses: string[];
+}
+
+interface Mover extends TeamHighlight {
+  spots: number;
+  from: number;
+  to: number;
+}
+
 interface ReportData {
   race: {
     name: string;
@@ -11,19 +28,9 @@ interface ReportData {
     raceNumber: number;
   };
   highlights: {
-    topScorer: {
-      teamName: string;
-      carNumber: number;
-      points: number;
-      drivers: { name: string; points: number }[];
-      bonuses: string[];
-    } | null;
-    stageWinners: { stage: number; teamName: string; carNumber: number; driverName: string }[];
-    fullSpeedTeams: { teamName: string; carNumber: number }[];
-    biggestMover: { teamName: string; carNumber: number; from: number; to: number } | null;
-    worstWeek: { teamName: string; carNumber: number; points: number; movement: number; from: number; to: number } | null;
-    raceWinner: { driverName: string; lapsLed: number } | null;
-    mostLapsLed: { driverName: string; lapsLed: number } | null;
+    topScorers: TopScorer[];
+    biggestMoversUp: Mover[];
+    biggestMoversDown: Mover[];
   };
   standings: {
     rank: number;
@@ -36,7 +43,7 @@ interface ReportData {
     stageWins: number;
     weeklyScore: number;
   }[];
-  luckyDogLine: number;
+  luckyDogPosition: number;
 }
 
 export default function CommissionerReportPage() {
@@ -183,92 +190,72 @@ export default function CommissionerReportPage() {
           <div className="px-6 py-5 border-b border-[#2a2a2a]">
             <h3 className="text-xs uppercase tracking-[1.5px] text-[#e63946] font-bold mb-4">Race Highlights</h3>
 
-            {/* Top Scorer */}
-            {report.highlights.topScorer && (
+            {/* Top Scorer(s) */}
+            {report.highlights.topScorers.length > 0 && (
               <div className="flex items-start gap-3 mb-3.5">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#2a2206] flex items-center justify-center text-base">&#127942;</div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">Top Scorer</div>
-                  <div className="text-sm font-semibold text-white">
-                    <CarNum n={report.highlights.topScorer.carNumber} />{report.highlights.topScorer.teamName} &mdash; {report.highlights.topScorer.points} pts
+                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">
+                    Top Scorer{report.highlights.topScorers.length > 1 ? 's' : ''} &mdash; {report.highlights.topScorers[0].points} pts
                   </div>
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    {report.highlights.topScorer.drivers.map((d, i) => (
-                      <span key={i}>{i > 0 ? ', ' : ''}{d.name} ({d.points})</span>
-                    ))}
-                    {report.highlights.topScorer.bonuses.length > 0 && (
-                      <span> + {report.highlights.topScorer.bonuses.join(' + ')}</span>
-                    )}
-                  </div>
+                  {report.highlights.topScorers.map((scorer, i) => (
+                    <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
+                      <div className="text-sm font-semibold text-white">
+                        <CarNum n={scorer.carNumber} />{scorer.teamName}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {scorer.drivers.map((d, j) => (
+                          <span key={j}>{j > 0 ? ', ' : ''}{d.name} ({d.points})</span>
+                        ))}
+                        {scorer.bonuses.length > 0 && (
+                          <span> + {scorer.bonuses.join(' + ')}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Stage Winners */}
-            {report.highlights.stageWinners.length > 0 && (
-              <div className="flex items-start gap-3 mb-3.5">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#1a2206] flex items-center justify-center text-base">&#127937;</div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">Stage Winners</div>
-                  <div className="text-sm font-semibold text-white flex flex-wrap gap-x-4">
-                    {[1, 2, 3].map((stageNum) => {
-                      const sw = report!.highlights.stageWinners.find((s) => s.stage === stageNum);
-                      if (!sw) return null;
-                      return (
-                        <span key={stageNum}>
-                          S{stageNum}: <CarNum n={sw.carNumber} sm />{sw.teamName}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Full Speed Bonus */}
-            {report.highlights.fullSpeedTeams.length > 0 && (
-              <div className="flex items-start gap-3 mb-3.5">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#22061a] flex items-center justify-center text-base">&#9889;</div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">Full Speed Bonus (All 3 in Top 10)</div>
-                  <div className="text-sm font-semibold text-white">
-                    {report.highlights.fullSpeedTeams.map((t, i) => (
-                      <span key={i}>{i > 0 ? ', ' : ''}<CarNum n={t.carNumber} />{t.teamName}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Biggest Mover */}
-            {report.highlights.biggestMover && (
+            {/* Biggest Movers Up */}
+            {report.highlights.biggestMoversUp.length > 0 && (
               <div className="flex items-start gap-3 mb-3.5">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#062a12] flex items-center justify-center text-base">&#9650;</div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">Biggest Mover</div>
+                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">
+                    Biggest Mover{report.highlights.biggestMoversUp.length > 1 ? 's' : ''} Up &mdash; {report.highlights.biggestMoversUp[0].spots} spots
+                  </div>
                   <div className="text-sm font-semibold text-white">
-                    <CarNum n={report.highlights.biggestMover.carNumber} />{report.highlights.biggestMover.teamName}
-                    &nbsp;<span className="text-[#2ecc71]">
-                      {getOrdinal(report.highlights.biggestMover.from)} &rarr; {getOrdinal(report.highlights.biggestMover.to)}
-                    </span>
+                    {report.highlights.biggestMoversUp.map((m, i) => (
+                      <div key={i} className={i > 0 ? 'mt-0.5' : ''}>
+                        <CarNum n={m.carNumber} />{m.teamName}
+                        &nbsp;<span className="text-[#2ecc71]">
+                          {getOrdinal(m.from)} &rarr; {getOrdinal(m.to)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Worst Week */}
-            {report.highlights.worstWeek && (
+            {/* Biggest Movers Down */}
+            {report.highlights.biggestMoversDown.length > 0 && (
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#2a0606] flex items-center justify-center text-base">&#9660;</div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">Worst Week</div>
+                  <div className="text-[10px] uppercase tracking-[1px] text-gray-500 mb-0.5">
+                    Biggest Mover{report.highlights.biggestMoversDown.length > 1 ? 's' : ''} Down &mdash; {report.highlights.biggestMoversDown[0].spots} spots
+                  </div>
                   <div className="text-sm font-semibold text-white">
-                    <CarNum n={report.highlights.worstWeek.carNumber} />{report.highlights.worstWeek.teamName} &mdash; {report.highlights.worstWeek.points} pts
-                    {report.highlights.worstWeek.movement < 0 && (
-                      <span className="text-[#e63946]">
-                        &nbsp;{getOrdinal(report.highlights.worstWeek.from)} &rarr; {getOrdinal(report.highlights.worstWeek.to)}
-                      </span>
-                    )}
+                    {report.highlights.biggestMoversDown.map((m, i) => (
+                      <div key={i} className={i > 0 ? 'mt-0.5' : ''}>
+                        <CarNum n={m.carNumber} />{m.teamName}
+                        &nbsp;<span className="text-[#e63946]">
+                          {getOrdinal(m.from)} &rarr; {getOrdinal(m.to)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -293,13 +280,13 @@ export default function CommissionerReportPage() {
               <tbody>
                 {report.standings.map((s, idx) => (
                   <>
-                    {/* Lucky Dog Line */}
-                    {idx === report!.luckyDogLine && (
+                    {/* Lucky Dog divider — after position 6, before position 7 (Lucky Dog) */}
+                    {idx === report!.luckyDogPosition - 1 && (
                       <tr key="lucky-dog">
                         <td colSpan={7} className="px-3 py-1">
                           <div className="flex items-center gap-2.5 text-[#e6a23c] text-[10px] uppercase tracking-[2px] font-bold">
                             <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px)' }} />
-                            Lucky Dog Line
+                            Lucky Dog
                             <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px)' }} />
                           </div>
                         </td>
