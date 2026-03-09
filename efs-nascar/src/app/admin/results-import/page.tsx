@@ -331,8 +331,23 @@ export default function ResultsImportPage() {
 
       setNascarRaces(data.races || []);
 
+      // Fetch seasons fresh (don't rely on pre-loaded state which may be empty due to RLS)
+      let seasonsToSearch = seasons;
+      if (seasonsToSearch.length === 0) {
+        try {
+          const seasonsRes = await fetch('/api/admin/seasons');
+          const seasonsData = await seasonsRes.json();
+          if (seasonsData.seasons) {
+            seasonsToSearch = seasonsData.seasons;
+            setSeasons(seasonsData.seasons);
+          }
+        } catch {
+          // Fall through to the error below
+        }
+      }
+
       // Also load database races for this year so the "Import Into" dropdown works
-      const matchingSeason = seasons.find(s => s.year === scrapeYear);
+      const matchingSeason = seasonsToSearch.find((s: Season) => s.year === scrapeYear);
       if (matchingSeason) {
         setSelectedSeasonId(matchingSeason.id);
         setSelectedYear(scrapeYear);
