@@ -41,6 +41,25 @@ interface Race {
   status: string;
 }
 
+interface NascarRace {
+  race_id: number;
+  race_name: string;
+  track_name: string;
+  date: string;
+}
+
+interface ScrapeResult {
+  success: boolean;
+  raceName: string;
+  trackName: string;
+  imported: number;
+  skipped: number;
+  driversNotFound: string[];
+  insertErrors?: string[];
+  stageWinners: Array<{ driver: string; s1: boolean; s2: boolean; s3: boolean }>;
+  results: Array<{ position: number; driver: string; lapsLed: number; stages: string }>;
+}
+
 export default function ResultsImportPage() {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -61,6 +80,16 @@ export default function ResultsImportPage() {
   const [recalculateResult, setRecalculateResult] = useState<{ message: string; races_processed?: any[] } | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [advanceResult, setAdvanceResult] = useState<{ message: string; nextRace?: any; seasonComplete?: boolean } | null>(null);
+
+  // NASCAR Live Scraper state
+  const [scrapeYear, setScrapeYear] = useState<number>(new Date().getFullYear());
+  const [nascarRaces, setNascarRaces] = useState<NascarRace[]>([]);
+  const [loadingNascarRaces, setLoadingNascarRaces] = useState(false);
+  const [selectedNascarRaceId, setSelectedNascarRaceId] = useState<number | ''>('');
+  const [selectedDbRaceId, setSelectedDbRaceId] = useState<string>('');
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch available years and seasons
@@ -286,13 +315,278 @@ export default function ResultsImportPage() {
     }
   };
 
+  const handleFetchNascarSchedule = async () => {
+    setLoadingNascarRaces(true);
+    setScrapeError(null);
+    setNascarRaces([]);
+    setSelectedNascarRaceId('');
+
+    try {
+      const res = await fetch(`/api/admin/nascar-scrape?year=${scrapeYear}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fetch NASCAR schedule');
+      }
+
+      setNascarRaces(data.races || []);
+    } catch (err: any) {
+      setScrapeError(err.message);
+    } finally {
+      setLoadingNascarRaces(false);
+    }
+  };
+
+  const handleScrapeRace = async () => {
+    if (!selectedNascarRaceId || !selectedDbRaceId) {
+      setScrapeError('Please select both a NASCAR race and a database race to import into');
+      return;
+    }
+
+    setScraping(true);
+    setScrapeError(null);
+    setScrapeResult(null);
+    setRecalculateResult(null);
+    setAdvanceResult(null);
+
+    try {
+      const res = await fetch('/api/admin/nascar-scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: scrapeYear,
+          nascarRaceId: selectedNascarRaceId,
+          dbRaceId: selectedDbRaceId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Scrape failed');
+      }
+
+      setScrapeResult(data);
+
+      // Auto-detect the season for post-import actions
+      const matchingSeason = seasons.find(s => s.year === scrapeYear);
+      if (matchingSeason) {
+        setSelectedSeasonId(matchingSeason.id);
+        setSelectedYear(scrapeYear);
+        loadRacesForSeason(matchingSeason.id);
+      }
+    } catch (err: any) {
+      setScrapeError(err.message);
+    } finally {
+      setScraping(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white">Import Race Results</h1>
         <p className="text-purple-400 mt-1">
-          Import historical race results including positions, stage winners, and laps led
+          Import race results from NASCAR.com or from static JSON files
         </p>
+      </div>
+
+      {/* NASCAR Live Scraper - Primary Method */}
+      <div className="glass rounded-xl p-6 border-2 border-amber-500/30">
+        <h2 className="text-lg font-semibold text-amber-400 mb-2">Fetch from NASCAR.com</h2>
+        <p className="text-purple-300 text-sm mb-4">
+          Pull race results directly from NASCAR.com including finishing positions, laps led, and stage winners.
+        </p>
+
+        {/* Step 1: Load NASCAR schedule */}
+        <div className="space-y-4">
+          <div className="flex items-end gap-4">
+            <div>
+              <label className="block text-sm font-medium text-purple-300 mb-2">Year</label>
+              <input
+                type="number"
+                value={scrapeYear}
+                onChange={(e) => setScrapeYear(Number(e.target.value))}
+                className="w-32 px-4 py-3 bg-purple-900/30 border border-purple-700/50 rounded-lg text-white focus:outline-none focus:border-amber-400"
+              />
+            </div>
+            <button
+              onClick={handleFetchNascarSchedule}
+              disabled={loadingNascarRaces}
+              className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
+            >
+              {loadingNascarRaces ? 'Loading...' : 'Load NASCAR Schedule'}
+            </button>
+          </div>
+
+          {/* Step 2: Select NASCAR race and DB race */}
+          {nascarRaces.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-300 mb-2">
+                  NASCAR.com Race
+                </label>
+                <select
+                  value={selectedNascarRaceId}
+                  onChange={(e) => setSelectedNascarRaceId(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full px-4 py-3 bg-purple-900/30 border border-purple-700/50 rounded-lg text-white focus:outline-none focus:border-amber-400"
+                >
+                  <option value="">Select a race from NASCAR.com...</option>
+                  {nascarRaces.map((race) => (
+                    <option key={race.race_id} value={race.race_id}>
+                      {race.race_name} - {race.track_name} ({new Date(race.date).toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-purple-300 mb-2">
+                  Import Into (Database Race)
+                </label>
+                <select
+                  value={selectedDbRaceId}
+                  onChange={(e) => setSelectedDbRaceId(e.target.value)}
+                  disabled={races.length === 0}
+                  className="w-full px-4 py-3 bg-purple-900/30 border border-purple-700/50 rounded-lg text-white focus:outline-none focus:border-amber-400 disabled:opacity-50"
+                >
+                  <option value="">
+                    {races.length === 0 ? 'Select a year above first to load DB races' : 'Select database race...'}
+                  </option>
+                  {races.map((race) => (
+                    <option key={race.id} value={race.id}>
+                      Race {race.race_number}: {race.name} {race.status === 'final' ? '(done)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {races.length === 0 && (
+                  <p className="text-purple-500 text-xs mt-1">
+                    Select a year in the JSON import section below to load database races.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Import button */}
+          {nascarRaces.length > 0 && (
+            <button
+              onClick={handleScrapeRace}
+              disabled={scraping || !selectedNascarRaceId || !selectedDbRaceId}
+              className="px-6 py-3 bg-gradient-to-r from-amber-400 to-yellow-400 text-purple-900 font-bold rounded-lg hover:from-amber-300 hover:to-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {scraping ? 'Fetching & Importing...' : 'Fetch Results & Import'}
+            </button>
+          )}
+        </div>
+
+        {/* Scrape Error */}
+        {scrapeError && (
+          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+            <p className="text-red-400">{scrapeError}</p>
+          </div>
+        )}
+
+        {/* Scrape Results */}
+        {scrapeResult && (
+          <div className="mt-4 space-y-4">
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+              <h3 className="text-emerald-400 font-medium mb-2">
+                Import Complete: {scrapeResult.raceName} at {scrapeResult.trackName}
+              </h3>
+              <div className="flex gap-6 text-sm">
+                <span className="text-emerald-400">Imported: {scrapeResult.imported}</span>
+                <span className="text-yellow-400">Skipped: {scrapeResult.skipped}</span>
+              </div>
+            </div>
+
+            {/* Stage Winners */}
+            {scrapeResult.stageWinners.length > 0 && (
+              <div className="p-4 bg-purple-900/30 rounded-lg">
+                <h4 className="text-purple-300 text-sm font-medium mb-2">Stage Winners</h4>
+                <div className="flex flex-wrap gap-2">
+                  {scrapeResult.stageWinners.map((sw, i) => (
+                    <span key={i} className="px-2 py-1 bg-amber-500/20 text-amber-300 rounded text-sm">
+                      {sw.driver}: {[sw.s1 && 'S1', sw.s2 && 'S2', sw.s3 && 'S3'].filter(Boolean).join(', ')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top 10 Preview */}
+            {scrapeResult.results.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-purple-700/50">
+                      <th className="text-left py-2 px-3 text-purple-400">Pos</th>
+                      <th className="text-left py-2 px-3 text-purple-400">Driver</th>
+                      <th className="text-right py-2 px-3 text-purple-400">Laps Led</th>
+                      <th className="text-center py-2 px-3 text-purple-400">Stages</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scrapeResult.results.map((r, i) => (
+                      <tr key={i} className="border-b border-purple-800/30">
+                        <td className="py-2 px-3 text-amber-400 font-bold">{r.position}</td>
+                        <td className="py-2 px-3 text-white">{r.driver}</td>
+                        <td className="py-2 px-3 text-right text-purple-300">{r.lapsLed}</td>
+                        <td className="py-2 px-3 text-center text-amber-300">{r.stages}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Drivers Not Found */}
+            {scrapeResult.driversNotFound.length > 0 && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <h4 className="text-yellow-400 text-sm font-medium mb-2">Drivers not found in database:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {scrapeResult.driversNotFound.map((d, i) => (
+                    <span key={i} className="px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded text-sm">{d}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Post-Import Actions */}
+            <div className="p-4 bg-purple-900/30 rounded-lg space-y-3">
+              <h4 className="text-amber-400 font-medium">Next Steps</h4>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleRecalculateScores}
+                  disabled={recalculating || !selectedSeasonId}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {recalculating ? 'Recalculating...' : 'Recalculate Scores'}
+                </button>
+                <button
+                  onClick={handleAdvanceToNextRace}
+                  disabled={advancing || !selectedSeasonId}
+                  className="px-4 py-2 bg-amber-500 text-purple-900 rounded-lg font-medium hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {advancing ? 'Advancing...' : 'Open Next Race for Picks'}
+                </button>
+              </div>
+              {recalculateResult && (
+                <p className="text-emerald-400 text-sm">{recalculateResult.message}</p>
+              )}
+              {advanceResult && (
+                <p className="text-emerald-400 text-sm">{advanceResult.message}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 border-t border-purple-700/30"></div>
+        <span className="text-purple-500 text-sm">OR import from static JSON files</span>
+        <div className="flex-1 border-t border-purple-700/30"></div>
       </div>
 
       {/* Info Box */}
