@@ -41,6 +41,8 @@ interface ReportData {
     totalPoints: number;
     raceWins: number;
     stageWins: number;
+    lapsLedBonuses: number;
+    top10Bonuses: number;
     weeklyScore: number;
   }[];
   luckyDogPosition: number;
@@ -272,8 +274,10 @@ export default function CommissionerReportPage() {
                   <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-center border-b border-[#2a2a2a] w-10">Move</th>
                   <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-left border-b border-[#2a2a2a]">Team</th>
                   <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-right border-b border-[#2a2a2a] w-10">Pts</th>
-                  <th className="hidden sm:table-cell text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-center border-b border-[#2a2a2a] w-8">W</th>
-                  <th className="hidden sm:table-cell text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-center border-b border-[#2a2a2a] w-8">Stg</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-1 py-2 text-center border-b border-[#2a2a2a] w-7">W</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-1 py-2 text-center border-b border-[#2a2a2a] w-7">Stg</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-1 py-2 text-center border-b border-[#2a2a2a] w-7">LL</th>
+                  <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-1 py-2 text-center border-b border-[#2a2a2a] w-7">T10</th>
                   <th className="text-[10px] uppercase tracking-[0.5px] text-gray-500 px-2 py-2 text-right border-b border-[#2a2a2a] w-12"><span className="hidden sm:inline">This </span>Wk</th>
                 </tr>
               </thead>
@@ -283,7 +287,7 @@ export default function CommissionerReportPage() {
                     {/* Lucky Dog divider — after position 6, before position 7 (Lucky Dog) */}
                     {idx === report!.luckyDogPosition - 1 && (
                       <tr key="lucky-dog-top">
-                        <td colSpan={7} className="px-3 py-1">
+                        <td colSpan={9} className="px-3 py-1">
                           <div className="flex items-center gap-2.5 text-[#e6a23c] text-[10px] uppercase tracking-[2px] font-bold">
                             <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px)' }} />
                             Lucky Dog
@@ -307,14 +311,16 @@ export default function CommissionerReportPage() {
                         <CarNum n={s.carNumber} />{s.teamName}
                       </td>
                       <td className="px-2 py-2 text-right font-bold text-sm text-white">{s.totalPoints}</td>
-                      <td className="hidden sm:table-cell px-2 py-2 text-center text-sm text-gray-300">{s.raceWins}</td>
-                      <td className="hidden sm:table-cell px-2 py-2 text-center text-sm text-gray-300">{s.stageWins}</td>
+                      <td className="px-1 py-2 text-center text-sm text-gray-300">{s.raceWins}</td>
+                      <td className="px-1 py-2 text-center text-sm text-gray-300">{s.stageWins}</td>
+                      <td className="px-1 py-2 text-center text-sm text-gray-300">{s.lapsLedBonuses}</td>
+                      <td className="px-1 py-2 text-center text-sm text-gray-300">{s.top10Bonuses}</td>
                       <td className="px-2 py-2 text-right font-semibold text-sm text-[#f0c040]">+{s.weeklyScore}</td>
                     </tr>
                     {/* Closing dashed line after Lucky Dog team */}
                     {idx === report!.luckyDogPosition - 1 && (
                       <tr key="lucky-dog-bottom">
-                        <td colSpan={7} className="px-3 py-1">
+                        <td colSpan={9} className="px-3 py-1">
                           <div className="h-px" style={{ background: 'repeating-linear-gradient(90deg, #e6a23c 0, #e6a23c 4px, transparent 4px, transparent 8px)' }} />
                         </td>
                       </tr>
