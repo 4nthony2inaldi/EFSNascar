@@ -52,6 +52,7 @@ export default async function AdminLayout({
     { href: '/admin/fix-race-links', label: 'Fix Race Links' },
     { href: '/admin/fix-pick-links', label: 'Fix Pick Links' },
     { href: '/admin/teams', label: 'Teams' },
+    { href: '/admin/commissioner-report', label: 'Report' },
   ];
 
   return (
