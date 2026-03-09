@@ -120,8 +120,24 @@ export async function POST(request: NextRequest) {
 
     const feedData = await feedRes.json();
 
-    // Extract race results - the weekend feed has various structures
-    const raceResults: NascarWeekendResult[] = feedData.race_results || [];
+    // Extract race results from weekend feed
+    // The feed structure is: { weekend_race: [{ results: [...], stage_results: [...] }], weekend_runs: [...] }
+    let raceResults: NascarWeekendResult[] = [];
+    let raceName = '';
+    let trackName = '';
+
+    if (Array.isArray(feedData.weekend_race) && feedData.weekend_race.length > 0) {
+      const weekendRace = feedData.weekend_race[0];
+      raceResults = weekendRace.results || [];
+      raceName = weekendRace.race_name || '';
+      trackName = weekendRace.track_name || '';
+    }
+
+    // Fallback: try legacy flat structure
+    if (raceResults.length === 0) {
+      raceResults = feedData.race_results || [];
+    }
+
     if (raceResults.length === 0) {
       return NextResponse.json(
         { error: 'No race results found in NASCAR feed. The race may not have been completed yet.' },
@@ -130,29 +146,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract stage results
-    const allStageResults: NascarStageResult[] = [];
-    if (feedData.stage_results) {
-      // stage_results can be an array of arrays or object
-      if (Array.isArray(feedData.stage_results)) {
-        for (const stageArr of feedData.stage_results) {
-          if (Array.isArray(stageArr)) {
-            allStageResults.push(...stageArr);
+    // Structure: weekend_race[0].stage_results = [{ stage_number, results: [{ driver_fullname, finishing_position, ... }] }]
+    const stageWinners: Record<string, { s1: boolean; s2: boolean; s3: boolean }> = {};
+
+    const weekendRace = Array.isArray(feedData.weekend_race) && feedData.weekend_race[0];
+    if (weekendRace?.stage_results && Array.isArray(weekendRace.stage_results)) {
+      for (const stage of weekendRace.stage_results) {
+        const stageNum = stage.stage_number;
+        if (Array.isArray(stage.results)) {
+          for (const sr of stage.results) {
+            if (sr.finishing_position === 1) {
+              const normName = normalizeDriverName(sr.driver_fullname);
+              if (!stageWinners[normName]) {
+                stageWinners[normName] = { s1: false, s2: false, s3: false };
+              }
+              if (stageNum === 1) stageWinners[normName].s1 = true;
+              if (stageNum === 2) stageWinners[normName].s2 = true;
+              if (stageNum === 3) stageWinners[normName].s3 = true;
+            }
           }
         }
       }
-    }
-
-    // Build stage winners map: { normalizedName -> { s1: bool, s2: bool, s3: bool } }
-    const stageWinners: Record<string, { s1: boolean; s2: boolean; s3: boolean }> = {};
-    for (const sr of allStageResults) {
-      if (sr.finishing_position === 1) {
-        const normName = normalizeDriverName(sr.driver_fullname);
-        if (!stageWinners[normName]) {
-          stageWinners[normName] = { s1: false, s2: false, s3: false };
+    } else if (feedData.stage_results && Array.isArray(feedData.stage_results)) {
+      // Fallback: legacy flat structure
+      for (const stageArr of feedData.stage_results) {
+        if (Array.isArray(stageArr)) {
+          for (const sr of stageArr) {
+            if (sr.finishing_position === 1) {
+              const normName = normalizeDriverName(sr.driver_fullname);
+              if (!stageWinners[normName]) {
+                stageWinners[normName] = { s1: false, s2: false, s3: false };
+              }
+              if (sr.stage_number === 1) stageWinners[normName].s1 = true;
+              if (sr.stage_number === 2) stageWinners[normName].s2 = true;
+              if (sr.stage_number === 3) stageWinners[normName].s3 = true;
+            }
+          }
         }
-        if (sr.stage_number === 1) stageWinners[normName].s1 = true;
-        if (sr.stage_number === 2) stageWinners[normName].s2 = true;
-        if (sr.stage_number === 3) stageWinners[normName].s3 = true;
       }
     }
 
@@ -255,8 +285,8 @@ export async function POST(request: NextRequest) {
       success: true,
       nascarRaceId,
       dbRaceId,
-      raceName: feedData.race_name || 'Unknown',
-      trackName: feedData.track_name || 'Unknown',
+      raceName: raceName || feedData.race_name || 'Unknown',
+      trackName: trackName || feedData.track_name || 'Unknown',
       imported,
       skipped,
       driversNotFound,
