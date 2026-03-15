@@ -18,7 +18,7 @@ function getPopularityColor(count: number, totalTeams: number): string {
 
   const percentage = (count / totalTeams) * 100;
 
-  if (count === 1) return 'bg-green-800/40 text-green-300 border-green-700/50'; // Unique - Dark green
+  if (count === 1) return 'bg-green-700 text-white border-green-500 font-semibold'; // Unique - Solid dark green
   if (percentage <= 20) return 'bg-green-500/30 text-green-300 border-green-400/50'; // Rare - Light green
   if (percentage <= 35) return 'bg-yellow-500/30 text-yellow-300 border-yellow-500/50'; // Uncommon - Yellow
   if (percentage <= 50) return 'bg-orange-500/30 text-orange-300 border-orange-500/50'; // Common - Orange
@@ -251,7 +251,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
       <div className="glass rounded-xl p-3 sm:p-6">
         <h2 className="text-sm sm:text-lg font-bold text-white mb-2 sm:mb-4">Pick Popularity</h2>
         <div className="flex flex-wrap gap-1.5 sm:gap-3">
-          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-green-800/40 text-green-300 border-green-700/50">
+          <div className="flex items-center space-x-1 sm:space-x-2 px-1.5 py-0.5 sm:px-3 sm:py-2 rounded border text-[10px] sm:text-sm bg-green-700 text-white border-green-500 font-semibold">
             <span className="font-medium">Unique</span>
             <span className="hidden sm:inline text-xs opacity-75">(1 team)</span>
           </div>

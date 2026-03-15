@@ -38,7 +38,7 @@ function getPopularityLevel(count: number, totalTeams: number): PopularityLevel 
 function getOverlapColor(count: number, totalTeams: number) {
   const percentage = (count / totalTeams) * 100;
 
-  if (count === 1) return 'bg-green-800/40 text-green-300 border border-green-700/50'; // Unique
+  if (count === 1) return 'bg-green-700 text-white border border-green-500 font-semibold'; // Unique
   if (percentage <= 20) return 'bg-green-500/30 text-green-300 border border-green-400/50'; // Rare
   if (percentage <= 35) return 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50'; // Uncommon
   if (percentage <= 50) return 'bg-orange-500/30 text-orange-300 border border-orange-500/50'; // Common
@@ -135,7 +135,7 @@ export function TeamPicksTable({ picks, resultsMap, driverPickCounts, userTeamId
         <div className="flex flex-wrap gap-2 text-sm">
           <button
             onClick={() => handleFilterClick('unique')}
-            className={`px-2 py-1 rounded border bg-green-800/40 text-green-300 border-green-700/50 transition-all cursor-pointer hover:scale-105 ${
+            className={`px-2 py-1 rounded border bg-green-700 text-white border-green-500 font-semibold transition-all cursor-pointer hover:scale-105 ${
               isLegendActive('unique') ? 'ring-2 ring-white' : ''
             } ${activeFilter && !isLegendActive('unique') ? 'opacity-40' : ''}`}
           >
