@@ -1,8 +1,8 @@
 export default function RulesPage() {
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      {/* Header */}
-      <div>
+    <div className="space-y-6 sm:space-y-8 max-w-4xl mx-auto">
+      {/* Header - hidden on mobile */}
+      <div className="hidden sm:block">
         <h1 className="text-3xl font-bold text-white">League Rules</h1>
         <p className="text-purple-400 mt-1">EFS NASCAR Fantasy League Official Rulebook</p>
       </div>

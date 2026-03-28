@@ -1,14 +1,24 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import type { Race, Pick, Track, TrackType } from '@/types';
+import type { Race, Pick, Track, TrackType, Season } from '@/types';
+import { LocalTime } from '@/components/LocalTime';
+import { SeasonSelector, SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
+// Schedule page with season selector and picks links
 
 interface RaceWithTrack extends Race {
   track_info: Track | null;
 }
 
-export default async function SchedulePage() {
+interface PageProps {
+  searchParams: Promise<{ season?: string }>;
+}
+
+export default async function SchedulePage({ searchParams }: PageProps) {
+  const { season: seasonParam } = await searchParams;
   const supabase = await createClient();
+  const cookieStore = await cookies();
 
   // Get current user's team
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,21 +29,32 @@ export default async function SchedulePage() {
     .single();
   const userTeamId = membership?.team_id;
 
-  // Get active season
+  // Get all seasons ordered by year descending
+  const { data: allSeasons } = await supabase
+    .from('seasons')
+    .select('*')
+    .order('year', { ascending: false });
+
+  // Get active season as default
   const { data: activeSeason } = await supabase
     .from('seasons')
     .select('*')
     .eq('is_active', true)
     .single();
 
-  // Get all races for active season with track info
+  // Determine which season to display (from URL param, then cookie, then default to active)
+  const seasonCookie = cookieStore.get(SEASON_COOKIE_NAME)?.value;
+  const selectedSeasonId = seasonParam || seasonCookie || activeSeason?.id;
+  const selectedSeason = allSeasons?.find(s => s.id === selectedSeasonId) || activeSeason;
+
+  // Get all races for selected season with track info
   const { data: races } = await supabase
     .from('races')
     .select(`
       *,
       track_info:tracks(*)
     `)
-    .eq('season_id', activeSeason?.id)
+    .eq('season_id', selectedSeason?.id)
     .order('race_number', { ascending: true });
 
   // Get user's picks for all races
@@ -52,23 +73,6 @@ export default async function SchedulePage() {
       }, {} as Record<string, Pick>);
     }
   }
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
 
   const getRaceTypeLabel = (type: string) => {
     switch (type) {
@@ -126,13 +130,31 @@ export default async function SchedulePage() {
     return acc;
   }, {} as Record<string, RaceWithTrack[]>) || {};
 
+  // Create a map of race IDs to their fantasy league position (1-based index)
+  const fantasyRaceNumbers: Record<string, number> = {};
+  races?.forEach((race, index) => {
+    fantasyRaceNumbers[race.id] = index + 1;
+  });
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Schedule</h1>
-        <p className="text-purple-400 mt-1">
-          {activeSeason?.name || 'No active season'} • {races?.length || 0} races
-        </p>
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - title hidden on mobile, season selector always visible */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="hidden sm:block">
+          <h1 className="text-3xl font-bold text-white">Schedule</h1>
+          <p className="text-purple-400 mt-1">
+            {selectedSeason?.name || 'No season selected'} • {races?.length || 0} races
+          </p>
+        </div>
+
+        {/* Season Selector */}
+        {allSeasons && allSeasons.length > 1 && selectedSeason && (
+          <SeasonSelector
+            seasons={allSeasons as Season[]}
+            currentSeasonId={selectedSeason.id}
+            basePath="/schedule"
+          />
+        )}
       </div>
 
       {/* Legend */}
@@ -199,7 +221,12 @@ export default async function SchedulePage() {
               const trackType = getTrackTypeInfo(race.track_info?.track_type);
               const status = getStatusBadge(race);
               const hasPicked = !!userPicks[race.id];
-              const isPastDeadline = new Date(race.deadline_datetime) < new Date();
+              const now = new Date();
+              const deadlineDate = new Date(race.deadline_datetime);
+              const isPastDeadline = deadlineDate < now;
+              // Only allow picks within 7 days of deadline
+              const daysUntilDeadline = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+              const isPickWindowOpen = daysUntilDeadline <= 7 && daysUntilDeadline >= 0;
 
               return (
                 <div
@@ -227,7 +254,7 @@ export default async function SchedulePage() {
                         ) : (
                           <div className="text-center">
                             <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-                              {race.race_number}
+                              {fantasyRaceNumbers[race.id]}
                             </div>
                             <div className="text-xs text-purple-500">Race</div>
                           </div>
@@ -259,48 +286,63 @@ export default async function SchedulePage() {
                           )}
                         </div>
                         <p className="text-sm text-purple-500">
-                          {formatDate(race.scheduled_datetime)} at {formatTime(race.scheduled_datetime)}
+                          <LocalTime dateStr={race.scheduled_datetime} format="date" /> at <LocalTime dateStr={race.scheduled_datetime} format="time" />
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      {race.status === 'upcoming' && (
+                    <div className="flex items-center space-x-3">
+                      {race.status === 'upcoming' && isPickWindowOpen && (
                         <div className="text-right">
                           <div className="text-xs text-purple-500">Deadline</div>
                           <div className="text-sm text-purple-200">
-                            {formatDate(race.deadline_datetime)} {formatTime(race.deadline_datetime)}
+                            <LocalTime dateStr={race.deadline_datetime} format="datetime" />
                           </div>
                         </div>
                       )}
-                      {userTeamId && (
-                        <>
-                          {race.status === 'upcoming' && !isPastDeadline ? (
-                            <Link
-                              href={`/picks?race=${race.id}`}
-                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                hasPicked
-                                  ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
-                                  : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-purple-900 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25'
-                              }`}
-                            >
-                              {hasPicked ? '✓ Picked' : 'Submit Picks'}
-                            </Link>
-                          ) : race.status === 'final' ? (
-                            <Link
-                              href={`/races/${race.id}`}
-                              className="px-4 py-2 bg-purple-700/30 text-purple-200 rounded-lg text-sm font-medium hover:bg-purple-700/50 transition-colors border border-purple-600/30"
-                            >
-                              View Results
-                            </Link>
-                          ) : isPastDeadline ? (
-                            <span className={`px-4 py-2 rounded-lg text-sm ${
-                              hasPicked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                            }`}>
-                              {hasPicked ? '✓ Picked' : 'Missed'}
-                            </span>
-                          ) : null}
-                        </>
-                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-2">
+                        {/* View Picks Link - shown when deadline has passed */}
+                        {isPastDeadline && (
+                          <Link
+                            href={`/races/${race.id}/picks`}
+                            className="px-3 py-2 bg-purple-600/30 text-purple-300 rounded-lg text-sm font-medium hover:bg-purple-600/50 transition-colors border border-purple-500/30"
+                            title="View all teams' picks"
+                          >
+                            📊 Picks
+                          </Link>
+                        )}
+
+                        {userTeamId && (
+                          <>
+                            {race.status === 'upcoming' && isPickWindowOpen ? (
+                              <Link
+                                href={`/picks?race=${race.id}`}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                  hasPicked
+                                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
+                                    : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-purple-900 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 shadow-lg shadow-amber-500/25'
+                                }`}
+                              >
+                                {hasPicked ? '✓ Picked' : 'Submit Picks'}
+                              </Link>
+                            ) : race.status === 'final' ? (
+                              <Link
+                                href={`/races/${race.id}`}
+                                className="px-4 py-2 bg-purple-700/30 text-purple-200 rounded-lg text-sm font-medium hover:bg-purple-700/50 transition-colors border border-purple-600/30"
+                              >
+                                View Results
+                              </Link>
+                            ) : isPastDeadline ? (
+                              <span className={`px-3 py-2 rounded-lg text-sm ${
+                                hasPicked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {hasPicked ? '✓ Picked' : 'Missed'}
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -312,9 +354,11 @@ export default async function SchedulePage() {
 
       {(!races || races.length === 0) && (
         <div className="glass rounded-xl p-12 text-center">
-          <p className="text-purple-300">No races scheduled yet.</p>
+          <p className="text-purple-300">No races scheduled for this season.</p>
           <p className="text-purple-500 text-sm mt-2">
-            The commissioner will add races when the schedule is available.
+            {selectedSeason?.is_active
+              ? 'The commissioner will add races when the schedule is available.'
+              : 'This is a historical season.'}
           </p>
         </div>
       )}

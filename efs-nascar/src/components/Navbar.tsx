@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, Team } from '@/types';
+import { SEASON_COOKIE_NAME } from '@/components/SeasonSelector';
 
 interface NavbarProps {
   user: Profile | null;
@@ -13,11 +14,35 @@ interface NavbarProps {
   isCommissioner: boolean;
 }
 
+// Helper to get cookie value on client
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
+}
+
 export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [seasonParam, setSeasonParam] = useState<string | null>(null);
   const supabase = createClient();
+
+  // Get the season from URL or cookie
+  useEffect(() => {
+    const urlSeason = searchParams.get('season');
+    const cookieSeason = getCookie(SEASON_COOKIE_NAME);
+    setSeasonParam(urlSeason || cookieSeason);
+  }, [searchParams]);
+
+  // Helper to build href with season param preserved
+  const buildHref = (basePath: string) => {
+    if (seasonParam) {
+      return `${basePath}?season=${seasonParam}`;
+    }
+    return basePath;
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -25,14 +50,31 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
     router.refresh();
   };
 
+  // Pages that support season filtering (check if path starts with these)
+  const seasonAwarePrefixes = ['/', '/standings', '/picks', '/schedule', '/driver-rankings', '/driver-usage', '/teams', '/races'];
+
   const navLinks = [
     { href: '/', label: 'Dashboard' },
     { href: '/standings', label: 'Standings' },
-    { href: '/picks', label: 'Picks' },
     { href: '/schedule', label: 'Schedule' },
+    { href: '/driver-usage', label: 'Usages' },
+    { href: '/driver-rankings', label: 'Drivers' },
     { href: '/teams', label: 'Teams' },
     { href: '/rules', label: 'Rules' },
   ];
+
+  // Build href with season param for season-aware pages
+  const getNavHref = (href: string) => {
+    // Check if the path matches a season-aware prefix
+    const isSeasonAware = seasonAwarePrefixes.some(prefix => {
+      if (prefix === '/') return href === '/';
+      return href === prefix || href.startsWith(prefix + '/');
+    });
+    if (isSeasonAware) {
+      return buildHref(href);
+    }
+    return href;
+  };
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -47,21 +89,15 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-3 group">
               <Image
-                src="/logo.svg"
+                src="/Logo.svg"
                 alt="EFS NASCAR"
                 width={44}
                 height={44}
                 className="rounded-full"
               />
-              <div className="hidden sm:flex items-center space-x-1">
-                <span className="text-white font-black text-xl tracking-tight bg-red-600 px-2 py-0.5 rounded">EFS</span>
-                <span className="font-black text-xl tracking-tight">
-                  <span className="text-red-500">N</span>
-                  <span className="text-white">A</span>
-                  <span className="text-white">S</span>
-                  <span className="text-blue-500">C</span>
-                  <span className="text-blue-600">A</span>
-                  <span className="text-blue-700">R</span>
+              <div className="hidden sm:flex items-center">
+                <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
+                  EFS NASCAR
                 </span>
               </div>
             </Link>
@@ -74,7 +110,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
-                    href={link.href}
+                    href={getNavHref(link.href)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive(link.href)
                         ? 'bg-gradient-to-r from-purple-600/30 to-purple-800/30 text-amber-400 border border-purple-500/30'
@@ -106,7 +142,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
               <div className="flex items-center space-x-4">
                 {team && (
                   <Link
-                    href={`/teams/${team.id}`}
+                    href={buildHref(`/teams/${team.id}`)}
                     className="text-sm text-purple-200 hover:text-white flex items-center space-x-1 group"
                   >
                     <span className="text-amber-400 font-bold group-hover:text-amber-300">#{team.car_number}</span>
@@ -159,7 +195,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
-                    href={link.href}
+                    href={getNavHref(link.href)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`block px-4 py-3 rounded-lg text-base font-medium ${
                       isActive(link.href)
@@ -186,7 +222,7 @@ export default function Navbar({ user, team, isCommissioner }: NavbarProps) {
                 <div className="border-t border-purple-800/30 mt-3 pt-3">
                   {team && (
                     <Link
-                      href={`/teams/${team.id}`}
+                      href={buildHref(`/teams/${team.id}`)}
                       onClick={() => setMobileMenuOpen(false)}
                       className="block px-4 py-2 text-sm text-purple-300"
                     >

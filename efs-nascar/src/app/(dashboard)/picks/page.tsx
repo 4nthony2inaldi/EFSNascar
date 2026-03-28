@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Race, Driver, Pick, Team, DriverUsage } from '@/types';
+import type { Race, Driver, Pick, Team } from '@/types';
 import { BASE_DRIVER_USES } from '@/types';
+import { LocalTime } from '@/components/LocalTime';
 
 export default function PicksPage() {
   const searchParams = useSearchParams();
@@ -26,6 +27,7 @@ export default function PicksPage() {
 
   const [selectedDrivers, setSelectedDrivers] = useState<(string | null)[]>([null, null, null]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fantasyRaceNumbers, setFantasyRaceNumbers] = useState<Record<string, number>>({});
 
   // Load initial data
   useEffect(() => {
@@ -66,16 +68,32 @@ export default function PicksPage() {
           return;
         }
 
-        // Get upcoming races
+        // Get only the next upcoming race (not all future races)
+        // Users can only submit picks for the immediate next race
         const { data: upcomingRaces } = await supabase
           .from('races')
           .select('*')
           .eq('season_id', season.id)
           .eq('status', 'upcoming')
           .gt('deadline_datetime', new Date().toISOString())
-          .order('scheduled_datetime', { ascending: true });
+          .order('scheduled_datetime', { ascending: true })
+          .limit(1);
 
         setRaces(upcomingRaces || []);
+
+        // Get all races for the season to calculate fantasy race numbers
+        const { data: allSeasonRaces } = await supabase
+          .from('races')
+          .select('id')
+          .eq('season_id', season.id)
+          .order('race_number', { ascending: true });
+
+        // Create a map of race IDs to their fantasy league position (1-based index)
+        const fantasyNumbers: Record<string, number> = {};
+        allSeasonRaces?.forEach((race, index) => {
+          fantasyNumbers[race.id] = index + 1;
+        });
+        setFantasyRaceNumbers(fantasyNumbers);
 
         // Get all active drivers
         const { data: allDrivers } = await supabase
@@ -86,16 +104,18 @@ export default function PicksPage() {
 
         setDrivers(allDrivers || []);
 
-        // Get driver usages for this team
-        const { data: usages } = await supabase
-          .from('driver_usages')
-          .select('*')
+        // Calculate driver usages from submitted picks for this team
+        const { data: allPicks } = await supabase
+          .from('picks')
+          .select('driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
           .eq('team_id', membership.team.id)
-          .eq('season_id', season.id);
+          .eq('races.season_id', season.id);
 
         const usageMap: Record<string, number> = {};
-        usages?.forEach((u: DriverUsage) => {
-          usageMap[u.driver_id] = u.times_used;
+        allPicks?.forEach((pick: any) => {
+          [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
+            usageMap[driverId] = (usageMap[driverId] || 0) + 1;
+          });
         });
         setDriverUsages(usageMap);
 
@@ -187,8 +207,62 @@ export default function PicksPage() {
   const handleSubmit = async () => {
     if (!selectedRace || !userTeam) return;
 
-    // Validate all slots filled
-    if (selectedDrivers.some((d) => !d)) {
+    const hasAllDrivers = selectedDrivers.every((d) => d !== null);
+    const hasNoDrivers = selectedDrivers.every((d) => d === null);
+
+    // If no drivers selected and existing pick, delete it
+    if (hasNoDrivers && existingPick) {
+      setSubmitting(true);
+      setError(null);
+
+      try {
+        const { error: deleteError } = await supabase
+          .from('picks')
+          .delete()
+          .eq('id', existingPick.id);
+
+        if (deleteError) throw deleteError;
+
+        setSuccess(true);
+        setExistingPick(null);
+
+        // Recalculate driver usages after deletion
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: membership } = await supabase
+          .from('team_memberships')
+          .select('team_id')
+          .eq('user_id', user?.id)
+          .single();
+        const { data: season } = await supabase
+          .from('seasons')
+          .select('id')
+          .eq('is_active', true)
+          .single();
+        if (membership && season) {
+          const { data: allPicks } = await supabase
+            .from('picks')
+            .select('driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
+            .eq('team_id', membership.team_id)
+            .eq('races.season_id', season.id);
+          const usageMap: Record<string, number> = {};
+          allPicks?.forEach((pick: any) => {
+            [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
+              usageMap[driverId] = (usageMap[driverId] || 0) + 1;
+            });
+          });
+          setDriverUsages(usageMap);
+        }
+      } catch (err: any) {
+        console.error('Error deleting pick:', err);
+        setError(err.message || 'Failed to delete picks.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Validate all slots filled for new/update
+    if (!hasAllDrivers) {
       setError('Please select 3 drivers.');
       return;
     }
@@ -234,6 +308,33 @@ export default function PicksPage() {
 
       setSuccess(true);
       setExistingPick({ ...pickData, id: existingPick?.id || '', submitted_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+
+      // Recalculate driver usages after submission
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: membership } = await supabase
+        .from('team_memberships')
+        .select('team_id')
+        .eq('user_id', user?.id)
+        .single();
+      const { data: season } = await supabase
+        .from('seasons')
+        .select('id')
+        .eq('is_active', true)
+        .single();
+      if (membership && season) {
+        const { data: allPicks } = await supabase
+          .from('picks')
+          .select('driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
+          .eq('team_id', membership.team_id)
+          .eq('races.season_id', season.id);
+        const usageMap: Record<string, number> = {};
+        allPicks?.forEach((pick: any) => {
+          [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id].forEach((driverId) => {
+            usageMap[driverId] = (usageMap[driverId] || 0) + 1;
+          });
+        });
+        setDriverUsages(usageMap);
+      }
     } catch (err: any) {
       console.error('Error submitting pick:', err);
       setError(err.message || 'Failed to submit picks.');
@@ -266,42 +367,41 @@ export default function PicksPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header - hidden on mobile */}
+      <div className="hidden sm:block">
         <h1 className="text-3xl font-bold text-white">Submit Picks</h1>
         <p className="text-purple-400 mt-1">Select 3 drivers for the upcoming race</p>
       </div>
 
-      {/* Race Selector */}
+      {/* Race Info */}
       <div className="glass rounded-xl p-6">
-        <label className="block text-sm font-medium text-purple-200 mb-2">
-          Select Race
-        </label>
-        <select
-          value={selectedRace?.id || ''}
-          onChange={(e) => handleRaceChange(e.target.value)}
-          className="w-full px-4 py-3 bg-[#1c1726] border border-purple-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          {races.length === 0 && <option value="">No upcoming races</option>}
-          {races.map((race) => (
-            <option key={race.id} value={race.id}>
-              Race {race.race_number}: {race.name} - {race.track}
-            </option>
-          ))}
-        </select>
-
-        {selectedRace && (
-          <div className="mt-4 text-sm text-purple-300">
-            <p>
-              <span className="text-purple-500">Deadline:</span>{' '}
-              {new Date(selectedRace.deadline_datetime).toLocaleString()}
-            </p>
-            <p>
-              <span className="text-purple-500">Race Time:</span>{' '}
-              {new Date(selectedRace.scheduled_datetime).toLocaleString()}
+        {races.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-purple-300 text-lg">No upcoming races available for picks</p>
+            <p className="text-purple-500 text-sm mt-2">
+              Check back after the current race results are finalized.
             </p>
           </div>
-        )}
+        ) : selectedRace ? (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-amber-400 font-bold text-lg">Race {fantasyRaceNumbers[selectedRace.id] || selectedRace.race_number}</span>
+              <span className="text-white text-xl font-semibold">{selectedRace.name}</span>
+            </div>
+            <p className="text-purple-300 mb-2">{selectedRace.track}</p>
+            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+              <div>
+                <span className="text-purple-500">Deadline:</span>{' '}
+                <span className="text-purple-200"><LocalTime dateStr={selectedRace.deadline_datetime} format="datetime" /></span>
+              </div>
+              <div>
+                <span className="text-purple-500">Race Time:</span>{' '}
+                <span className="text-purple-200"><LocalTime dateStr={selectedRace.scheduled_datetime} format="datetime" /></span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {selectedRace && (
@@ -371,10 +471,12 @@ export default function PicksPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={submitting || selectedDrivers.some((d) => !d)}
+              disabled={submitting || (!existingPick && selectedDrivers.some((d) => !d))}
               className="mt-4 w-full py-3 px-4 rounded-lg text-sm font-bold text-purple-900 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25 transition-all"
             >
-              {submitting ? 'Submitting...' : existingPick ? 'Update Picks' : 'Submit Picks'}
+              {submitting ? 'Submitting...' :
+               existingPick && selectedDrivers.every((d) => !d) ? 'Delete Picks' :
+               existingPick ? 'Update Picks' : 'Submit Picks'}
             </button>
           </div>
 

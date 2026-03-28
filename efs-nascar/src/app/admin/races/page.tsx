@@ -69,8 +69,8 @@ export default function AdminRacesPage() {
       race_number: formData.race_number,
       name: formData.name,
       track: formData.track,
-      scheduled_datetime: formData.scheduled_datetime,
-      deadline_datetime: formData.deadline_datetime,
+      scheduled_datetime: new Date(formData.scheduled_datetime).toISOString(),
+      deadline_datetime: new Date(formData.deadline_datetime).toISOString(),
       race_type: formData.race_type,
     };
 
@@ -117,8 +117,8 @@ export default function AdminRacesPage() {
       race_number: race.race_number,
       name: race.name,
       track: race.track,
-      scheduled_datetime: race.scheduled_datetime.slice(0, 16),
-      deadline_datetime: race.deadline_datetime.slice(0, 16),
+      scheduled_datetime: toDatetimeLocalFormat(race.scheduled_datetime),
+      deadline_datetime: toDatetimeLocalFormat(race.deadline_datetime),
       race_type: race.race_type,
     });
     setShowForm(true);
@@ -132,7 +132,25 @@ export default function AdminRacesPage() {
   };
 
   const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
+    return new Date(dateStr).toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }) + ' EST';
+  };
+
+  // Convert ISO timestamp to datetime-local input format (local time)
+  const toDatetimeLocalFormat = (isoString: string) => {
+    const date = new Date(isoString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const getRaceTypeColor = (type: RaceType) => {

@@ -22,8 +22,13 @@ export interface Profile {
 export interface Team {
   id: string;
   name: string;
+  abbreviation: string | null;
   car_number: number;
   logo_url: string | null;
+  owner_headshot_url: string | null;
+  favorite_driver_id: string | null;
+  quote: string | null;
+  bio: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +57,8 @@ export interface TeamSeasonBonus {
   team_id: string;
   season_id: string;
   bonus_usages: number;
+  allstar_position: number | null;
+  allstar_points: number | null;
   notes: string | null;
 }
 
@@ -99,8 +106,12 @@ export interface RaceResult {
   finish_position: number;
   stage_1_winner: boolean;
   stage_2_winner: boolean;
+  stage_3_winner: boolean;
   laps_led: number;
   most_laps_led: boolean;
+  // Original API data for re-matching when drivers change car numbers
+  api_driver_name: string | null;
+  api_car_number: number | null;
   created_at: string;
 }
 
@@ -158,12 +169,63 @@ export interface Announcement {
   posted_at: string;
 }
 
+export interface ScoringConfig {
+  id: string;
+  season_id: string;
+
+  // Position points (JSON object: {"1": 10, "2": 9, ...})
+  position_points: Record<string, number>;
+
+  // Bonus points (separate values for each stage)
+  stage_1_bonus: number;
+  stage_2_bonus: number;
+  stage_3_bonus: number;
+  laps_led_bonus: number;
+  top_10_all_drivers_bonus: number;
+
+  // Driver usage limits
+  base_driver_uses: number;
+  bonus_uses_per_season: number;
+
+  // Regular season configuration
+  regular_season_races: number;
+
+  // Playoff configuration
+  playoff_enabled: boolean;
+  championship_bracket_size: number;
+  catbird_seats: number;
+  consolation_bracket_start: number;
+  consolation_bracket_end: number;
+  muddy_mile_start: number;
+  muddy_mile_end: number;
+
+  // Playoff round configuration (number of races per round)
+  playoff_round1_races: number;
+  playoff_round2_races: number;
+  playoff_finals_races: number;
+
+  // Elimination rules (teams eliminated per round)
+  round1_eliminations: number;
+  round2_eliminations: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScoringConfigWithSeason extends ScoringConfig {
+  season: Season;
+}
+
 // ============================================
 // Extended Types (with relations)
 // ============================================
 
 export interface TeamWithMembers extends Team {
   team_memberships: (TeamMembership & { profile: Profile })[];
+}
+
+export interface TeamWithFavoriteDriver extends Team {
+  favorite_driver: Driver | null;
 }
 
 export interface TeamMembershipWithDetails extends TeamMembership {
@@ -211,6 +273,10 @@ export interface CreateTeamInput {
   name: string;
   car_number: number;
   logo_url?: string;
+  owner_headshot_url?: string;
+  favorite_driver_id?: string;
+  quote?: string;
+  bio?: string;
 }
 
 export interface CreateSeasonInput {
@@ -252,8 +318,12 @@ export interface CreateRaceResultInput {
   finish_position: number;
   stage_1_winner?: boolean;
   stage_2_winner?: boolean;
+  stage_3_winner?: boolean;
   laps_led?: number;
   most_laps_led?: boolean;
+  // Original API data for re-matching when drivers change car numbers
+  api_driver_name?: string;
+  api_car_number?: number;
 }
 
 // ============================================
