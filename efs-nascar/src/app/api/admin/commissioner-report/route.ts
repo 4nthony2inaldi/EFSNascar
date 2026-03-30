@@ -121,18 +121,23 @@ export async function GET(request: NextRequest) {
       scoreMap.set(s.team_id, s);
     }
 
-    // Aggregate laps_led_bonus counts per team from all finalized race scores
+    // Aggregate laps_led_bonus and stage_wins counts per team from all finalized race scores
     const finalRaceIds = allRaces.filter((r: any) => r.status === 'final').map((r: any) => r.id);
     const lapsLedMap = new Map<string, number>();
+    const stageWinsMap = new Map<string, number>();
     if (finalRaceIds.length > 0) {
       const { data: allScores } = await supabase
         .from('race_scores')
-        .select('team_id, laps_led_bonus')
+        .select('team_id, laps_led_bonus, stage_wins, stage_bonus')
         .in('race_id', finalRaceIds);
       if (allScores) {
         for (const s of allScores) {
           if (s.laps_led_bonus > 0) {
             lapsLedMap.set(s.team_id, (lapsLedMap.get(s.team_id) || 0) + 1);
+          }
+          const wins = s.stage_wins || s.stage_bonus || 0;
+          if (wins > 0) {
+            stageWinsMap.set(s.team_id, (stageWinsMap.get(s.team_id) || 0) + wins);
           }
         }
       }
@@ -144,8 +149,8 @@ export async function GET(request: NextRequest) {
     const LUCKY_DOG_CUTOFF = 6;
 
     const sortedByPoints = [...standings].sort((a: any, b: any) => compareStandings(
-      { total_points: a.total_points || 0, race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0, laps_led: lapsLedMap.get(a.team_id) || 0 },
-      { total_points: b.total_points || 0, race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0, laps_led: lapsLedMap.get(b.team_id) || 0 },
+      { total_points: a.total_points || 0, race_wins: a.race_wins || 0, stage_wins: stageWinsMap.get(a.team_id) || 0, top_10_bonuses: a.top_10_bonuses || 0, laps_led: lapsLedMap.get(a.team_id) || 0 },
+      { total_points: b.total_points || 0, race_wins: b.race_wins || 0, stage_wins: stageWinsMap.get(b.team_id) || 0, top_10_bonuses: b.top_10_bonuses || 0, laps_led: lapsLedMap.get(b.team_id) || 0 },
     ));
 
     const top6 = sortedByPoints.slice(0, LUCKY_DOG_CUTOFF);
@@ -153,8 +158,8 @@ export async function GET(request: NextRequest) {
 
     // Find the Lucky Dog: best tiebreaker team outside top 6 (ignoring points)
     const luckyDogWinner = [...rest].sort((a: any, b: any) => compareTiebreakersOnly(
-      { race_wins: a.race_wins || 0, stage_wins: a.stage_wins || 0, top_10_bonuses: a.top_10_bonuses || 0, laps_led: lapsLedMap.get(a.team_id) || 0 },
-      { race_wins: b.race_wins || 0, stage_wins: b.stage_wins || 0, top_10_bonuses: b.top_10_bonuses || 0, laps_led: lapsLedMap.get(b.team_id) || 0 },
+      { race_wins: a.race_wins || 0, stage_wins: stageWinsMap.get(a.team_id) || 0, top_10_bonuses: a.top_10_bonuses || 0, laps_led: lapsLedMap.get(a.team_id) || 0 },
+      { race_wins: b.race_wins || 0, stage_wins: stageWinsMap.get(b.team_id) || 0, top_10_bonuses: b.top_10_bonuses || 0, laps_led: lapsLedMap.get(b.team_id) || 0 },
     ))[0];
 
     // Remaining teams (excluding Lucky Dog) sorted by points
@@ -177,7 +182,7 @@ export async function GET(request: NextRequest) {
           abbreviation: s.team?.abbreviation || '',
           totalPoints: s.total_points || 0,
           raceWins: s.race_wins || 0,
-          stageWins: s.stage_wins || 0,
+          stageWins: stageWinsMap.get(s.team_id) || 0,
           top10Bonuses: s.top_10_bonuses || 0,
           lapsLedBonuses: lapsLedMap.get(s.team_id) || 0,
           weeklyScore: weekScore?.total_points || 0,
