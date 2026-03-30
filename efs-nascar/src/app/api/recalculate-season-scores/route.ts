@@ -131,6 +131,7 @@ export async function POST(request: Request) {
         let driver2Points = 0;
         let driver3Points = 0;
         let stageBonus = 0;
+        let stageWins = 0;
         let lapsLedBonus = 0;
         let top10Bonus = 0;
 
@@ -147,12 +148,15 @@ export async function POST(request: Request) {
             // Stage bonuses (using per-stage config values)
             if (result.stage_1_winner) {
               stageBonus += stage1BonusValue;
+              stageWins += 1;
             }
             if (result.stage_2_winner) {
               stageBonus += stage2BonusValue;
+              stageWins += 1;
             }
             if (result.stage_3_winner) {
               stageBonus += stage3BonusValue;
+              stageWins += 1;
             }
 
             // Most laps led bonus (using config value)
@@ -181,6 +185,7 @@ export async function POST(request: Request) {
           driver_2_points: driver2Points,
           driver_3_points: driver3Points,
           stage_bonus: stageBonus,
+          stage_wins: stageWins,
           laps_led_bonus: lapsLedBonus,
           top_10_bonus: top10Bonus,
           total_points: totalPoints,
@@ -249,7 +254,7 @@ export async function POST(request: Request) {
       if (teamTotals[score.team_id]) {
         teamTotals[score.team_id].total_points += score.total_points;
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus;
-        teamTotals[score.team_id].stage_wins += score.stage_bonus > 0 ? 1 : 0;
+        teamTotals[score.team_id].stage_wins += score.stage_wins || score.stage_bonus || 0;
       }
     }
 

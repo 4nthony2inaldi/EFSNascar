@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       if (prevFinalRaces.length > 0) {
         const { data: prevScores } = await supabase
           .from('race_scores')
-          .select('team_id, total_points, stage_bonus, top_10_bonus')
+          .select('team_id, total_points, stage_bonus, stage_wins, top_10_bonus')
           .in('race_id', prevFinalRaces);
 
         if (prevScores) {
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
           for (const s of prevScores) {
             const existing = prevTotals.get(s.team_id) || { total_points: 0, race_wins: 0, stage_wins: 0, top_10_bonuses: 0 };
             existing.total_points += s.total_points;
-            existing.stage_wins += s.stage_bonus > 0 ? 1 : 0;
+            existing.stage_wins += s.stage_wins || s.stage_bonus || 0;
             existing.top_10_bonuses += s.top_10_bonus > 0 ? 1 : 0;
             prevTotals.set(s.team_id, existing);
           }

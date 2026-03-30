@@ -190,6 +190,7 @@ export async function POST(request: Request) {
         driver_2_points: driver2Points,
         driver_3_points: driver3Points,
         stage_bonus: stageBonus,
+        stage_wins: stageWins,
         laps_led_bonus: lapsLedBonus,
         top_10_bonus: top10Bonus,
         total_points: totalPoints,
@@ -279,7 +280,7 @@ export async function POST(request: Request) {
       if (teamTotals[score.team_id]) {
         teamTotals[score.team_id].total_points += score.total_points;
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus;
-        teamTotals[score.team_id].stage_wins += score.stage_bonus > 0 ? 1 : 0;
+        teamTotals[score.team_id].stage_wins += score.stage_wins || score.stage_bonus || 0;
       }
     }
 
