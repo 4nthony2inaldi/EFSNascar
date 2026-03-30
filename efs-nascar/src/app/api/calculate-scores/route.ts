@@ -190,7 +190,6 @@ export async function POST(request: Request) {
         driver_2_points: driver2Points,
         driver_3_points: driver3Points,
         stage_bonus: stageBonus,
-        stage_wins: stageWins,
         laps_led_bonus: lapsLedBonus,
         top_10_bonus: top10Bonus,
         total_points: totalPoints,
