@@ -254,7 +254,7 @@ export async function POST(request: Request) {
       if (teamTotals[score.team_id]) {
         teamTotals[score.team_id].total_points += score.total_points;
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus;
-        teamTotals[score.team_id].stage_wins += score.stage_wins || score.stage_bonus || 0;
+        teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
       }
     }
 

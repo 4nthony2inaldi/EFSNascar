@@ -195,7 +195,7 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
         teamTotals[score.team_id].total_points += score.total_points || 0;
         teamTotals[score.team_id].top_10_bonuses += score.top_10_bonus || 0;
         teamTotals[score.team_id].laps_led_bonuses += score.laps_led_bonus || 0;
-        teamTotals[score.team_id].stage_wins += score.stage_wins || score.stage_bonus || 0;
+        teamTotals[score.team_id].stage_wins += score.stage_bonus || 0;
         // Check for race win by verifying team actually picked the race winner
         const scoreRaceId = (score.race as any)?.id;
         const winnerId = scoreRaceId ? teamRaceWinnerMap.get(scoreRaceId) : null;
