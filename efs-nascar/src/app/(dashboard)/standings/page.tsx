@@ -179,7 +179,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   // Load race winners and picks to correctly determine race wins
   // (instead of relying on point value matching which breaks with custom scoring configs)
   const completedRaceIds = (allRaces || []).filter(r => r.status === 'final').map(r => r.id);
-  const [{ data: raceWinners }, { data: allSeasonPicks }] = await Promise.all([
+  const [{ data: raceWinners }, { data: allSeasonPicks }, { data: teamSeasonBonuses }] = await Promise.all([
     supabase
       .from('race_results')
       .select('race_id, driver_id')
@@ -189,7 +189,21 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       .from('picks')
       .select('race_id, team_id, driver_1_id, driver_2_id, driver_3_id')
       .in('race_id', completedRaceIds.length > 0 ? completedRaceIds : ['none']),
+    supabase
+      .from('team_season_bonuses')
+      .select('team_id, allstar_position, allstar_points')
+      .eq('season_id', selectedSeasonId),
   ]);
+
+  // Build lookup: team_id -> { allstar_position, allstar_points }
+  // All-Star points are added to the regular season total; position is the final tiebreaker.
+  const allStarByTeam = new Map<string, { allstar_position: number | null; allstar_points: number }>();
+  for (const bonus of teamSeasonBonuses || []) {
+    allStarByTeam.set(bonus.team_id, {
+      allstar_position: bonus.allstar_position ?? null,
+      allstar_points: bonus.allstar_points ?? 0,
+    });
+  }
 
   // Build lookup: race_id -> winning driver_id
   const raceWinnerMap = new Map<string, string>();
@@ -246,6 +260,15 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
       }
     }
 
+    // Apply All-Star adjustments: points add to total, position feeds the tiebreaker comparator.
+    for (const team of Object.values(regularSeasonTotals)) {
+      const allStar = allStarByTeam.get(team.team_id);
+      if (allStar) {
+        (team as any).total_points += allStar.allstar_points;
+        (team as any).allstar_position = allStar.allstar_position;
+      }
+    }
+
     regularSeasonStandings = Object.values(regularSeasonTotals)
       .sort(compareTiebreakers)
       .map((team, index) => ({
@@ -258,6 +281,8 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         stage_wins: team.stage_wins,
         top_10_bonuses: team.top_10_bonuses,
         laps_led_bonuses: team.laps_led_bonuses,
+        allstar_position: (team as any).allstar_position ?? null,
+        allstar_points: allStarByTeam.get(team.team_id)?.allstar_points ?? 0,
         rank: index + 1,
         team: team.team,
         updated_at: new Date().toISOString(),
@@ -379,6 +404,15 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
         teamTotals[pick.team_id].total_points += racePoints + stageBonus + lapsLedBonus;
       }
 
+      // Apply All-Star adjustments: points add to total, position feeds the tiebreaker comparator.
+      for (const team of Object.values(teamTotals)) {
+        const allStar = allStarByTeam.get(team.team_id);
+        if (allStar) {
+          (team as any).total_points += allStar.allstar_points;
+          (team as any).allstar_position = allStar.allstar_position;
+        }
+      }
+
       regularSeasonStandings = Object.values(teamTotals)
         .sort(compareTiebreakers)
         .map((team, index) => ({
@@ -391,6 +425,8 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
           stage_wins: team.stage_wins,
           top_10_bonuses: team.top_10_bonuses,
           laps_led_bonuses: team.laps_led_bonuses,
+          allstar_position: (team as any).allstar_position ?? null,
+          allstar_points: allStarByTeam.get(team.team_id)?.allstar_points ?? 0,
           rank: index + 1,
           team: team.team,
           updated_at: new Date().toISOString(),

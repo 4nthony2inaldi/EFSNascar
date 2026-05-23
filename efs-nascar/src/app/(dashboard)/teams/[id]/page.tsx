@@ -159,6 +159,16 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
   // If no pre-calculated standings, calculate from race_scores or picks
   if (!hasStandingsData) {
+    // Load All-Star points (manually entered by admin) so they can be folded into totals.
+    const { data: allStarBonuses } = await supabase
+      .from('team_season_bonuses')
+      .select('team_id, allstar_points')
+      .eq('season_id', selectedSeasonId);
+    const allStarPointsByTeam = new Map<string, number>();
+    for (const b of allStarBonuses || []) {
+      if (b.allstar_points) allStarPointsByTeam.set(b.team_id, b.allstar_points);
+    }
+
     // Try race_scores first
     const { data: raceScores } = await supabase
       .from('race_scores')
@@ -205,6 +215,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
             teamTotals[score.team_id].race_wins += 1;
           }
         }
+      }
+      for (const team of Object.values(teamTotals)) {
+        const allStarPoints = allStarPointsByTeam.get((team as any).team_id) || 0;
+        (team as any).total_points += allStarPoints;
       }
       allStandingsData = Object.values(teamTotals);
     } else {
@@ -262,6 +276,10 @@ export default async function TeamProfilePage({ params, searchParams }: PageProp
 
           if (allTop10) { racePoints += getTop10AllDriversBonusPoints(scoringConfig); teamTotals[pick.team_id].top_10_bonuses += 1; }
           teamTotals[pick.team_id].total_points += racePoints + stageBonus + lapsLedBonus;
+        }
+        for (const team of Object.values(teamTotals)) {
+          const allStarPoints = allStarPointsByTeam.get((team as any).team_id) || 0;
+          (team as any).total_points += allStarPoints;
         }
         allStandingsData = Object.values(teamTotals);
       }

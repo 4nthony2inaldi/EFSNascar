@@ -264,6 +264,19 @@ export async function POST(request: Request) {
       }
     }
 
+    // Add All-Star race points (entered by admin in team_season_bonuses) to season totals.
+    // All-Star points are not stored in race_scores; they come from the admin Scoring panel.
+    const { data: seasonBonuses } = await supabase
+      .from('team_season_bonuses')
+      .select('team_id, allstar_points')
+      .eq('season_id', season_id);
+
+    for (const bonus of seasonBonuses || []) {
+      if (teamTotals[bonus.team_id] && bonus.allstar_points) {
+        teamTotals[bonus.team_id].total_points += bonus.allstar_points;
+      }
+    }
+
     // Sort teams by points with tiebreakers to determine ranks
     const sortedTeams = Object.entries(teamTotals)
       .sort(([, a], [, b]) => compareStandings(a, b));
