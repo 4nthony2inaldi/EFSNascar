@@ -188,13 +188,23 @@ export default async function PicksRevealPage({ params }: PageProps) {
       .eq('race.status', 'final'),
     supabase
       .from('team_season_bonuses')
-      .select('team_id, allstar_position')
+      .select('team_id, allstar_position, allstar_points')
       .eq('season_id', race.season_id),
   ]);
 
+  // Fold admin-entered All-Star points into the displayed/sorted totals so this
+  // matches the standings page (which calculates dynamically) even when
+  // recalculate-season-scores hasn't been run since the points were entered.
+  const allStarPointsByTeam = new Map<string, number>();
+  for (const b of seasonBonuses || []) {
+    if ((b as any).allstar_points) {
+      allStarPointsByTeam.set(b.team_id, (b as any).allstar_points);
+    }
+  }
+
   const standingsPointsByTeam: Record<string, number> = {};
   seasonStandings?.forEach((s: any) => {
-    standingsPointsByTeam[s.team_id] = s.total_points || 0;
+    standingsPointsByTeam[s.team_id] = (s.total_points || 0) + (allStarPointsByTeam.get(s.team_id) || 0);
   });
 
   // Aggregate stage wins and laps-led bonus counts from race_scores (matches commissioner-report)
@@ -219,7 +229,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
 
   const enrichedStandings = (seasonStandings || []).map((s: any) => ({
     team_id: s.team_id,
-    total_points: s.total_points || 0,
+    total_points: (s.total_points || 0) + (allStarPointsByTeam.get(s.team_id) || 0),
     race_wins: s.race_wins || 0,
     stage_wins: stageWinsByTeam.get(s.team_id) || 0,
     top_10_bonuses: s.top_10_bonuses || 0,
