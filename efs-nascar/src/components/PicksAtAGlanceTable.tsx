@@ -24,6 +24,8 @@ interface Props {
   // Per-team rank from the standings page (Lucky Dog rule applied).
   // Smaller is better; missing values sort to the end.
   standingsRankByTeam: Record<string, number>;
+  // Tiebreaker stats shown in the LD column in standings view.
+  tiebreakerStatsByTeam: Record<string, { race_wins: number; stage_wins: number; top_10_bonuses: number }>;
   userTeamId: string | null;
   totalTeamsWithPicks: number;
 }
@@ -48,6 +50,7 @@ export function PicksAtAGlanceTable({
   zigByTeam,
   standingsPointsByTeam,
   standingsRankByTeam,
+  tiebreakerStatsByTeam,
   userTeamId,
   totalTeamsWithPicks,
 }: Props) {
@@ -130,7 +133,15 @@ export function PicksAtAGlanceTable({
                   <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Strategy</th>
                 </>
               ) : (
-                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Points</th>
+                <>
+                  <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Points</th>
+                  <th
+                    className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center whitespace-nowrap"
+                    title="Race wins | Stage wins | Top 10 bonuses"
+                  >
+                    LD
+                  </th>
+                </>
               )}
               <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 1</th>
               <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 2</th>
@@ -141,7 +152,9 @@ export function PicksAtAGlanceTable({
             {sortedTeams.map((team) => {
               const pick = teamPicks[team.id];
               const isUserTeam = team.id === userTeamId;
-              const colsAfterTeam = sortMode === 'strategy' ? 5 : 4;
+              const colsAfterTeam = sortMode === 'strategy' ? 5 : 5;
+              const isLuckyDog = sortMode === 'standings' && standingsRankByTeam[team.id] === 7;
+              const stats = tiebreakerStatsByTeam[team.id];
 
               return (
                 <tr
@@ -150,7 +163,12 @@ export function PicksAtAGlanceTable({
                 >
                   <td className="py-1 sm:py-2 pr-2 sm:pr-4">
                     <div className="flex items-center space-x-1 sm:space-x-2">
-                      <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
+                      {sortMode === 'strategy' && (
+                        <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
+                      )}
+                      {isLuckyDog && (
+                        <span className="text-sm sm:text-base" title="Lucky Dog">🐶</span>
+                      )}
                       <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
                       {isUserTeam && (
                         <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
@@ -183,11 +201,18 @@ export function PicksAtAGlanceTable({
                           </td>
                         </>
                       ) : (
-                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
-                          <span className="text-white font-bold text-xs sm:text-sm">
-                            {standingsPointsByTeam[team.id] ?? 0}
-                          </span>
-                        </td>
+                        <>
+                          <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
+                            <span className="text-white font-bold text-xs sm:text-sm">
+                              {standingsPointsByTeam[team.id] ?? 0}
+                            </span>
+                          </td>
+                          <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center whitespace-nowrap">
+                            <span className="text-purple-200 text-xs sm:text-sm font-mono">
+                              {(stats?.race_wins ?? 0)}<span className="text-purple-500 mx-0.5">|</span>{(stats?.stage_wins ?? 0)}<span className="text-purple-500 mx-0.5">|</span>{(stats?.top_10_bonuses ?? 0)}
+                            </span>
+                          </td>
+                        </>
                       )}
                       <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
                       <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>

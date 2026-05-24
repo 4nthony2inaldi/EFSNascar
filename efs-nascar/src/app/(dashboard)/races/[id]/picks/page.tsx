@@ -249,6 +249,15 @@ export default async function PicksRevealPage({ params }: PageProps) {
     standingsRankByTeam[s.team_id] = idx + 1;
   });
 
+  const tiebreakerStatsByTeam: Record<string, { race_wins: number; stage_wins: number; top_10_bonuses: number }> = {};
+  for (const s of enrichedStandings) {
+    tiebreakerStatsByTeam[s.team_id] = {
+      race_wins: s.race_wins,
+      stage_wins: s.stage_wins,
+      top_10_bonuses: s.top_10_bonuses,
+    };
+  }
+
   // Precompute Zig% per team so the client table can render it without recomputing
   const zigByTeam: Record<string, number> = {};
   for (const teamId in teamPicks) {
@@ -388,6 +397,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
         zigByTeam={zigByTeam}
         standingsPointsByTeam={standingsPointsByTeam}
         standingsRankByTeam={standingsRankByTeam}
+        tiebreakerStatsByTeam={tiebreakerStatsByTeam}
         userTeamId={userTeamId || null}
         totalTeamsWithPicks={totalTeamsWithPicks}
       />
