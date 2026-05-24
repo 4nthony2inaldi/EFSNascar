@@ -156,10 +156,17 @@ export function PicksAtAGlanceTable({
               const isLuckyDog = sortMode === 'standings' && standingsRankByTeam[team.id] === 7;
               const stats = tiebreakerStatsByTeam[team.id];
 
+              const highlightUserTeam = sortMode === 'strategy' && isUserTeam;
+              // Mark the playoff cut line below the 7th-ranked team in standings mode
+              const rowBorderClass =
+                sortMode === 'standings' && standingsRankByTeam[team.id] === 7
+                  ? 'border-b-2 border-amber-400/40'
+                  : 'border-b border-purple-800/20';
+
               return (
                 <tr
                   key={team.id}
-                  className={`border-b border-purple-800/20 ${isUserTeam ? 'bg-amber-500/10' : ''}`}
+                  className={`${rowBorderClass} ${highlightUserTeam ? 'bg-amber-500/10' : ''}`}
                 >
                   <td className="py-1 sm:py-2 pr-2 sm:pr-4">
                     <div className="flex items-center space-x-1 sm:space-x-2">
@@ -170,7 +177,7 @@ export function PicksAtAGlanceTable({
                         <span className="text-sm sm:text-base" title="Lucky Dog">🐶</span>
                       )}
                       <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
-                      {isUserTeam && (
+                      {highlightUserTeam && (
                         <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
                           YOU
                         </span>
