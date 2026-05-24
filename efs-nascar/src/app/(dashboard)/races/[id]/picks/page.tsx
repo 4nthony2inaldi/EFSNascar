@@ -5,6 +5,7 @@ import type { Driver, Team, Pick, Race } from '@/types';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { PickStrategyBadge, PickStrategyLegend } from '@/components/PickStrategyBadge';
+import { PicksAtAGlanceTable } from '@/components/PicksAtAGlanceTable';
 import { LocalTime } from '@/components/LocalTime';
 import { RaceNavigation } from '@/components/RaceNavigation';
 
@@ -160,6 +161,29 @@ export default async function PicksRevealPage({ params }: PageProps) {
   });
   const hasRaceResults = (raceScores?.length || 0) > 0;
 
+  // Fetch current season standings so the table can offer a "standings sort" view
+  const { data: seasonStandings } = await supabase
+    .from('standings')
+    .select('team_id, total_points')
+    .eq('season_id', race.season_id)
+    .is('race_id', null);
+
+  const standingsPointsByTeam: Record<string, number> = {};
+  seasonStandings?.forEach((s: any) => {
+    standingsPointsByTeam[s.team_id] = s.total_points || 0;
+  });
+
+  // Precompute Zig% per team so the client table can render it without recomputing
+  const zigByTeam: Record<string, number> = {};
+  for (const teamId in teamPicks) {
+    const pick = teamPicks[teamId];
+    zigByTeam[teamId] = getZigPercent(
+      [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id],
+      driverPickCounts,
+      totalTeamsWithPicks,
+    );
+  }
+
   // Sort teams by pick intensity (ascending) for "picks at a glance"
   // Teams without picks go at the end
   const sortedTeamsByIntensity = [...(allTeams || [])].sort((a, b) => {
@@ -278,96 +302,18 @@ export default async function PicksRevealPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Compact All Picks Table */}
-      <div className="glass rounded-xl p-3 sm:p-6">
-        <h2 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-4">All Picks At A Glance</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-purple-400 text-xs sm:text-sm border-b border-purple-700/30">
-                <th className="pb-2 sm:pb-3 pr-2 sm:pr-4 whitespace-nowrap">Team</th>
-                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Zig %</th>
-                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Strategy</th>
-                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 1</th>
-                <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Driver 2</th>
-                <th className="pb-2 sm:pb-3 text-center">Driver 3</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTeamsByIntensity.map((team) => {
-                const pick = teamPicks[team.id];
-                const isUserTeam = team.id === userTeamId;
-
-                const renderDriverCell = (driverId: string | undefined) => {
-                  if (!driverId) return <span className="text-gray-500">-</span>;
-                  const driver = driverMap[driverId];
-                  if (!driver) return <span className="text-gray-500">-</span>;
-                  const pickCount = driverPickCounts[driverId] || 0;
-
-                  return (
-                    <span className={`inline-block px-1 py-0.5 sm:px-2 sm:py-1 rounded text-xs sm:text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
-                      <span className="sm:hidden">#{driver.car_number}</span>
-                      <span className="hidden sm:inline">#{driver.car_number} {driver.name}</span>
-                    </span>
-                  );
-                };
-
-                return (
-                  <tr
-                    key={team.id}
-                    className={`border-b border-purple-800/20 ${isUserTeam ? 'bg-amber-500/10' : ''}`}
-                  >
-                    <td className="py-1 sm:py-2 pr-2 sm:pr-4">
-                      <div className="flex items-center space-x-1 sm:space-x-2">
-                        <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
-                        <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
-                        {isUserTeam && (
-                          <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
-                            YOU
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {pick ? (
-                      <>
-                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
-                          {(() => {
-                            const zigPct = getZigPercent(
-                              [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id],
-                              driverPickCounts,
-                              totalTeamsWithPicks
-                            );
-                            return (
-                              <span className={`text-xs sm:text-sm font-bold ${
-                                zigPct >= 60 ? 'text-green-400' :
-                                zigPct >= 40 ? 'text-yellow-400' : 'text-red-400'
-                              }`}>
-                                {zigPct}%
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
-                          {teamStrategies[team.id] && (
-                            <PickStrategyBadge strategy={teamStrategies[team.id]} size="sm" />
-                          )}
-                        </td>
-                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
-                        <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
-                        <td className="py-1 sm:py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
-                      </>
-                    ) : (
-                      <td colSpan={5} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
-                        No picks submitted
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Compact All Picks Table with sort toggle */}
+      <PicksAtAGlanceTable
+        teams={(allTeams || []).map((t) => ({ id: t.id, name: t.name, car_number: t.car_number }))}
+        teamPicks={teamPicks}
+        teamStrategies={teamStrategies}
+        driverMap={driverMap}
+        driverPickCounts={driverPickCounts}
+        zigByTeam={zigByTeam}
+        standingsPointsByTeam={standingsPointsByTeam}
+        userTeamId={userTeamId || null}
+        totalTeamsWithPicks={totalTeamsWithPicks}
+      />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
