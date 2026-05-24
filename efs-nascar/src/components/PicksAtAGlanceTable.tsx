@@ -21,6 +21,9 @@ interface Props {
   driverPickCounts: Record<string, number>;
   zigByTeam: Record<string, number>;
   standingsPointsByTeam: Record<string, number>;
+  // Per-team rank from the standings page (Lucky Dog rule applied).
+  // Smaller is better; missing values sort to the end.
+  standingsRankByTeam: Record<string, number>;
   userTeamId: string | null;
   totalTeamsWithPicks: number;
 }
@@ -44,6 +47,7 @@ export function PicksAtAGlanceTable({
   driverPickCounts,
   zigByTeam,
   standingsPointsByTeam,
+  standingsRankByTeam,
   userTeamId,
   totalTeamsWithPicks,
 }: Props) {
@@ -62,18 +66,16 @@ export function PicksAtAGlanceTable({
         return a.car_number - b.car_number;
       });
     } else {
+      const UNRANKED = Number.MAX_SAFE_INTEGER;
       arr.sort((a, b) => {
-        const pa = standingsPointsByTeam[a.id] ?? -1;
-        const pb = standingsPointsByTeam[b.id] ?? -1;
-        if (pa === -1 && pb === -1) return a.car_number - b.car_number;
-        if (pa === -1) return 1;
-        if (pb === -1) return -1;
-        if (pa !== pb) return pb - pa;
+        const ra = standingsRankByTeam[a.id] ?? UNRANKED;
+        const rb = standingsRankByTeam[b.id] ?? UNRANKED;
+        if (ra !== rb) return ra - rb;
         return a.car_number - b.car_number;
       });
     }
     return arr;
-  }, [teams, sortMode, teamStrategies, standingsPointsByTeam]);
+  }, [teams, sortMode, teamStrategies, standingsRankByTeam]);
 
   const renderDriverCell = (driverId: string | undefined) => {
     if (!driverId) return <span className="text-gray-500">-</span>;

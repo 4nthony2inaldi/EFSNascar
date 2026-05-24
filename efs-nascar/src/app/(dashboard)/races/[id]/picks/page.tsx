@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { Driver, Team, Pick, Race } from '@/types';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
+import { compareStandings, compareTiebreakersOnly } from '@/lib/scoring-config';
 import { PickStrategyBadge, PickStrategyLegend } from '@/components/PickStrategyBadge';
 import { PicksAtAGlanceTable } from '@/components/PicksAtAGlanceTable';
 import { LocalTime } from '@/components/LocalTime';
@@ -161,16 +162,91 @@ export default async function PicksRevealPage({ params }: PageProps) {
   });
   const hasRaceResults = (raceScores?.length || 0) > 0;
 
-  // Fetch current season standings so the table can offer a "standings sort" view
-  const { data: seasonStandings } = await supabase
-    .from('standings')
-    .select('team_id, total_points')
-    .eq('season_id', race.season_id)
-    .is('race_id', null);
+  // Fetch current season standings so the table can offer a "standings sort" view.
+  // Mirror the standings page's ranking rules (top 6 by points+tiebreakers, Lucky Dog
+  // = best-tiebreaker team outside top 6 gets seed 7, the rest by points).
+  const [
+    { data: seasonStandings },
+    { data: scoringConfigForRank },
+    { data: seasonRaceScores },
+    { data: seasonBonuses },
+  ] = await Promise.all([
+    supabase
+      .from('standings')
+      .select('team_id, total_points, race_wins, stage_wins, top_10_bonuses')
+      .eq('season_id', race.season_id)
+      .is('race_id', null),
+    supabase
+      .from('scoring_configs')
+      .select('tiebreaker_order')
+      .eq('season_id', race.season_id)
+      .single(),
+    supabase
+      .from('race_scores')
+      .select('team_id, stage_bonus, laps_led_bonus, race:races!inner(id, season_id, status)')
+      .eq('race.season_id', race.season_id)
+      .eq('race.status', 'final'),
+    supabase
+      .from('team_season_bonuses')
+      .select('team_id, allstar_position')
+      .eq('season_id', race.season_id),
+  ]);
 
   const standingsPointsByTeam: Record<string, number> = {};
   seasonStandings?.forEach((s: any) => {
     standingsPointsByTeam[s.team_id] = s.total_points || 0;
+  });
+
+  // Aggregate stage wins and laps-led bonus counts from race_scores (matches commissioner-report)
+  const stageWinsByTeam = new Map<string, number>();
+  const lapsLedByTeam = new Map<string, number>();
+  for (const s of seasonRaceScores || []) {
+    const wins = (s as any).stage_bonus || 0;
+    if (wins > 0) stageWinsByTeam.set(s.team_id, (stageWinsByTeam.get(s.team_id) || 0) + wins);
+    if ((s as any).laps_led_bonus > 0) {
+      lapsLedByTeam.set(s.team_id, (lapsLedByTeam.get(s.team_id) || 0) + 1);
+    }
+  }
+  const allStarPositionByTeam = new Map<string, number | undefined>();
+  for (const b of seasonBonuses || []) {
+    if ((b as any).allstar_position != null) {
+      allStarPositionByTeam.set(b.team_id, (b as any).allstar_position);
+    }
+  }
+
+  const tiebreakerOrderForRank = (scoringConfigForRank as any)?.tiebreaker_order as string[] | undefined;
+  const LUCKY_DOG_CUTOFF = 6;
+
+  const enrichedStandings = (seasonStandings || []).map((s: any) => ({
+    team_id: s.team_id,
+    total_points: s.total_points || 0,
+    race_wins: s.race_wins || 0,
+    stage_wins: stageWinsByTeam.get(s.team_id) || 0,
+    top_10_bonuses: s.top_10_bonuses || 0,
+    laps_led: lapsLedByTeam.get(s.team_id) || 0,
+    allstar_position: allStarPositionByTeam.get(s.team_id),
+  }));
+
+  const sortedByPoints = [...enrichedStandings].sort((a, b) =>
+    compareStandings(a, b, tiebreakerOrderForRank),
+  );
+  const top6 = sortedByPoints.slice(0, LUCKY_DOG_CUTOFF);
+  const rest = sortedByPoints.slice(LUCKY_DOG_CUTOFF);
+  const luckyDog = [...rest].sort((a, b) =>
+    compareTiebreakersOnly(a, b, tiebreakerOrderForRank),
+  )[0];
+  const remainingByPoints = luckyDog
+    ? rest.filter((s) => s.team_id !== luckyDog.team_id)
+    : rest;
+  const finalRankOrder = [
+    ...top6,
+    ...(luckyDog ? [luckyDog] : []),
+    ...remainingByPoints,
+  ];
+
+  const standingsRankByTeam: Record<string, number> = {};
+  finalRankOrder.forEach((s, idx) => {
+    standingsRankByTeam[s.team_id] = idx + 1;
   });
 
   // Precompute Zig% per team so the client table can render it without recomputing
@@ -311,6 +387,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
         driverPickCounts={driverPickCounts}
         zigByTeam={zigByTeam}
         standingsPointsByTeam={standingsPointsByTeam}
+        standingsRankByTeam={standingsRankByTeam}
         userTeamId={userTeamId || null}
         totalTeamsWithPicks={totalTeamsWithPicks}
       />
