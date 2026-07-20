@@ -177,13 +177,18 @@ export function PlayoffBracket({
     return found?.total_points || 0;
   };
 
-  // Determine round 1 eliminated teams
-  const round1EliminatedTeams = round1.length > 0 && playoffRound !== 'round1'
+  // Determine round 1 eliminated teams — only known once Round 1 is done, i.e. once
+  // we've moved into a later phase. Guarding against the 'not_started' state as well
+  // prevents the pre-race bracket from marking a phantom team as eliminated when the
+  // round 1 array is populated with 0-point placeholders.
+  const isPastRound1 = playoffRound === 'round2' || playoffRound === 'finals' || playoffRound === 'complete';
+  const round1EliminatedTeams = isPastRound1 && round1.length > 0
     ? round1.slice(-playoffOpts.round1Eliminations).map((s) => s.team_id)
     : [];
 
-  // Determine round 2 eliminated teams
-  const round2EliminatedTeams = round2.length > 0 && (playoffRound === 'finals' || playoffRound === 'complete')
+  // Determine round 2 eliminated teams — only known once Round 2 is done.
+  const isPastRound2 = playoffRound === 'finals' || playoffRound === 'complete';
+  const round2EliminatedTeams = isPastRound2 && round2.length > 0
     ? round2.slice(-playoffOpts.round2Eliminations).map((s) => s.team_id)
     : [];
 
