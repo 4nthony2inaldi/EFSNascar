@@ -1,6 +1,6 @@
 // Playoff standings calculation utilities
 import type { RaceType, ScoringConfig } from '@/types/database';
-import { getPlayoffConfig } from '@/lib/scoring-config';
+import { getPlayoffConfig, compareStandings } from '@/lib/scoring-config';
 
 // Playoff configuration extracted from scoring config
 export interface PlayoffConfigOptions {
@@ -150,6 +150,19 @@ export function calculatePlayoffStandings(
 
   const eliminated: string[] = [];
 
+  // Regular-season tiebreaker stats keyed by team, used to break ties in playoff
+  // rounds where teams have equal playoff points (very common in the pre-race state
+  // where all round-1 competitors sit at 0).
+  const tiebreakerOrder = scoringConfig?.tiebreaker_order;
+  const regularSeasonTiebreakersByTeam = new Map<string, { race_wins: number; stage_wins: number; top_10_bonuses: number }>();
+  for (const s of regularSeasonStandings) {
+    regularSeasonTiebreakersByTeam.set(s.team_id, {
+      race_wins: s.race_wins,
+      stage_wins: s.stage_wins,
+      top_10_bonuses: s.top_10_bonuses,
+    });
+  }
+
   // Helper to aggregate scores for a set of teams
   const aggregateScores = (
     teamIds: string[],
@@ -211,7 +224,27 @@ export function calculatePlayoffStandings(
     }
 
     return Object.values(teamTotals)
-      .sort((a, b) => b.total_points - a.total_points)
+      .sort((a, b) => {
+        // Primary: playoff points. Ties fall back to regular-season tiebreakers so
+        // the display order is stable and meaningful when everyone still sits at 0.
+        const rsA = regularSeasonTiebreakersByTeam.get(a.team_id);
+        const rsB = regularSeasonTiebreakersByTeam.get(b.team_id);
+        return compareStandings(
+          {
+            total_points: a.total_points,
+            race_wins: rsA?.race_wins ?? 0,
+            stage_wins: rsA?.stage_wins ?? 0,
+            top_10_bonuses: rsA?.top_10_bonuses ?? 0,
+          },
+          {
+            total_points: b.total_points,
+            race_wins: rsB?.race_wins ?? 0,
+            stage_wins: rsB?.stage_wins ?? 0,
+            top_10_bonuses: rsB?.top_10_bonuses ?? 0,
+          },
+          tiebreakerOrder,
+        );
+      })
       .map((team, index) => ({
         ...team,
         rank: index + 1,
