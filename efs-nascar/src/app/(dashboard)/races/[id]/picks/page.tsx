@@ -162,79 +162,108 @@ export default async function PicksRevealPage({ params }: PageProps) {
   });
   const hasRaceResults = (raceScores?.length || 0) > 0;
 
-  // Fetch current season standings so the table can offer a "standings sort" view.
-  // Mirror the standings page's ranking rules (top 6 by points+tiebreakers, Lucky Dog
-  // = best-tiebreaker team outside top 6 gets seed 7, the rest by points).
+  // Compute season totals dynamically from race_scores + race_results + picks — the
+  // same way the standings page does. Reading the standings table would give stale
+  // numbers whenever a race is scored without a manual recalculate afterwards.
   const [
-    { data: seasonStandings },
-    { data: scoringConfigForRank },
     { data: seasonRaceScores },
+    { data: scoringConfigForRank },
     { data: seasonBonuses },
+    { data: seasonRaceWinners },
+    { data: seasonPicks },
   ] = await Promise.all([
     supabase
-      .from('standings')
-      .select('team_id, total_points, race_wins, stage_wins, top_10_bonuses')
-      .eq('season_id', race.season_id)
-      .is('race_id', null),
+      .from('race_scores')
+      .select('team_id, total_points, stage_bonus, laps_led_bonus, top_10_bonus, race:races!inner(id, season_id, race_type, status)')
+      .eq('race.season_id', race.season_id),
     supabase
       .from('scoring_configs')
       .select('tiebreaker_order')
       .eq('season_id', race.season_id)
       .single(),
     supabase
-      .from('race_scores')
-      .select('team_id, stage_bonus, laps_led_bonus, race:races!inner(id, season_id, status)')
-      .eq('race.season_id', race.season_id)
-      .eq('race.status', 'final'),
-    supabase
       .from('team_season_bonuses')
       .select('team_id, allstar_position, allstar_points')
       .eq('season_id', race.season_id),
+    supabase
+      .from('race_results')
+      .select('race_id, driver_id, race:races!inner(season_id)')
+      .eq('finish_position', 1)
+      .eq('race.season_id', race.season_id),
+    supabase
+      .from('picks')
+      .select('race_id, team_id, driver_1_id, driver_2_id, driver_3_id, race:races!inner(season_id)')
+      .eq('race.season_id', race.season_id),
   ]);
 
-  // Fold admin-entered All-Star points into the displayed/sorted totals so this
-  // matches the standings page (which calculates dynamically) even when
-  // recalculate-season-scores hasn't been run since the points were entered.
-  const allStarPointsByTeam = new Map<string, number>();
-  for (const b of seasonBonuses || []) {
-    if ((b as any).allstar_points) {
-      allStarPointsByTeam.set(b.team_id, (b as any).allstar_points);
+  // Regular season only — treat null/undefined race_type as regular for older seasons
+  const regularSeasonScores = (seasonRaceScores || []).filter(
+    (s: any) => !s.race?.race_type || s.race?.race_type === 'regular',
+  );
+
+  // race_id -> winning driver_id, and "race_id-team_id" -> Set of picked driver ids
+  const raceWinnerMap = new Map<string, string>();
+  for (const w of seasonRaceWinners || []) {
+    raceWinnerMap.set((w as any).race_id, (w as any).driver_id);
+  }
+  const picksLookup = new Map<string, Set<string>>();
+  for (const p of seasonPicks || []) {
+    picksLookup.set(
+      `${(p as any).race_id}-${(p as any).team_id}`,
+      new Set([(p as any).driver_1_id, (p as any).driver_2_id, (p as any).driver_3_id].filter(Boolean)),
+    );
+  }
+
+  // Aggregate per-team season totals from race_scores (matches standings page)
+  const seasonAggByTeam: Record<string, {
+    total_points: number;
+    race_wins: number;
+    stage_wins: number;
+    top_10_bonuses: number;
+    laps_led_bonuses: number;
+  }> = {};
+  for (const s of regularSeasonScores) {
+    const teamId = (s as any).team_id;
+    if (!seasonAggByTeam[teamId]) {
+      seasonAggByTeam[teamId] = { total_points: 0, race_wins: 0, stage_wins: 0, top_10_bonuses: 0, laps_led_bonuses: 0 };
     }
+    seasonAggByTeam[teamId].total_points += (s as any).total_points || 0;
+    seasonAggByTeam[teamId].stage_wins += (s as any).stage_bonus || 0;
+    seasonAggByTeam[teamId].laps_led_bonuses += (s as any).laps_led_bonus || 0;
+    seasonAggByTeam[teamId].top_10_bonuses += (s as any).top_10_bonus || 0;
+    const scoreRaceId = (s as any).race?.id;
+    const winningDriverId = scoreRaceId ? raceWinnerMap.get(scoreRaceId) : null;
+    if (winningDriverId) {
+      const picked = picksLookup.get(`${scoreRaceId}-${teamId}`);
+      if (picked?.has(winningDriverId)) {
+        seasonAggByTeam[teamId].race_wins += 1;
+      }
+    }
+  }
+
+  const allStarPointsByTeam = new Map<string, number>();
+  const allStarPositionByTeam = new Map<string, number | undefined>();
+  for (const b of seasonBonuses || []) {
+    if ((b as any).allstar_points) allStarPointsByTeam.set(b.team_id, (b as any).allstar_points);
+    if ((b as any).allstar_position != null) allStarPositionByTeam.set(b.team_id, (b as any).allstar_position);
   }
 
   const standingsPointsByTeam: Record<string, number> = {};
-  seasonStandings?.forEach((s: any) => {
-    standingsPointsByTeam[s.team_id] = (s.total_points || 0) + (allStarPointsByTeam.get(s.team_id) || 0);
-  });
-
-  // Aggregate stage wins and laps-led bonus counts from race_scores (matches commissioner-report)
-  const stageWinsByTeam = new Map<string, number>();
-  const lapsLedByTeam = new Map<string, number>();
-  for (const s of seasonRaceScores || []) {
-    const wins = (s as any).stage_bonus || 0;
-    if (wins > 0) stageWinsByTeam.set(s.team_id, (stageWinsByTeam.get(s.team_id) || 0) + wins);
-    if ((s as any).laps_led_bonus > 0) {
-      lapsLedByTeam.set(s.team_id, (lapsLedByTeam.get(s.team_id) || 0) + 1);
-    }
-  }
-  const allStarPositionByTeam = new Map<string, number | undefined>();
-  for (const b of seasonBonuses || []) {
-    if ((b as any).allstar_position != null) {
-      allStarPositionByTeam.set(b.team_id, (b as any).allstar_position);
-    }
+  for (const teamId in seasonAggByTeam) {
+    standingsPointsByTeam[teamId] = seasonAggByTeam[teamId].total_points + (allStarPointsByTeam.get(teamId) || 0);
   }
 
   const tiebreakerOrderForRank = (scoringConfigForRank as any)?.tiebreaker_order as string[] | undefined;
   const LUCKY_DOG_CUTOFF = 6;
 
-  const enrichedStandings = (seasonStandings || []).map((s: any) => ({
-    team_id: s.team_id,
-    total_points: (s.total_points || 0) + (allStarPointsByTeam.get(s.team_id) || 0),
-    race_wins: s.race_wins || 0,
-    stage_wins: stageWinsByTeam.get(s.team_id) || 0,
-    top_10_bonuses: s.top_10_bonuses || 0,
-    laps_led: lapsLedByTeam.get(s.team_id) || 0,
-    allstar_position: allStarPositionByTeam.get(s.team_id),
+  const enrichedStandings = Object.entries(seasonAggByTeam).map(([team_id, agg]) => ({
+    team_id,
+    total_points: agg.total_points + (allStarPointsByTeam.get(team_id) || 0),
+    race_wins: agg.race_wins,
+    stage_wins: agg.stage_wins,
+    top_10_bonuses: agg.top_10_bonuses,
+    laps_led: agg.laps_led_bonuses,
+    allstar_position: allStarPositionByTeam.get(team_id),
   }));
 
   const sortedByPoints = [...enrichedStandings].sort((a, b) =>
