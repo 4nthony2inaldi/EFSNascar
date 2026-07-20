@@ -187,16 +187,18 @@ export function PlayoffBracket({
     ? round2.slice(-playoffOpts.round2Eliminations).map((s) => s.team_id)
     : [];
 
-  // Helper to get label for round status
+  // Helper to get label for round status. A round is "Complete" only after we've
+  // moved past it — never in the pre-playoff 'not_started' state, when the round
+  // arrays are populated with 0-point placeholders.
   const getRoundStatus = (round: 'round1' | 'round2' | 'finals') => {
     if (round === 'round1') {
       if (playoffRound === 'round1') return 'In Progress';
-      if (round1.length > 0) return 'Complete';
+      if (playoffRound === 'round2' || playoffRound === 'finals' || playoffRound === 'complete') return 'Complete';
       return 'Upcoming';
     }
     if (round === 'round2') {
       if (playoffRound === 'round2') return 'In Progress';
-      if (round2.length > 0 && playoffRound !== 'round1') return 'Complete';
+      if (playoffRound === 'finals' || playoffRound === 'complete') return 'Complete';
       return 'Upcoming';
     }
     if (round === 'finals') {
@@ -217,37 +219,10 @@ export function PlayoffBracket({
         </p>
       </div>
 
-      {/* Playoffs Not Started */}
-      {playoffRound === 'not_started' && (
-        <div className="p-6 text-center text-purple-400">
-          <p className="mb-4">Playoffs begin after the regular season.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
-            {catbirdSeats.map((teamId) => {
-              const team = getTeamFromId(teamId);
-              return team ? (
-                <TeamCard
-                  key={teamId}
-                  team={team}
-                  isUserTeam={teamId === userTeamId}
-                  isEliminated={false}
-                  isCatbird={true}
-                  isLuckyDog={false}
-                  isChampion={false}
-                  showBye={true}
-                  seed={getSeed(teamId)}
-                />
-              ) : null;
-            })}
-          </div>
-          <p className="text-sm text-purple-500 mt-4">
-            Catbird seats (top 2 seeds) will have a first round bye
-          </p>
-        </div>
-      )}
-
-      {/* Bracket Display */}
-      {playoffRound !== 'not_started' && (
-        <div className="p-4 overflow-x-auto">
+      {/* Bracket Display — always shown when the parent has decided to render the
+          playoff section. In the pre-first-race 'not_started' state, each round
+          column shows its competitors with 0-point placeholders. */}
+      <div className="p-4 overflow-x-auto">
           <div className="flex gap-4 min-w-[800px]">
             {/* Round 1 Column */}
             {showRound1 && (
@@ -424,7 +399,6 @@ export function PlayoffBracket({
             )}
           </div>
         </div>
-      )}
 
       {/* Legend */}
       <div className="px-4 py-3 border-t border-purple-700/30 bg-purple-900/20">

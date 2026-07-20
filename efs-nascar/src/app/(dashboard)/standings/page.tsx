@@ -683,7 +683,7 @@ export default async function StandingsPage({ searchParams }: StandingsPageProps
   // Helper for playoff round label
   const getPlayoffRoundLabel = (round: string) => {
     switch (round) {
-      case 'not_started': return 'Playoffs Not Started';
+      case 'not_started': return 'Round 1';
       case 'round1': return 'Round 1';
       case 'round2': return 'Round 2';
       case 'finals': return 'Finals';
