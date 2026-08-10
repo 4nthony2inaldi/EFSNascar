@@ -129,10 +129,30 @@ export function calculatePlayoffStandings(
   const round2Scores = playoffRaceScores.filter(s => s.race.race_type === 'playoff_round2');
   const finalsScores = playoffRaceScores.filter(s => s.race.race_type === 'playoff_finals');
 
+  // Count UNIQUE races per round (score rows are per-team-per-race, so score-array
+  // length overshoots the race count by a factor of the team count and would flip
+  // a single scored race into "round complete").
+  const uniqueRaceIds = (scores: RaceScore[]) => new Set(scores.map(s => s.race.id)).size;
+  const round1RaceCount = uniqueRaceIds(round1Scores);
+  const round2RaceCount = uniqueRaceIds(round2Scores);
+  const finalsRaceCount = uniqueRaceIds(finalsScores);
+
+  // Feed getPlayoffRound one entry per unique race so it counts races, not scores.
+  const uniqueRaces = <T extends { race: { id: string; race_type: RaceType; race_number: number } }>(scores: T[]) => {
+    const seen = new Set<string>();
+    const races: { id: string; race_type: RaceType; race_number: number }[] = [];
+    for (const s of scores) {
+      if (!seen.has(s.race.id)) {
+        seen.add(s.race.id);
+        races.push(s.race);
+      }
+    }
+    return races;
+  };
   const playoffRound = getPlayoffRound([
-    ...round1Scores.map(s => s.race),
-    ...round2Scores.map(s => s.race),
-    ...finalsScores.map(s => s.race),
+    ...uniqueRaces(round1Scores),
+    ...uniqueRaces(round2Scores),
+    ...uniqueRaces(finalsScores),
   ], playoffOpts);
 
   // Get team IDs by their regular season seed (using config values)
@@ -264,7 +284,7 @@ export function calculatePlayoffStandings(
   // Determine who was eliminated after Round 1 (if round 1 exists and is complete)
   const round1EliminationCount = round1Skipped ? 0 : playoffOpts.round1Eliminations;
   let round1Eliminated: string[] = [];
-  if (!round1Skipped && round1Scores.length >= playoffOpts.round1Races && round1Standings.length > 0 && round1EliminationCount > 0) {
+  if (!round1Skipped && round1RaceCount >= playoffOpts.round1Races && round1Standings.length > 0 && round1EliminationCount > 0) {
     // Bottom N teams after Round 1 are eliminated
     round1Eliminated = round1Standings.slice(-round1EliminationCount).map(s => s.team_id);
     eliminated.push(...round1Eliminated);
@@ -273,7 +293,7 @@ export function calculatePlayoffStandings(
   // Calculate Round 2 standings.
   // Only include teams that are LOCKED IN to Round 2: catbird seats always,
   // Round 1 survivors only once Round 1 has actually been completed.
-  const round1Complete = !round1Skipped && round1Scores.length >= playoffOpts.round1Races;
+  const round1Complete = !round1Skipped && round1RaceCount >= playoffOpts.round1Races;
   let round2Competitors: string[] = [];
   if (round2Skipped) {
     round2Competitors = [];
@@ -296,7 +316,7 @@ export function calculatePlayoffStandings(
   // Determine who was eliminated after Round 2 (if round 2 exists and is complete)
   const round2EliminationCount = round2Skipped ? 0 : playoffOpts.round2Eliminations;
   let round2Eliminated: string[] = [];
-  if (!round2Skipped && round2Scores.length >= playoffOpts.round2Races && round2Standings.length > 0 && round2EliminationCount > 0) {
+  if (!round2Skipped && round2RaceCount >= playoffOpts.round2Races && round2Standings.length > 0 && round2EliminationCount > 0) {
     // Bottom N teams after Round 2 are eliminated
     round2Eliminated = round2Standings.slice(-round2EliminationCount).map(s => s.team_id);
     eliminated.push(...round2Eliminated);
@@ -305,7 +325,7 @@ export function calculatePlayoffStandings(
   // Calculate Finals standings.
   // Only include teams that are LOCKED IN to the Finals: nothing until the round
   // that feeds Finals has actually completed.
-  const round2Complete = !round2Skipped && round2Scores.length >= playoffOpts.round2Races;
+  const round2Complete = !round2Skipped && round2RaceCount >= playoffOpts.round2Races;
   let finalsCompetitors: string[] = [];
   if (finalsSkipped) {
     finalsCompetitors = [];
