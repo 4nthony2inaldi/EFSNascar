@@ -5,6 +5,7 @@ import type { Driver, Team, Pick, Race } from '@/types';
 import { calculateDriverTiers } from '@/lib/driverTiers';
 import { getPickStrategy, type PickStrategy } from '@/lib/pickStrategy';
 import { compareStandings, compareTiebreakersOnly } from '@/lib/scoring-config';
+import { calculatePlayoffStandings, type PlayoffTeamStanding, type RaceScore } from '@/lib/playoff-standings';
 import { PickStrategyBadge, PickStrategyLegend } from '@/components/PickStrategyBadge';
 import { PicksAtAGlanceTable } from '@/components/PicksAtAGlanceTable';
 import { LocalTime } from '@/components/LocalTime';
@@ -178,7 +179,7 @@ export default async function PicksRevealPage({ params }: PageProps) {
       .eq('race.season_id', race.season_id),
     supabase
       .from('scoring_configs')
-      .select('tiebreaker_order')
+      .select('*')
       .eq('season_id', race.season_id)
       .single(),
     supabase
@@ -296,6 +297,148 @@ export default async function PicksRevealPage({ params }: PageProps) {
       top_10_bonuses: s.top_10_bonuses,
     };
   }
+
+  // Compute playoff sections for this race so the picks table can offer a "Playoffs"
+  // sort that groups teams by championship / consolation / muddy mile. Section
+  // membership is calculated from playoff races completed BEFORE this race so a
+  // race's grouping reflects the state going into it (excluding this race's own scores).
+  const teamById = new Map<string, any>();
+  for (const t of allTeams || []) teamById.set(t.id, t);
+
+  const playoffTeamStandings: PlayoffTeamStanding[] = finalRankOrder.map((s, idx) => {
+    const t = teamById.get(s.team_id);
+    return {
+      team_id: s.team_id,
+      team: {
+        id: t?.id || s.team_id,
+        name: t?.name || '',
+        abbreviation: t?.abbreviation ?? null,
+        car_number: t?.car_number || 0,
+      },
+      total_points: s.total_points,
+      race_wins: s.race_wins,
+      stage_wins: s.stage_wins,
+      top_10_bonuses: s.top_10_bonuses,
+      rank: idx + 1,
+    };
+  });
+
+  const priorPlayoffScores: RaceScore[] = (seasonRaceScores || [])
+    .filter((s: any) =>
+      s.race?.race_type === 'playoff_round1' ||
+      s.race?.race_type === 'playoff_round2' ||
+      s.race?.race_type === 'playoff_finals',
+    )
+    .filter((s: any) => s.race?.id !== id)
+    .map((s: any) => {
+      const t = teamById.get(s.team_id);
+      return {
+        team_id: s.team_id,
+        total_points: s.total_points || 0,
+        driver_1_points: 0,
+        driver_2_points: 0,
+        driver_3_points: 0,
+        stage_bonus: s.stage_bonus || 0,
+        laps_led_bonus: s.laps_led_bonus || 0,
+        top_10_bonus: s.top_10_bonus || 0,
+        race: {
+          id: s.race.id,
+          race_type: s.race.race_type,
+          race_number: s.race.race_number ?? 0,
+        },
+        team: {
+          id: t?.id || s.team_id,
+          name: t?.name || '',
+          abbreviation: t?.abbreviation ?? null,
+          car_number: t?.car_number || 0,
+        },
+      };
+    });
+
+  const playoffStandings = calculatePlayoffStandings(
+    playoffTeamStandings,
+    priorPlayoffScores,
+    scoringConfigForRank as any,
+  );
+
+  // Which array holds the currently-active championship teams depends on where we are.
+  // Round 1 phase: catbird byes + round 1 competitors. Round 2 phase: catbirds + round 1
+  // survivors (already merged into the round2 array). Finals/complete: finals array.
+  const championshipTeamIds = new Set<string>();
+  if (playoffStandings.playoffRound === 'not_started' || playoffStandings.playoffRound === 'round1') {
+    for (const tid of playoffStandings.championshipBracket.catbirdSeats) championshipTeamIds.add(tid);
+    for (const s of playoffStandings.championshipBracket.round1) championshipTeamIds.add(s.team_id);
+  } else if (playoffStandings.playoffRound === 'round2') {
+    for (const s of playoffStandings.championshipBracket.round2) championshipTeamIds.add(s.team_id);
+  } else {
+    for (const s of playoffStandings.championshipBracket.finals) championshipTeamIds.add(s.team_id);
+  }
+  const consolationTeamIds = new Set(playoffStandings.consolationBracket.map((s) => s.team_id));
+  const muddyMileTeamIds = new Set(playoffStandings.muddyMile.map((s) => s.team_id));
+
+  const sectionByTeam: Record<string, 'championship' | 'consolation' | 'muddy_mile' | null> = {};
+  for (const t of allTeams || []) {
+    if (championshipTeamIds.has(t.id)) sectionByTeam[t.id] = 'championship';
+    else if (consolationTeamIds.has(t.id)) sectionByTeam[t.id] = 'consolation';
+    else if (muddyMileTeamIds.has(t.id)) sectionByTeam[t.id] = 'muddy_mile';
+    else sectionByTeam[t.id] = null;
+  }
+
+  // Ordered lists for display — within each section, keep the playoff-standings order
+  // (already sorted by playoff points + tiebreakers via calculatePlayoffStandings).
+  const championshipOrder: string[] = [];
+  if (playoffStandings.playoffRound === 'not_started' || playoffStandings.playoffRound === 'round1') {
+    // Show catbirds first (they have byes), then Round 1 competitors in their sort order
+    for (const tid of playoffStandings.championshipBracket.catbirdSeats) championshipOrder.push(tid);
+    for (const s of playoffStandings.championshipBracket.round1) championshipOrder.push(s.team_id);
+  } else if (playoffStandings.playoffRound === 'round2') {
+    for (const s of playoffStandings.championshipBracket.round2) championshipOrder.push(s.team_id);
+  } else {
+    for (const s of playoffStandings.championshipBracket.finals) championshipOrder.push(s.team_id);
+  }
+  const consolationOrder = playoffStandings.consolationBracket.map((s) => s.team_id);
+  const muddyMileOrder = playoffStandings.muddyMile.map((s) => s.team_id);
+
+  const playoffSectionLayout = [
+    { section: 'championship' as const, label: 'Championship', teamIds: championshipOrder },
+    { section: 'consolation' as const, label: 'Consolation', teamIds: consolationOrder },
+    { section: 'muddy_mile' as const, label: 'Muddy Mile', teamIds: muddyMileOrder },
+  ];
+
+  const sectionSizes: Record<string, number> = {
+    championship: championshipTeamIds.size,
+    consolation: consolationTeamIds.size,
+    muddy_mile: muddyMileTeamIds.size,
+  };
+
+  // Per-section driver pick counts — color rules "reset" per section by computing
+  // popularity within the section (count / section size) rather than across all teams.
+  const driverPickCountsBySection: Record<string, Record<string, number>> = {
+    championship: {},
+    consolation: {},
+    muddy_mile: {},
+  };
+  for (const pick of picks || []) {
+    const section = sectionByTeam[pick.team_id];
+    if (!section) continue;
+    for (const driverId of [pick.driver_1_id, pick.driver_2_id, pick.driver_3_id]) {
+      if (!driverId) continue;
+      const bucket = driverPickCountsBySection[section];
+      bucket[driverId] = (bucket[driverId] || 0) + 1;
+    }
+  }
+
+  // Only offer the Playoffs toggle when it's actually meaningful — this race is a
+  // playoff race, or a playoff race elsewhere in the season has been scored.
+  const isPlayoffRace = race.race_type === 'playoff_round1'
+    || race.race_type === 'playoff_round2'
+    || race.race_type === 'playoff_finals';
+  const anyPlayoffScored = (seasonRaceScores || []).some((s: any) =>
+    s.race?.race_type === 'playoff_round1' ||
+    s.race?.race_type === 'playoff_round2' ||
+    s.race?.race_type === 'playoff_finals',
+  );
+  const playoffsToggleEnabled = isPlayoffRace || anyPlayoffScored;
 
   // Precompute Zig% per team so the client table can render it without recomputing
   const zigByTeam: Record<string, number> = {};
@@ -437,6 +580,11 @@ export default async function PicksRevealPage({ params }: PageProps) {
         standingsPointsByTeam={standingsPointsByTeam}
         standingsRankByTeam={standingsRankByTeam}
         tiebreakerStatsByTeam={tiebreakerStatsByTeam}
+        playoffSectionLayout={playoffSectionLayout}
+        sectionByTeam={sectionByTeam}
+        sectionSizes={sectionSizes}
+        driverPickCountsBySection={driverPickCountsBySection}
+        playoffsToggleEnabled={playoffsToggleEnabled}
         userTeamId={userTeamId || null}
         totalTeamsWithPicks={totalTeamsWithPicks}
       />

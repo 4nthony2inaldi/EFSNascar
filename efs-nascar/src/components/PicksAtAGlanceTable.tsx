@@ -1,16 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import type { Driver, Team, Pick } from '@/types';
+import { Fragment, useMemo, useState } from 'react';
+import type { Driver, Pick } from '@/types';
 import { PickStrategyBadge } from '@/components/PickStrategyBadge';
 import type { PickStrategy } from '@/lib/pickStrategy';
 
-type SortMode = 'strategy' | 'standings';
+type SortMode = 'strategy' | 'standings' | 'playoffs';
+type SectionName = 'championship' | 'consolation' | 'muddy_mile';
 
 interface TeamWithMeta {
   id: string;
   name: string;
   car_number: number;
+}
+
+interface PlayoffSection {
+  section: SectionName;
+  label: string;
+  teamIds: string[];
 }
 
 interface Props {
@@ -26,6 +33,12 @@ interface Props {
   standingsRankByTeam: Record<string, number>;
   // Tiebreaker stats shown in the LD column in standings view.
   tiebreakerStatsByTeam: Record<string, { race_wins: number; stage_wins: number; top_10_bonuses: number }>;
+  // Playoff sort — ordered sections, per-section pick counts, section membership.
+  playoffSectionLayout: PlayoffSection[];
+  sectionByTeam: Record<string, SectionName | null>;
+  sectionSizes: Record<string, number>;
+  driverPickCountsBySection: Record<string, Record<string, number>>;
+  playoffsToggleEnabled: boolean;
   userTeamId: string | null;
   totalTeamsWithPicks: number;
 }
@@ -41,6 +54,22 @@ function getPopularityColor(count: number, totalTeams: number): string {
   return 'bg-red-700/40 text-red-300 border-red-700/50';
 }
 
+// Visual treatment for the section header rows in Playoffs view.
+const SECTION_STYLES: Record<SectionName, { headerClass: string; label: string }> = {
+  championship: {
+    headerClass: 'bg-amber-500/15 text-amber-300 border-t-2 border-amber-400/40',
+    label: 'Championship',
+  },
+  consolation: {
+    headerClass: 'bg-purple-600/15 text-purple-300 border-t-2 border-purple-500/40',
+    label: 'Consolation',
+  },
+  muddy_mile: {
+    headerClass: 'bg-red-500/15 text-red-300 border-t-2 border-red-500/40',
+    label: 'Muddy Mile',
+  },
+};
+
 export function PicksAtAGlanceTable({
   teams,
   teamPicks,
@@ -51,12 +80,21 @@ export function PicksAtAGlanceTable({
   standingsPointsByTeam,
   standingsRankByTeam,
   tiebreakerStatsByTeam,
+  playoffSectionLayout,
+  sectionByTeam,
+  sectionSizes,
+  driverPickCountsBySection,
+  playoffsToggleEnabled,
   userTeamId,
   totalTeamsWithPicks,
 }: Props) {
   const [sortMode, setSortMode] = useState<SortMode>('strategy');
 
   const sortedTeams = useMemo(() => {
+    if (sortMode === 'playoffs') {
+      // Rendered per-section below — this array is not used in playoffs mode.
+      return teams;
+    }
     const arr = [...teams];
     if (sortMode === 'strategy') {
       arr.sort((a, b) => {
@@ -80,18 +118,131 @@ export function PicksAtAGlanceTable({
     return arr;
   }, [teams, sortMode, teamStrategies, standingsRankByTeam]);
 
-  const renderDriverCell = (driverId: string | undefined) => {
+  // In playoffs mode, driver colors reset per section: use the pick count within
+  // the team's section and the section size instead of the season-wide totals.
+  const renderDriverCell = (driverId: string | undefined, teamId: string) => {
     if (!driverId) return <span className="text-gray-500">-</span>;
     const driver = driverMap[driverId];
     if (!driver) return <span className="text-gray-500">-</span>;
-    const pickCount = driverPickCounts[driverId] || 0;
+
+    let count = driverPickCounts[driverId] || 0;
+    let denom = totalTeamsWithPicks;
+    if (sortMode === 'playoffs') {
+      const section = sectionByTeam[teamId];
+      if (section) {
+        count = driverPickCountsBySection[section]?.[driverId] || 0;
+        denom = sectionSizes[section] || 0;
+      }
+    }
+
     return (
-      <span className={`inline-block px-1 py-0.5 sm:px-2 sm:py-1 rounded text-xs sm:text-sm font-medium border ${getPopularityColor(pickCount, totalTeamsWithPicks)}`}>
+      <span className={`inline-block px-1 py-0.5 sm:px-2 sm:py-1 rounded text-xs sm:text-sm font-medium border ${getPopularityColor(count, denom)}`}>
         <span className="sm:hidden">#{driver.car_number}</span>
         <span className="hidden sm:inline">#{driver.car_number} {driver.name}</span>
       </span>
     );
   };
+
+  // Shared cell renderer for a team row (used by both flat and section-grouped views).
+  const teamById = useMemo(() => {
+    const map = new Map<string, TeamWithMeta>();
+    for (const t of teams) map.set(t.id, t);
+    return map;
+  }, [teams]);
+
+  const renderTeamRow = (teamId: string, opts: { sectioned?: boolean } = {}) => {
+    const team = teamById.get(teamId);
+    if (!team) return null;
+    const pick = teamPicks[team.id];
+    const isUserTeam = team.id === userTeamId;
+    const isLuckyDog = sortMode === 'standings' && standingsRankByTeam[team.id] === 7;
+    const stats = tiebreakerStatsByTeam[team.id];
+
+    const highlightUserTeam = sortMode === 'strategy' && isUserTeam;
+    const rowBorderClass =
+      sortMode === 'standings' && standingsRankByTeam[team.id] === 7
+        ? 'border-b-2 border-amber-400/40'
+        : 'border-b border-purple-800/20';
+
+    let colsAfterTeam: number;
+    if (sortMode === 'strategy') colsAfterTeam = 5;
+    else if (sortMode === 'standings') colsAfterTeam = 5;
+    else colsAfterTeam = 3; // playoffs: just the three driver columns
+
+    return (
+      <tr
+        key={team.id}
+        className={`${rowBorderClass} ${highlightUserTeam ? 'bg-amber-500/10' : ''}`}
+      >
+        <td className="py-1 sm:py-2 pr-2 sm:pr-4">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            {sortMode === 'strategy' && (
+              <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
+            )}
+            {isLuckyDog && (
+              <span className="text-sm sm:text-base" title="Lucky Dog">🐶</span>
+            )}
+            <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
+            {highlightUserTeam && (
+              <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
+                YOU
+              </span>
+            )}
+          </div>
+        </td>
+        {pick ? (
+          <>
+            {sortMode === 'strategy' && (
+              <>
+                <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
+                  {(() => {
+                    const zigPct = zigByTeam[team.id] ?? 0;
+                    return (
+                      <span className={`text-xs sm:text-sm font-bold ${
+                        zigPct >= 60 ? 'text-green-400' :
+                        zigPct >= 40 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {zigPct}%
+                      </span>
+                    );
+                  })()}
+                </td>
+                <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
+                  {teamStrategies[team.id] && (
+                    <PickStrategyBadge strategy={teamStrategies[team.id]} size="sm" />
+                  )}
+                </td>
+              </>
+            )}
+            {sortMode === 'standings' && (
+              <>
+                <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
+                  <span className="text-white font-bold text-xs sm:text-sm">
+                    {standingsPointsByTeam[team.id] ?? 0}
+                  </span>
+                </td>
+                <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center whitespace-nowrap">
+                  <span className="text-purple-200 text-xs sm:text-sm font-mono">
+                    {(stats?.race_wins ?? 0)}<span className="text-purple-500 mx-0.5">|</span>{(stats?.stage_wins ?? 0)}<span className="text-purple-500 mx-0.5">|</span>{(stats?.top_10_bonuses ?? 0)}
+                  </span>
+                </td>
+              </>
+            )}
+            <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_1_id, team.id)}</td>
+            <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_2_id, team.id)}</td>
+            <td className="py-1 sm:py-2 text-center">{renderDriverCell(pick.driver_3_id, team.id)}</td>
+          </>
+        ) : (
+          <td colSpan={colsAfterTeam} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
+            No picks submitted
+          </td>
+        )}
+      </tr>
+    );
+  };
+
+  // Column count including the Team column, for section-header colspans.
+  const totalCols = sortMode === 'strategy' ? 6 : sortMode === 'standings' ? 6 : 4;
 
   return (
     <div className="glass rounded-xl p-3 sm:p-6">
@@ -120,6 +271,19 @@ export function PicksAtAGlanceTable({
           >
             Standings
           </button>
+          {playoffsToggleEnabled && (
+            <button
+              type="button"
+              onClick={() => setSortMode('playoffs')}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                sortMode === 'playoffs'
+                  ? 'bg-amber-400 text-purple-900'
+                  : 'bg-purple-900/30 text-purple-300 hover:bg-purple-800/40'
+              }`}
+            >
+              Playoffs
+            </button>
+          )}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -127,12 +291,13 @@ export function PicksAtAGlanceTable({
           <thead>
             <tr className="text-left text-purple-400 text-xs sm:text-sm border-b border-purple-700/30">
               <th className="pb-2 sm:pb-3 pr-2 sm:pr-4 whitespace-nowrap">Team</th>
-              {sortMode === 'strategy' ? (
+              {sortMode === 'strategy' && (
                 <>
                   <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Zig %</th>
                   <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Strategy</th>
                 </>
-              ) : (
+              )}
+              {sortMode === 'standings' && (
                 <>
                   <th className="pb-2 sm:pb-3 pr-1 sm:pr-4 text-center">Points</th>
                   <th
@@ -149,90 +314,26 @@ export function PicksAtAGlanceTable({
             </tr>
           </thead>
           <tbody>
-            {sortedTeams.map((team) => {
-              const pick = teamPicks[team.id];
-              const isUserTeam = team.id === userTeamId;
-              const colsAfterTeam = sortMode === 'strategy' ? 5 : 5;
-              const isLuckyDog = sortMode === 'standings' && standingsRankByTeam[team.id] === 7;
-              const stats = tiebreakerStatsByTeam[team.id];
-
-              const highlightUserTeam = sortMode === 'strategy' && isUserTeam;
-              // Mark the playoff cut line below the 7th-ranked team in standings mode
-              const rowBorderClass =
-                sortMode === 'standings' && standingsRankByTeam[team.id] === 7
-                  ? 'border-b-2 border-amber-400/40'
-                  : 'border-b border-purple-800/20';
-
-              return (
-                <tr
-                  key={team.id}
-                  className={`${rowBorderClass} ${highlightUserTeam ? 'bg-amber-500/10' : ''}`}
-                >
-                  <td className="py-1 sm:py-2 pr-2 sm:pr-4">
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      {sortMode === 'strategy' && (
-                        <span className="text-amber-400 font-bold text-xs sm:text-base">#{team.car_number}</span>
-                      )}
-                      {isLuckyDog && (
-                        <span className="text-sm sm:text-base" title="Lucky Dog">🐶</span>
-                      )}
-                      <span className="text-white font-medium text-xs sm:text-base truncate max-w-[80px] sm:max-w-none">{team.name}</span>
-                      {highlightUserTeam && (
-                        <span className="text-[10px] sm:text-xs bg-amber-400 text-purple-900 px-1 sm:px-1.5 py-0.5 rounded font-bold">
-                          YOU
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  {pick ? (
-                    <>
-                      {sortMode === 'strategy' ? (
-                        <>
-                          <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
-                            {(() => {
-                              const zigPct = zigByTeam[team.id] ?? 0;
-                              return (
-                                <span className={`text-xs sm:text-sm font-bold ${
-                                  zigPct >= 60 ? 'text-green-400' :
-                                  zigPct >= 40 ? 'text-yellow-400' : 'text-red-400'
-                                }`}>
-                                  {zigPct}%
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
-                            {teamStrategies[team.id] && (
-                              <PickStrategyBadge strategy={teamStrategies[team.id]} size="sm" />
-                            )}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">
-                            <span className="text-white font-bold text-xs sm:text-sm">
-                              {standingsPointsByTeam[team.id] ?? 0}
-                            </span>
-                          </td>
-                          <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center whitespace-nowrap">
-                            <span className="text-purple-200 text-xs sm:text-sm font-mono">
-                              {(stats?.race_wins ?? 0)}<span className="text-purple-500 mx-0.5">|</span>{(stats?.stage_wins ?? 0)}<span className="text-purple-500 mx-0.5">|</span>{(stats?.top_10_bonuses ?? 0)}
-                            </span>
-                          </td>
-                        </>
-                      )}
-                      <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_1_id)}</td>
-                      <td className="py-1 sm:py-2 pr-1 sm:pr-4 text-center">{renderDriverCell(pick.driver_2_id)}</td>
-                      <td className="py-1 sm:py-2 text-center">{renderDriverCell(pick.driver_3_id)}</td>
-                    </>
-                  ) : (
-                    <td colSpan={colsAfterTeam} className="py-1 sm:py-2 text-center text-red-400 text-xs sm:text-sm">
-                      No picks submitted
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
+            {sortMode === 'playoffs'
+              ? playoffSectionLayout
+                  .filter((s) => s.teamIds.length > 0)
+                  .map((section) => (
+                    <Fragment key={section.section}>
+                      <tr className={SECTION_STYLES[section.section].headerClass}>
+                        <td
+                          colSpan={totalCols}
+                          className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold uppercase tracking-wide"
+                        >
+                          {SECTION_STYLES[section.section].label}
+                          <span className="ml-2 opacity-70 font-normal normal-case">
+                            {section.teamIds.length} {section.teamIds.length === 1 ? 'team' : 'teams'}
+                          </span>
+                        </td>
+                      </tr>
+                      {section.teamIds.map((teamId) => renderTeamRow(teamId, { sectioned: true }))}
+                    </Fragment>
+                  ))
+              : sortedTeams.map((team) => renderTeamRow(team.id))}
           </tbody>
         </table>
       </div>
